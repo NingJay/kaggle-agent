@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kaggle-agent"
+version = "0.2.0"
+description = "Three-plane autonomous Kaggle research system for BirdCLEF 2026."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Codex" }]
+dependencies = [
+    'tomli>=2; python_version < "3.11"',
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+kaggle-agent = "kaggle_agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["kaggle_agent*"]

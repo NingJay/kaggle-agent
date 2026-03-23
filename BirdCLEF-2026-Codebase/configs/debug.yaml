@@ -1,0 +1,40 @@
+experiment:
+  name: perch_head_debug
+  seed: 42
+
+paths:
+  data_root: ./birdclef-2026
+  model_root: ./models
+  output_root: ./outputs
+
+data:
+  train_csv: train.csv
+  taxonomy_csv: taxonomy.csv
+  sample_submission_csv: sample_submission.csv
+  train_audio_dir: train_audio
+  train_soundscapes_dir: train_soundscapes
+  train_soundscapes_labels_csv: train_soundscapes_labels.csv
+  test_soundscapes_dir: test_soundscapes
+  max_train_rows: 32
+  max_val_rows: 16
+  allow_missing: true
+
+model:
+  backbone_provider: mock_hash
+  perch_model_dir: ""
+  embedding_dim: 32
+  mode: embedding_head
+
+training:
+  backend: python_debug
+  epochs: 3
+  learning_rate: 0.05
+  batch_size: 8
+  hidden_dim: 64
+  dropout: 0.0
+
+metrics:
+  primary: soundscape_macro_roc_auc
+  secondary:
+    - padded_cmap
+  submission_candidate_threshold: 0.85

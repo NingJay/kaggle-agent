@@ -1,0 +1,64 @@
+notes = [
+  "Three-plane architecture: control plane, decision plane, BirdCLEF runtime.",
+  "Primary control flow uses decision briefs, decision records, and generated configs.",
+  "Perch-head baseline is the runtime spine; debug runs use the mock backbone for smoke coverage.",
+]
+
+[competition]
+name = "BirdCLEF 2026"
+slug = "birdclef-2026"
+url = "https://www.kaggle.com/competitions/birdclef-2026"
+track = "code_competition"
+description = "AI-driven autonomous BirdCLEF research system with a deterministic control plane and model-driven decision plane."
+
+[metrics]
+primary = "soundscape_macro_roc_auc"
+secondary = ["padded_cmap"]
+
+[data]
+root = "/abs/path/to/BirdCLEF-2026/dataset"
+train_csv = "train.csv"
+taxonomy_csv = "taxonomy.csv"
+sample_submission_csv = "sample_submission.csv"
+train_audio_dir = "train_audio"
+train_soundscapes_dir = "train_soundscapes"
+train_soundscapes_labels_csv = "train_soundscapes_labels.csv"
+test_soundscapes_dir = "test_soundscapes"
+perch_cache_dir = "/abs/path/to/BirdCLEF-2026/input/perch-meta"
+perch_model_dir = "/abs/path/to/BirdCLEF-2026/models/google/bird-vocalization-classifier/tensorflow2/perch_v2_cpu/1"
+
+[paths]
+state_dir = "state"
+artifact_dir = "artifacts"
+legacy_dir = "legacy"
+runtime_dir = "BirdCLEF-2026-Codebase"
+knowledge_dir = "knowledge"
+
+[automation]
+monitor_interval_seconds = 600
+report_interval_seconds = 1800
+submission_interval_hours = 6
+default_timeout_minutes = 180
+max_active_runs = 1
+auto_execute_plans = true
+auto_start_planned_runs = true
+
+[adapters]
+research_command = ""
+decision_command = ""
+planner_command = ""
+submission_command = ""
+
+[runtime]
+conda_env = "kaggle-agent"
+shell_init = "source /path/to/miniconda3/etc/profile.d/conda.sh"
+train_workdir = "/abs/path/to/kaggle_agent"
+train_entrypoint = "train_sed.py"
+generated_config_dir = "BirdCLEF-2026-Codebase/configs/generated"
+
+[kaggle]
+username = "your-kaggle-username"
+model_dataset_id = "your-kaggle-username/birdclef2026-model"
+kernel_slug = "birdclef-2026-agent-inference"
+enable_gpu = true
+is_private = true

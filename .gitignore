@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+
+# Local editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Local workspace config
+workspace.toml
+
+# Agent runtime state
+.kaggle_agent.lock
+state/
+artifacts/
+knowledge/
+legacy/
+
+# Runtime outputs and generated configs
+BirdCLEF-2026-Codebase/outputs/
+BirdCLEF-2026-Codebase/configs/generated/*.yaml
+!BirdCLEF-2026-Codebase/configs/generated/.gitkeep
+
+# Prevent accidental check-in of local data / models if copied into repo
+BirdCLEF-2026-Codebase/birdclef-2026/*
+!BirdCLEF-2026-Codebase/birdclef-2026/README.md
+BirdCLEF-2026-Codebase/models/*
+!BirdCLEF-2026-Codebase/models/README.md
+
+# Agent scratchpads
+.agents/logbooks/

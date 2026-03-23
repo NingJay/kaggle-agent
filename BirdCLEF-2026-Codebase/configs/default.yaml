@@ -1,0 +1,38 @@
+experiment:
+  name: perch_cached_probe_baseline
+  seed: 42
+
+paths:
+  data_root: ./birdclef-2026
+  output_root: ./outputs
+
+data:
+  train_csv: train.csv
+  taxonomy_csv: taxonomy.csv
+  sample_submission_csv: sample_submission.csv
+  train_audio_dir: train_audio
+  train_soundscapes_dir: train_soundscapes
+  train_soundscapes_labels_csv: train_soundscapes_labels.csv
+  test_soundscapes_dir: test_soundscapes
+  perch_cache_dir: ""
+
+model:
+  backbone_provider: perch_saved_model
+  perch_model_dir: ""
+  embedding_dim: 1536
+  mode: cached_probe
+
+training:
+  backend: sklearn_cached_probe
+  probe_pca_dim: 32
+  probe_min_pos: 8
+  probe_c: 0.25
+  probe_group_folds: 5
+  probe_use_raw_scores: true
+  max_iter: 400
+
+metrics:
+  primary: soundscape_macro_roc_auc
+  secondary:
+    - padded_cmap
+  submission_candidate_threshold: 0.75
