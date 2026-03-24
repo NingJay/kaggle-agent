@@ -53,6 +53,16 @@ def truncate(text: str, limit: int = 240) -> str:
     return text[: limit - 3] + "..."
 
 
+def replace_between_markers(text: str, start_marker: str, end_marker: str, replacement: str) -> str:
+    pattern = re.compile(rf"({re.escape(start_marker)})(.*)({re.escape(end_marker)})", re.DOTALL)
+    block = f"{start_marker}\n{replacement.rstrip()}\n{end_marker}"
+    if pattern.search(text):
+        return pattern.sub(block, text)
+    if text and not text.endswith("\n"):
+        text += "\n"
+    return text + "\n" + block + "\n"
+
+
 @contextmanager
 def workspace_lock(path: Path) -> Iterator[None]:
     ensure_directory(path.parent)

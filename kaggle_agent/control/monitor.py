@@ -5,161 +5,293 @@ from pathlib import Path
 
 from kaggle_agent.control.executor import collect_finished_runs, start_run
 from kaggle_agent.control.reporting import write_reports
-from kaggle_agent.control.scheduler import choose_next_experiment, register_experiment
-from kaggle_agent.control.store import load_state, save_state
-from kaggle_agent.control.submission import build_submission_candidate
-from kaggle_agent.decision.decider import make_decision
-from kaggle_agent.decision.evidence import build_decision_brief
+from kaggle_agent.control.scheduler import choose_next_work_item, mark_work_item_status, register_work_item
+from kaggle_agent.control.store import find_work_item, load_state, save_state
+from kaggle_agent.control.submission import build_submission_candidate, plan_submission_slots
+from kaggle_agent.decision.codegen import build_codegen
+from kaggle_agent.decision.critic import build_critic
+from kaggle_agent.decision.decider import build_decision
+from kaggle_agent.decision.evidence import build_evidence
+from kaggle_agent.decision.helpers import (
+    begin_stage_run,
+    complete_stage_run,
+    fail_stage_run,
+    latest_stage_payload,
+    latest_stage_run,
+    stage_markdown,
+    write_input_manifest,
+)
 from kaggle_agent.decision.planner import build_plan
-from kaggle_agent.decision.research import build_research_summary
-from kaggle_agent.schema import DecisionRecord, ExperimentSpec, RunRecord, WorkspaceConfig, WorkspaceState
-from kaggle_agent.utils import now_utc_iso, read_json, truncate, workspace_lock
+from kaggle_agent.decision.reporter import build_report
+from kaggle_agent.decision.research import build_research
+from kaggle_agent.schema import SpecRecord, ValidationRecord, WorkspaceConfig, WorkspaceState
+from kaggle_agent.utils import now_utc_iso, truncate, workspace_lock
+
 
 FINAL_RUN_STATUSES = {"succeeded", "failed"}
 
 
-def _mark_post_run_stage(run: RunRecord, stage: str, *, error: str = "") -> None:
-    run.post_run_stage = stage
-    run.post_run_error = error
-    run.post_run_updated_at = now_utc_iso()
-
-
-def _record_post_run_error(config: WorkspaceConfig, state: WorkspaceState, run: RunRecord, error: Exception) -> None:
-    run.post_run_error = truncate(str(error), limit=500)
-    run.post_run_updated_at = now_utc_iso()
-    save_state(config, state)
-
-
-def _decision_for_run(state: WorkspaceState, run_id: str) -> DecisionRecord | None:
-    for decision in reversed(state.decisions):
-        if decision.source_run_id == run_id:
-            return decision
+def _validated_spec_for_dedupe(state: WorkspaceState, dedupe_key: str) -> SpecRecord | None:
+    for spec in reversed(state.specs):
+        if spec.dedupe_key == dedupe_key and spec.status == "validated":
+            return spec
     return None
 
 
-def _require_decision_for_run(state: WorkspaceState, run_id: str) -> DecisionRecord:
-    decision = _decision_for_run(state, run_id)
-    if decision is None:
-        raise ValueError(f"Missing decision record for {run_id}")
-    return decision
-
-
-def _load_plan_payload(run: RunRecord) -> dict[str, object]:
-    if not run.plan_path:
-        raise ValueError(f"Missing plan path for {run.run_id}")
-    payload = read_json(Path(run.plan_path), None)
-    if not isinstance(payload, dict):
-        raise ValueError(f"Invalid plan payload for {run.run_id}")
-    return payload
-
-
-def _planned_experiment_dedupe_key(decision: DecisionRecord) -> str:
-    return f"decision:{decision.decision_id}:experiment"
-
-
-def _find_existing_planned_experiment(
+def _create_or_update_spec(
+    config: WorkspaceConfig,
     state: WorkspaceState,
-    decision: DecisionRecord,
+    run_id: str,
+    stage_run_id: str,
     payload: dict[str, object],
-) -> ExperimentSpec | None:
-    dedupe_key = str(payload.get("dedupe_key") or _planned_experiment_dedupe_key(decision))
-    for experiment in state.experiments:
-        if experiment.dedupe_key == dedupe_key:
-            return experiment
-    depends_on = [str(item) for item in payload.get("depends_on", [decision.experiment_id])]
-    title = str(payload.get("title", ""))
-    family = str(payload.get("family", ""))
-    config_path = str(payload.get("config_path", ""))
-    for experiment in state.experiments:
-        if (
-            experiment.title == title
-            and experiment.family == family
-            and experiment.config_path == config_path
-            and experiment.depends_on == depends_on
-        ):
-            experiment.dedupe_key = dedupe_key
-            if not experiment.source_decision_id:
-                experiment.source_decision_id = decision.decision_id
-            experiment.updated_at = now_utc_iso()
-            return experiment
-    return None
-
-
-def _apply_plan_payload(config: WorkspaceConfig, state: WorkspaceState, run: RunRecord) -> None:
-    decision = _require_decision_for_run(state, run.run_id)
-    payload = _load_plan_payload(run)
-    status = str(payload.get("status", ""))
-    if status in {"hold", "submission_candidate"}:
-        return
-    if status != "planned":
-        raise ValueError(f"Unsupported plan status for {run.run_id}: {status}")
-    existing = _find_existing_planned_experiment(state, decision, payload)
+) -> SpecRecord:
+    existing = _validated_spec_for_dedupe(state, str(payload.get("dedupe_key", "")))
     if existing is not None:
-        return
-    register_experiment(
-        state,
+        existing.config_path = str(payload["config_path"])
+        existing.payload_path = str(Path(config.stage_dir("validate", stage_run_id)) / "validate.json")
+        existing.updated_at = now_utc_iso()
+        return existing
+    spec = SpecRecord(
+        spec_id=f"spec-{state.runtime.next_spec_number:04d}",
+        work_item_id=f"derived:{run_id}",
+        source_stage_run_id=stage_run_id,
+        spec_type="experiment",
         title=str(payload["title"]),
-        hypothesis=str(payload.get("hypothesis") or f"Follow-up planned from {decision.decision_id}: {decision.why}"),
         family=str(payload["family"]),
         config_path=str(payload["config_path"]),
-        priority=int(payload.get("priority", 50)),
-        depends_on=[str(item) for item in payload.get("depends_on", [decision.experiment_id])],
-        tags=[str(item) for item in payload.get("tags", [])],
+        payload_path=str(Path(config.stage_dir("validate", stage_run_id)) / "validate.json"),
         launch_mode=str(payload.get("launch_mode", "background")),
-        dedupe_key=str(payload.get("dedupe_key") or _planned_experiment_dedupe_key(decision)),
-        source_decision_id=decision.decision_id,
-        requeue_existing=False,
+        status="validated",
+        dedupe_key=str(payload.get("dedupe_key", "")),
+        created_at=now_utc_iso(),
+        updated_at=now_utc_iso(),
     )
+    state.runtime.next_spec_number += 1
+    state.specs.append(spec)
+    return spec
 
 
-def _process_run_post_completion(config: WorkspaceConfig, state: WorkspaceState, run: RunRecord) -> None:
-    while run.status in FINAL_RUN_STATUSES and run.post_run_stage != "complete":
+def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
+    run = next(item for item in state.runs if item.run_id == run_id)
+    plan = latest_stage_payload(state, run_id, "plan")
+    codegen = latest_stage_payload(state, run_id, "codegen")
+    critic = latest_stage_payload(state, run_id, "critic")
+    stage_run, input_manifest_path = begin_stage_run(
+        config,
+        state,
+        run,
+        stage_name="validate",
+        input_ref=run.latest_stage_run_id or run.run_id,
+    )
+    write_input_manifest(
+        input_manifest_path,
+        {
+            "run": run.to_dict(),
+            "plan": plan,
+            "codegen": codegen,
+            "critic": critic,
+        },
+    )
+    plan_status = str(plan.get("plan_status", "hold"))
+    queued_work_item_id = ""
+    spec_id = ""
+    status = "not_required"
+    summary = "No follow-up experiment required."
+    if plan_status == "planned":
+        config_path = str(codegen.get("generated_config_path") or plan.get("config_path") or "")
+        config_file = Path(config_path)
+        if not config_file.is_absolute():
+            config_file = config.root / config_file
+        if critic.get("status") != "approved":
+            status = "failed"
+            summary = "Critic rejected the generated bundle."
+        elif not config_file.exists():
+            status = "failed"
+            summary = f"Missing config for validation: {config_file}"
+        else:
+            status = "validated"
+            summary = f"Validated follow-up config at {config_file}"
+            plan_payload = dict(plan)
+            plan_payload["config_path"] = str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
+            spec = _create_or_update_spec(config, state, run_id, stage_run.stage_run_id, plan_payload)
+            spec_id = spec.spec_id
+            if config.automation.auto_execute_plans:
+                queued = register_work_item(
+                    state,
+                    title=str(plan["title"]),
+                    work_type=str(plan.get("work_type", "experiment_iteration")),
+                    family=str(plan["family"]),
+                    config_path=str(plan_payload["config_path"]),
+                    priority=int(plan.get("priority", 50)),
+                    pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
+                    depends_on=[str(item) for item in plan.get("depends_on", [run.work_item_id])],
+                    dedupe_key=str(plan.get("dedupe_key", "")),
+                    source_run_id=run.run_id,
+                    source_stage_run_id=stage_run.stage_run_id,
+                    notes=[str(plan.get("hypothesis", ""))],
+                )
+                queued.latest_spec_id = spec.spec_id
+                queued.updated_at = now_utc_iso()
+                queued_work_item_id = queued.id
+    payload = {
+        "stage": "validate",
+        "status": status,
+        "summary": summary,
+        "plan_status": plan_status,
+        "spec_id": spec_id,
+        "queued_work_item_id": queued_work_item_id,
+    }
+    markdown = stage_markdown(
+        f"Validation {run_id}",
+        [
+            f"- Status: `{status}`",
+            f"- Summary: {summary}",
+            f"- Spec id: `{spec_id or 'n/a'}`",
+            f"- Queued work item: `{queued_work_item_id or 'n/a'}`",
+        ],
+    )
+    complete_stage_run(stage_run, payload=payload, markdown=markdown, validator_status=status)
+    validation = ValidationRecord(
+        validation_id=f"validation-{state.runtime.next_validation_number:04d}",
+        work_item_id=run.work_item_id,
+        source_stage_run_id=stage_run.stage_run_id,
+        spec_id=spec_id,
+        status=status,
+        summary=summary,
+        output_json_path=stage_run.output_json_path,
+        output_md_path=stage_run.output_md_path,
+        created_at=now_utc_iso(),
+    )
+    state.runtime.next_validation_number += 1
+    state.validations.append(validation)
+    return stage_run
+
+
+def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
+    run = next(item for item in state.runs if item.run_id == run_id)
+    decision = latest_stage_payload(state, run_id, "decision")
+    plan = latest_stage_payload(state, run_id, "plan")
+    validation = latest_stage_payload(state, run_id, "validate")
+    stage_run, input_manifest_path = begin_stage_run(
+        config,
+        state,
+        run,
+        stage_name="submission",
+        input_ref=run.latest_stage_run_id or run.run_id,
+    )
+    write_input_manifest(
+        input_manifest_path,
+        {
+            "run": run.to_dict(),
+            "decision": decision,
+            "plan": plan,
+            "validation": validation,
+        },
+    )
+    should_build = (
+        str(decision.get("submission_recommendation", "no")) == "candidate"
+        or str(plan.get("plan_status", "")) == "submission_candidate"
+    )
+    if should_build:
+        candidate = build_submission_candidate(config, state, run_id)
+        slot_plan = plan_submission_slots(config, state)
+        payload = {
+            "stage": "submission",
+            "status": "candidate_created",
+            "candidate_id": candidate.id,
+            "cpu_ready": candidate.cpu_ready,
+            "slot_plan": slot_plan,
+        }
+        markdown = stage_markdown(
+            f"Submission {run_id}",
+            [
+                "- Status: `candidate_created`",
+                f"- Candidate id: `{candidate.id}`",
+                f"- CPU ready: `{candidate.cpu_ready}`",
+                f"- Remaining daily slots: {slot_plan['remaining_daily_slots']}",
+                f"- Remaining final slots: {slot_plan['remaining_final_slots']}",
+            ],
+        )
+    else:
+        payload = {"stage": "submission", "status": "skipped", "reason": "No submission recommendation for this run."}
+        markdown = stage_markdown(
+            f"Submission {run_id}",
+            ["- Status: `skipped`", f"- Reason: {payload['reason']}"],
+        )
+    complete_stage_run(stage_run, payload=payload, markdown=markdown)
+    return stage_run
+
+
+def _finalize_work_item_status(state: WorkspaceState, run_id: str) -> None:
+    run = next(item for item in state.runs if item.run_id == run_id)
+    work_item = find_work_item(state, run.work_item_id)
+    decision = latest_stage_payload(state, run_id, "decision")
+    if run.stage_error:
+        work_item.status = "failed"
+    elif run.status == "failed" and str(decision.get("decision_type", "")) == "blocked":
+        work_item.status = "blocked"
+    elif latest_stage_payload(state, run_id, "submission").get("status") == "candidate_created":
+        work_item.status = "submitted"
+    else:
+        work_item.status = "complete" if run.status == "succeeded" else "failed"
+    work_item.updated_at = now_utc_iso()
+
+
+def _process_run_stage_chain(config: WorkspaceConfig, state: WorkspaceState, run_id: str) -> None:
+    run = next(item for item in state.runs if item.run_id == run_id)
+    while run.status in FINAL_RUN_STATUSES and run.stage_cursor and run.stage_cursor != "complete" and not run.stage_error:
         try:
-            if not run.post_run_stage:
-                _mark_post_run_stage(run, "pending")
-            if run.post_run_stage == "pending":
-                build_decision_brief(config, state, run.run_id)
-                _mark_post_run_stage(run, "evidence_done")
-            elif run.post_run_stage == "evidence_done":
-                build_research_summary(config, state, run.run_id)
-                _mark_post_run_stage(run, "research_done")
-            elif run.post_run_stage == "research_done":
-                make_decision(config, state, run.run_id)
-                _mark_post_run_stage(run, "decision_done")
-            elif run.post_run_stage == "decision_done":
-                decision = _require_decision_for_run(state, run.run_id)
-                build_plan(config, state, decision)
-                _mark_post_run_stage(run, "plan_done")
-            elif run.post_run_stage == "plan_done":
-                _apply_plan_payload(config, state, run)
-                _mark_post_run_stage(run, "apply_done")
-            elif run.post_run_stage == "apply_done":
-                decision = _require_decision_for_run(state, run.run_id)
-                if decision.submission_recommendation == "candidate":
-                    build_submission_candidate(config, state, run.run_id)
-                    _mark_post_run_stage(run, "submission_done")
-                else:
-                    _mark_post_run_stage(run, "complete")
-            elif run.post_run_stage == "submission_done":
-                _mark_post_run_stage(run, "complete")
+            if run.stage_cursor == "evidence":
+                build_evidence(config, state, run_id)
+                run.stage_cursor = "report"
+            elif run.stage_cursor == "report":
+                build_report(config, state, run_id)
+                run.stage_cursor = "research"
+            elif run.stage_cursor == "research":
+                build_research(config, state, run_id)
+                run.stage_cursor = "decision"
+            elif run.stage_cursor == "decision":
+                build_decision(config, state, run_id)
+                run.stage_cursor = "plan"
+            elif run.stage_cursor == "plan":
+                build_plan(config, state, run_id)
+                run.stage_cursor = "codegen"
+            elif run.stage_cursor == "codegen":
+                build_codegen(config, state, run_id)
+                run.stage_cursor = "critic"
+            elif run.stage_cursor == "critic":
+                build_critic(config, state, run_id)
+                run.stage_cursor = "validate"
+            elif run.stage_cursor == "validate":
+                _run_validate_stage(config, state, run_id)
+                run.stage_cursor = "submission"
+            elif run.stage_cursor == "submission":
+                _run_submission_stage(config, state, run_id)
+                run.stage_cursor = "complete"
+                _finalize_work_item_status(state, run_id)
             else:
-                raise ValueError(f"Unknown post-run stage for {run.run_id}: {run.post_run_stage}")
-            save_state(config, state)
-        except Exception as error:
-            _record_post_run_error(config, state, run, error)
+                raise ValueError(f"Unknown stage cursor: {run.stage_cursor}")
+            run.stage_updated_at = now_utc_iso()
+        except Exception as error:  # noqa: BLE001
+            latest = latest_stage_run(state, run_id)
+            if latest is not None and latest.status == "running":
+                fail_stage_run(latest, error)
+            run.stage_error = truncate(str(error), limit=800)
+            run.stage_updated_at = now_utc_iso()
             break
 
 
 def process_completed_runs(config: WorkspaceConfig, state: WorkspaceState) -> None:
     finished_runs = collect_finished_runs(config, state)
     if finished_runs:
-        save_state(config, state)
+        for run in finished_runs:
+            mark_work_item_status(state, run.work_item_id, "reviewing")
     for run in state.runs:
         if run.status not in FINAL_RUN_STATUSES:
             continue
-        if run.post_run_stage == "complete":
+        if run.stage_cursor == "complete":
             continue
-        _process_run_post_completion(config, state, run)
+        _process_run_stage_chain(config, state, run.run_id)
 
 
 def maybe_start_next_run(
@@ -168,11 +300,11 @@ def maybe_start_next_run(
     *,
     background: bool | None = None,
 ) -> tuple[RunRecord | None, bool]:
-    next_experiment = choose_next_experiment(config, state)
-    if next_experiment is None:
+    next_work_item = choose_next_work_item(config, state)
+    if next_work_item is None:
         return None, False
-    run_in_background = background if background is not None else next_experiment.launch_mode != "sync"
-    run = start_run(config, state, next_experiment.id, background=run_in_background)
+    run_in_background = background if background is not None else next_work_item.work_type != "deep_dive_analysis"
+    run = start_run(config, state, next_work_item.id, background=run_in_background)
     return run, run_in_background
 
 

@@ -1,118 +1,132 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import yaml
 
-from kaggle_agent.adapters.command import parse_json_payload, run_command_adapter
-from kaggle_agent.decision.helpers import load_run_result
-from kaggle_agent.knowledge import write_experiment_conclusions
-from kaggle_agent.schema import DecisionRecord, WorkspaceConfig, WorkspaceState
-from kaggle_agent.utils import atomic_write_text, now_utc_iso
+from kaggle_agent.decision.helpers import (
+    begin_stage_run,
+    complete_stage_run,
+    latest_stage_payload,
+    run_configured_stage_adapter,
+    stage_markdown,
+    write_input_manifest,
+)
+from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
 
 
-def _submission_threshold(config: WorkspaceConfig, experiment_config_path: str) -> float:
-    config_path = Path(experiment_config_path)
-    if not config_path.is_absolute():
-        config_path = config.root / config_path
-    payload = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    return float(payload.get("metrics", {}).get("submission_candidate_threshold", 0.75))
+def _submission_threshold(config: WorkspaceConfig, config_path: str) -> float:
+    path = Path(config_path)
+    if not path.is_absolute():
+        path = config.root / path
+    if not path.exists():
+        return 0.75
+    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    metrics = payload.get("metrics", {})
+    return float(metrics.get("submission_candidate_threshold", 0.75))
 
 
-def make_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str) -> DecisionRecord:
+def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     run = next(item for item in state.runs if item.run_id == run_id)
     experiment = next(item for item in state.experiments if item.id == run.experiment_id)
-    result = load_run_result(run)
-    output_path = config.artifact_path("decisions", f"{run.run_id}.json")
-    if config.adapters.decision_command.strip():
-        text = run_command_adapter(
-            config.adapters.decision_command,
-            stage="decision",
-            workspace_root=config.root,
-            input_path=Path(run.research_summary_path),
-            output_path=output_path,
-            extra_env={
-                "KAGGLE_AGENT_RUN_ID": run.run_id,
-                "KAGGLE_AGENT_EXPERIMENT_ID": experiment.id,
-            },
-        )
-        payload = parse_json_payload(text)
-    else:
-        root_cause = str(result.get("root_cause", run.error or "unknown"))
-        metric_value = run.primary_metric_value or 0.0
-        threshold = _submission_threshold(config, experiment.config_path)
-        if run.status == "failed":
-            blocked = any(token in root_cause.lower() for token in ["missing", "not found", "tensorflow", "soundfile", "dependency"])
-            payload = {
-                "decision_type": "blocked" if blocked else "fix_root_cause",
-                "next_action": "hold" if blocked else "run_new_experiment",
-                "evidence_strength": "50",
-                "root_cause": root_cause,
-                "why": "The run failed; the next step should either unblock dependencies or retry with a narrower fix.",
-                "next_experiment_title": "" if blocked else f"{experiment.title} root-cause fix",
-                "next_experiment_family": experiment.family,
-                "next_experiment_config": experiment.config_path,
-                "launch_policy": "manual_review" if blocked else "auto",
-                "submission_recommendation": "no",
-            }
-        elif experiment.family == "perch_head_debug":
-            payload = {
-                "decision_type": "promote_baseline",
-                "next_action": "run_new_experiment",
-                "evidence_strength": "80",
-                "root_cause": str(result.get("root_cause", "debug run passed")),
-                "why": "The smoke run succeeded, so the system should promote the first cached Perch probe baseline.",
-                "next_experiment_title": "Perch cached-probe baseline",
-                "next_experiment_family": "perch_cached_probe",
-                "next_experiment_config": str(config.runtime_root() / "configs" / "default.yaml"),
-                "launch_policy": "auto",
-                "submission_recommendation": "no",
-            }
-        else:
-            strong_score = metric_value >= threshold
-            promising_score = metric_value >= 0.60
-            payload = {
-                "decision_type": "submit_candidate" if strong_score else ("tune_probe" if promising_score else "fix_probe_gap"),
-                "next_action": "submit_candidate" if strong_score else "run_new_experiment",
-                "evidence_strength": "85" if strong_score else ("70" if promising_score else "55"),
-                "root_cause": str(result.get("root_cause", "baseline needs tuning")),
-                "why": (
-                    "The cached probe cleared the submission threshold and should be prepared as a submission candidate."
-                    if strong_score
-                    else (
-                        "The cached probe baseline is promising but still below the target threshold; continue along the notebook-inspired probe grid."
-                        if promising_score
-                        else "The cached probe baseline is healthy but under target; prioritize fixes for sparse positives, priors, or stronger probe settings."
-                    )
-                ),
-                "next_experiment_title": "" if strong_score else f"{experiment.title} tuned",
-                "next_experiment_family": experiment.family,
-                "next_experiment_config": experiment.config_path,
-                "launch_policy": "auto",
-                "submission_recommendation": "candidate" if strong_score else "no",
-            }
-    decision = DecisionRecord(
-        decision_id=f"decision-{state.runtime.next_decision_number:04d}",
-        source_run_id=run.run_id,
-        experiment_id=experiment.id,
-        decision_type=str(payload["decision_type"]),
-        next_action=str(payload["next_action"]),
-        evidence_strength=str(payload["evidence_strength"]),
-        root_cause=str(payload["root_cause"]),
-        why=str(payload["why"]),
-        next_experiment_title=str(payload.get("next_experiment_title", "")),
-        next_experiment_family=str(payload.get("next_experiment_family", "")),
-        next_experiment_config=str(payload.get("next_experiment_config", "")),
-        launch_policy=str(payload.get("launch_policy", "auto")),
-        submission_recommendation=str(payload.get("submission_recommendation", "no")),
-        created_at=now_utc_iso(),
+    research = latest_stage_payload(state, run_id, "research")
+    report = latest_stage_payload(state, run_id, "report")
+    stage_run, input_manifest_path = begin_stage_run(
+        config,
+        state,
+        run,
+        stage_name="decision",
+        input_ref=run.latest_stage_run_id or run.run_id,
     )
-    state.runtime.next_decision_number += 1
-    state.decisions.append(decision)
-    atomic_write_text(output_path, json.dumps(decision.to_dict(), indent=2) + "\n")
-    run.decision_record_path = str(output_path)
-    experiment.latest_decision_id = decision.decision_id
-    experiment.updated_at = now_utc_iso()
-    write_experiment_conclusions(config, state)
-    return decision
+    write_input_manifest(
+        input_manifest_path,
+        {
+            "run": run.to_dict(),
+            "experiment": experiment.to_dict(),
+            "report": report,
+            "research": research,
+        },
+    )
+    adapted = run_configured_stage_adapter(
+        config,
+        state,
+        stage_run,
+        input_manifest_path=input_manifest_path,
+        extra_env={"KAGGLE_AGENT_RUN_ID": run_id},
+    )
+    if adapted is not None:
+        payload, markdown = adapted
+        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        return stage_run
+
+    threshold = _submission_threshold(config, experiment.config_path)
+    root_cause = str(report.get("root_cause", run.root_cause or run.error or "unknown"))
+    if run.status == "failed":
+        decision_type = "blocked" if any(token in root_cause.lower() for token in ["missing", "module", "dependency"]) else "fix"
+        payload = {
+            "stage": "decision",
+            "decision_type": decision_type,
+            "next_action": "hold" if decision_type == "blocked" else "run_new_experiment",
+            "submission_recommendation": "no",
+            "root_cause": root_cause,
+            "why": "The runtime failed and needs a direct repair before more exploration.",
+            "next_title": f"{experiment.title} runtime repair",
+            "next_family": experiment.family,
+            "next_config_path": experiment.config_path,
+            "priority_delta": -5 if decision_type == "blocked" else 5,
+            "launch_mode": "sync" if decision_type == "blocked" else "background",
+        }
+    elif experiment.family == "perch_head_debug":
+        payload = {
+            "stage": "decision",
+            "decision_type": "promote_baseline",
+            "next_action": "run_new_experiment",
+            "submission_recommendation": "no",
+            "root_cause": root_cause,
+            "why": "The debug smoke is healthy enough to promote the cached-probe baseline.",
+            "next_title": "Perch cached-probe baseline",
+            "next_family": "perch_cached_probe",
+            "next_config_path": str(config.runtime_root() / "configs" / "default.yaml"),
+            "priority_delta": 10,
+            "launch_mode": "background",
+        }
+    elif run.primary_metric_value is not None and run.primary_metric_value >= threshold:
+        payload = {
+            "stage": "decision",
+            "decision_type": "submit_candidate",
+            "next_action": "submit_candidate",
+            "submission_recommendation": "candidate",
+            "root_cause": root_cause,
+            "why": "This run cleared the local submission threshold and should enter the submission intelligence loop.",
+            "next_title": "",
+            "next_family": experiment.family,
+            "next_config_path": experiment.config_path,
+            "priority_delta": 0,
+            "launch_mode": "background",
+        }
+    else:
+        payload = {
+            "stage": "decision",
+            "decision_type": "tune",
+            "next_action": "run_new_experiment",
+            "submission_recommendation": "no",
+            "root_cause": root_cause,
+            "why": "The run is useful but still below the keep threshold, so the next config should directly target the root cause.",
+            "next_title": f"{experiment.title} follow-up",
+            "next_family": experiment.family,
+            "next_config_path": experiment.config_path,
+            "priority_delta": 10,
+            "launch_mode": "background",
+        }
+    markdown = stage_markdown(
+        f"Decision {run_id}",
+        [
+            f"- Decision type: `{payload['decision_type']}`",
+            f"- Next action: `{payload['next_action']}`",
+            f"- Submission recommendation: `{payload['submission_recommendation']}`",
+            f"- Root cause: {payload['root_cause']}",
+            f"- Why: {payload['why']}",
+        ],
+    )
+    complete_stage_run(stage_run, payload=payload, markdown=markdown)
+    return stage_run

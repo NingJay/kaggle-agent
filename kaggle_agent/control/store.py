@@ -1,56 +1,45 @@
 from __future__ import annotations
 
 import shutil
+import sqlite3
 from pathlib import Path
 
 from kaggle_agent.schema import (
-    DecisionRecord,
+    AgentRun,
     ExperimentSpec,
+    FindingRecord,
+    IssueRecord,
+    MetricObservation,
+    ResearchNoteRecord,
     RunRecord,
     RuntimeState,
+    SpecRecord,
+    StageRun,
     SubmissionCandidate,
+    SubmissionResult,
+    ValidationRecord,
+    WorkItem,
     WorkspaceConfig,
     WorkspaceState,
 )
-from kaggle_agent.utils import atomic_write_json, ensure_directory, now_utc_iso, read_json
+from kaggle_agent.utils import atomic_write_json, ensure_directory, now_utc_iso
 
-EXPERIMENTS_FILE = "experiments.json"
-RUNS_FILE = "runs.json"
-DECISIONS_FILE = "decisions.json"
-SUBMISSIONS_FILE = "submission_candidates.json"
-RUNTIME_FILE = "runtime.json"
-FINAL_RUN_STATUSES = {"succeeded", "failed"}
-
-
-def _default_experiments(config: WorkspaceConfig) -> list[ExperimentSpec]:
-    timestamp = now_utc_iso()
-    debug_config = config.runtime_root() / "configs" / "debug.yaml"
-    default_config = config.runtime_root() / "configs" / "default.yaml"
-    return [
-        ExperimentSpec(
-            id="exp-perch-debug-smoke",
-            title="Perch-head debug smoke",
-            hypothesis="Verify the new runtime, decision loop, and dual-metric reporting on a tiny debug run.",
-            family="perch_head_debug",
-            config_path=str(debug_config.relative_to(config.root)),
-            priority=10,
-            tags=["debug", "perch-head", "smoke"],
-            created_at=timestamp,
-            updated_at=timestamp,
-        ),
-        ExperimentSpec(
-            id="exp-perch-baseline",
-            title="Perch cached-probe baseline",
-            hypothesis="Run the first real cached Perch embedding probe after the debug smoke passes.",
-            family="perch_cached_probe",
-            config_path=str(default_config.relative_to(config.root)),
-            priority=20,
-            depends_on=["exp-perch-debug-smoke"],
-            tags=["baseline", "perch", "cached-probe"],
-            created_at=timestamp,
-            updated_at=timestamp,
-        ),
-    ]
+TABLE_TO_MODEL = {
+    "work_items": WorkItem,
+    "experiments": ExperimentSpec,
+    "runs": RunRecord,
+    "stage_runs": StageRun,
+    "agent_runs": AgentRun,
+    "specs": SpecRecord,
+    "validations": ValidationRecord,
+    "metrics": MetricObservation,
+    "findings": FindingRecord,
+    "issues": IssueRecord,
+    "research_notes": ResearchNoteRecord,
+    "submissions": SubmissionCandidate,
+    "submission_results": SubmissionResult,
+}
+STATE_TABLES = list(TABLE_TO_MODEL.keys())
 
 
 def _default_runtime_state() -> RuntimeState:
@@ -58,18 +47,100 @@ def _default_runtime_state() -> RuntimeState:
     return RuntimeState(initialized_at=timestamp, last_tick_at=timestamp, last_report_at=timestamp)
 
 
+def _open_ledger(config: WorkspaceConfig) -> sqlite3.Connection:
+    ensure_directory(config.state_root())
+    connection = sqlite3.connect(config.ledger_path())
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def _ensure_ledger(config: WorkspaceConfig) -> None:
+    with _open_ledger(config) as conn:
+        for table in STATE_TABLES:
+            conn.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {table} (
+                    id TEXT PRIMARY KEY,
+                    payload TEXT NOT NULL
+                )
+                """
+            )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS runtime_state (
+                id TEXT PRIMARY KEY,
+                payload TEXT NOT NULL
+            )
+            """
+        )
+
+
+def _table_rows(config: WorkspaceConfig, table: str, model_cls):
+    with _open_ledger(config) as conn:
+        rows = conn.execute(f"SELECT payload FROM {table} ORDER BY id").fetchall()
+    return [model_cls.from_dict(__import__("json").loads(row["payload"])) for row in rows]
+
+
+def _save_table(config: WorkspaceConfig, table: str, rows) -> None:
+    import json
+
+    with _open_ledger(config) as conn:
+        conn.execute(f"DELETE FROM {table}")
+        conn.executemany(
+            f"INSERT INTO {table} (id, payload) VALUES (?, ?)",
+            [(getattr(item, next(field for field in item.__dataclass_fields__ if field.endswith('_id') or field == 'id')), json.dumps(item.to_dict(), ensure_ascii=False)) for item in rows],
+        )
+
+
+def _entity_id(item) -> str:
+    if hasattr(item, "id"):
+        return getattr(item, "id")
+    for key in [
+        "stage_run_id",
+        "agent_run_id",
+        "spec_id",
+        "validation_id",
+        "metric_id",
+        "finding_id",
+        "issue_id",
+        "note_id",
+        "result_id",
+        "run_id",
+    ]:
+        if hasattr(item, key):
+            return getattr(item, key)
+    raise ValueError(f"Cannot infer entity id for {type(item).__name__}")
+
+
+def _save_rows(config: WorkspaceConfig, table: str, rows) -> None:
+    import json
+
+    with _open_ledger(config) as conn:
+        conn.execute(f"DELETE FROM {table}")
+        conn.executemany(
+            f"INSERT INTO {table} (id, payload) VALUES (?, ?)",
+            [(_entity_id(item), json.dumps(item.to_dict(), ensure_ascii=False)) for item in rows],
+        )
+
+
 def ensure_layout(config: WorkspaceConfig) -> None:
-    ensure_directory(config.root / config.paths.state_dir)
+    ensure_directory(config.state_root())
+    ensure_directory(config.export_root())
+    ensure_directory(config.snapshot_root())
     ensure_directory(config.artifact_root())
+    ensure_directory(config.report_root())
     ensure_directory(config.legacy_root())
     ensure_directory(config.knowledge_root())
+    ensure_directory(config.prompt_root())
     for category in [
         "runs",
+        "evidence",
         "reports",
-        "decision_briefs",
         "research",
         "decisions",
         "plans",
+        "codegen",
+        "validations",
         "submissions",
         "logs",
     ]:
@@ -81,13 +152,7 @@ def ensure_layout(config: WorkspaceConfig) -> None:
 
 def archive_legacy_artifacts(config: WorkspaceConfig) -> Path | None:
     legacy_candidates = [
-        "knowledge",
-        "prompts",
         "reports",
-        "logs",
-        "generated_configs",
-        "runtime",
-        "submissions",
         "state",
         "artifacts",
     ]
@@ -101,93 +166,137 @@ def archive_legacy_artifacts(config: WorkspaceConfig) -> Path | None:
     return archive_root
 
 
-def _submission_dedupe_key(run_id: str) -> str:
-    return f"submission_candidate:{run_id}"
-
-
-def _infer_post_run_stage(
-    run: RunRecord,
-    decisions_by_run_id: dict[str, DecisionRecord],
-    submission_run_ids: set[str],
-) -> str:
-    if run.status not in FINAL_RUN_STATUSES:
-        return ""
-    if run.post_run_stage:
-        return run.post_run_stage
-    if not run.decision_record_path:
-        return "pending"
-    if not run.plan_path:
-        return "decision_done"
-    decision = decisions_by_run_id.get(run.run_id)
-    if decision and decision.submission_recommendation == "candidate":
-        return "complete" if run.run_id in submission_run_ids else "apply_done"
-    return "plan_done"
-
-
-def _normalize_state(state: WorkspaceState) -> WorkspaceState:
-    for submission in state.submissions:
-        if not submission.dedupe_key:
-            submission.dedupe_key = _submission_dedupe_key(submission.source_run_id)
-    for experiment in state.experiments:
-        if experiment.source_decision_id and not experiment.dedupe_key:
-            experiment.dedupe_key = f"decision:{experiment.source_decision_id}:experiment"
-    decisions_by_run_id = {item.source_run_id: item for item in state.decisions}
-    submission_run_ids = {item.source_run_id for item in state.submissions}
+def _default_work_items(config: WorkspaceConfig) -> list[WorkItem]:
     timestamp = now_utc_iso()
-    for run in state.runs:
-        inferred_stage = _infer_post_run_stage(run, decisions_by_run_id, submission_run_ids)
-        if inferred_stage and not run.post_run_stage:
-            run.post_run_stage = inferred_stage
-        if run.post_run_stage and not run.post_run_updated_at:
-            run.post_run_updated_at = run.completed_at or timestamp
-    return state
+    return [
+        WorkItem(
+            id="workitem-perch-debug-smoke",
+            title="Perch-head debug smoke",
+            work_type="experiment_iteration",
+            family="perch_head_debug",
+            priority=10,
+            config_path=str((config.runtime_root() / "configs" / "debug.yaml").relative_to(config.root)),
+            pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
+            dedupe_key="seed:perch-debug-smoke",
+            created_at=timestamp,
+            updated_at=timestamp,
+        ),
+        WorkItem(
+            id="workitem-perch-baseline",
+            title="Perch cached-probe baseline",
+            work_type="experiment_iteration",
+            family="perch_cached_probe",
+            priority=20,
+            config_path=str((config.runtime_root() / "configs" / "default.yaml").relative_to(config.root)),
+            pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
+            depends_on=["workitem-perch-debug-smoke"],
+            dedupe_key="seed:perch-baseline",
+            created_at=timestamp,
+            updated_at=timestamp,
+        ),
+    ]
+
+
+def _empty_state(config: WorkspaceConfig) -> WorkspaceState:
+    return WorkspaceState(
+        work_items=_default_work_items(config),
+        experiments=[],
+        runs=[],
+        stage_runs=[],
+        agent_runs=[],
+        specs=[],
+        validations=[],
+        metrics=[],
+        findings=[],
+        issues=[],
+        research_notes=[],
+        submissions=[],
+        submission_results=[],
+        runtime=_default_runtime_state(),
+    )
+
+
+def _snapshot_state(config: WorkspaceConfig, state: WorkspaceState) -> None:
+    atomic_write_json(config.export_root() / "work_items.json", [item.to_dict() for item in state.work_items])
+    atomic_write_json(config.export_root() / "experiments.json", [item.to_dict() for item in state.experiments])
+    atomic_write_json(config.export_root() / "runs.json", [item.to_dict() for item in state.runs])
+    atomic_write_json(config.export_root() / "stage_runs.json", [item.to_dict() for item in state.stage_runs])
+    atomic_write_json(config.export_root() / "agent_runs.json", [item.to_dict() for item in state.agent_runs])
+    atomic_write_json(config.export_root() / "specs.json", [item.to_dict() for item in state.specs])
+    atomic_write_json(config.export_root() / "validations.json", [item.to_dict() for item in state.validations])
+    atomic_write_json(config.export_root() / "metrics.json", [item.to_dict() for item in state.metrics])
+    atomic_write_json(config.export_root() / "findings.json", [item.to_dict() for item in state.findings])
+    atomic_write_json(config.export_root() / "issues.json", [item.to_dict() for item in state.issues])
+    atomic_write_json(config.export_root() / "research_notes.json", [item.to_dict() for item in state.research_notes])
+    atomic_write_json(config.export_root() / "submissions.json", [item.to_dict() for item in state.submissions])
 
 
 def load_state(config: WorkspaceConfig) -> WorkspaceState:
-    experiments_raw = read_json(config.state_path(EXPERIMENTS_FILE), [])
-    runs_raw = read_json(config.state_path(RUNS_FILE), [])
-    decisions_raw = read_json(config.state_path(DECISIONS_FILE), [])
-    submissions_raw = read_json(config.state_path(SUBMISSIONS_FILE), [])
-    runtime_raw = read_json(config.state_path(RUNTIME_FILE), None)
-    experiments = [ExperimentSpec.from_dict(item) for item in experiments_raw]
-    runs = [RunRecord.from_dict(item) for item in runs_raw]
-    decisions = [DecisionRecord.from_dict(item) for item in decisions_raw]
-    submissions = [SubmissionCandidate.from_dict(item) for item in submissions_raw]
-    runtime = RuntimeState.from_dict(runtime_raw) if runtime_raw else _default_runtime_state()
-    state = WorkspaceState(
-        experiments=experiments,
-        runs=runs,
-        decisions=decisions,
-        submissions=submissions,
+    _ensure_ledger(config)
+    tables = {table: _table_rows(config, table, model) for table, model in TABLE_TO_MODEL.items()}
+    with _open_ledger(config) as conn:
+        row = conn.execute("SELECT payload FROM runtime_state WHERE id = 'singleton'").fetchone()
+    runtime = RuntimeState.from_dict(__import__("json").loads(row["payload"])) if row else _default_runtime_state()
+    if not any(tables.values()) and row is None:
+        state = _empty_state(config)
+        save_state(config, state)
+        return state
+    return WorkspaceState(
+        work_items=tables["work_items"],
+        experiments=tables["experiments"],
+        runs=tables["runs"],
+        stage_runs=tables["stage_runs"],
+        agent_runs=tables["agent_runs"],
+        specs=tables["specs"],
+        validations=tables["validations"],
+        metrics=tables["metrics"],
+        findings=tables["findings"],
+        issues=tables["issues"],
+        research_notes=tables["research_notes"],
+        submissions=tables["submissions"],
+        submission_results=tables["submission_results"],
         runtime=runtime,
     )
-    return _normalize_state(state)
 
 
 def save_state(config: WorkspaceConfig, state: WorkspaceState) -> None:
-    atomic_write_json(config.state_path(EXPERIMENTS_FILE), [item.to_dict() for item in state.experiments])
-    atomic_write_json(config.state_path(RUNS_FILE), [item.to_dict() for item in state.runs])
-    atomic_write_json(config.state_path(DECISIONS_FILE), [item.to_dict() for item in state.decisions])
-    atomic_write_json(config.state_path(SUBMISSIONS_FILE), [item.to_dict() for item in state.submissions])
-    atomic_write_json(config.state_path(RUNTIME_FILE), state.runtime.to_dict())
+    import json
+
+    _ensure_ledger(config)
+    for table in STATE_TABLES:
+        _save_rows(config, table, getattr(state, table))
+    with _open_ledger(config) as conn:
+        conn.execute("DELETE FROM runtime_state")
+        conn.execute(
+            "INSERT INTO runtime_state (id, payload) VALUES ('singleton', ?)",
+            (json.dumps(state.runtime.to_dict(), ensure_ascii=False),),
+        )
+    _snapshot_state(config, state)
 
 
 def initialize_workspace(config: WorkspaceConfig, archive_legacy: bool = True, force: bool = False) -> WorkspaceState:
     if archive_legacy:
         archive_legacy_artifacts(config)
     ensure_layout(config)
-    has_existing_state = all(config.state_path(name).exists() for name in [EXPERIMENTS_FILE, RUNS_FILE, DECISIONS_FILE, SUBMISSIONS_FILE, RUNTIME_FILE])
-    if has_existing_state and not force:
-        return load_state(config)
-    state = WorkspaceState(
-        experiments=_default_experiments(config),
-        runs=[],
-        decisions=[],
-        submissions=[],
-        runtime=_default_runtime_state(),
-    )
-    save_state(config, state)
+    if force and config.ledger_path().exists():
+        config.ledger_path().unlink()
+    _ensure_ledger(config)
+    state = load_state(config)
+    if force:
+        state = _empty_state(config)
+        save_state(config, state)
+        return state
+    if not state.work_items:
+        state = _empty_state(config)
+        save_state(config, state)
     return state
+
+
+def find_work_item(state: WorkspaceState, work_item_id: str) -> WorkItem:
+    for item in state.work_items:
+        if item.id == work_item_id:
+            return item
+    raise KeyError(f"Unknown work item: {work_item_id}")
 
 
 def find_experiment(state: WorkspaceState, experiment_id: str) -> ExperimentSpec:
@@ -202,3 +311,10 @@ def find_run(state: WorkspaceState, run_id: str) -> RunRecord:
         if item.run_id == run_id:
             return item
     raise KeyError(f"Unknown run: {run_id}")
+
+
+def find_stage_run(state: WorkspaceState, stage_run_id: str) -> StageRun:
+    for item in state.stage_runs:
+        if item.stage_run_id == stage_run_id:
+            return item
+    raise KeyError(f"Unknown stage run: {stage_run_id}")

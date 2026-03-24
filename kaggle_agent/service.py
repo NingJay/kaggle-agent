@@ -6,10 +6,10 @@ from typing import Any
 
 from kaggle_agent.config import load_workspace_config
 from kaggle_agent.control.monitor import maybe_start_next_run, process_completed_runs, tick_workspace, watch_workspace
-from kaggle_agent.control.reporting import best_run, write_reports
-from kaggle_agent.control.scheduler import queue_config_experiment, runnable_experiments
+from kaggle_agent.control.reporting import ensure_surface_files, write_reports
+from kaggle_agent.control.scheduler import queue_config_experiment, runnable_work_items
 from kaggle_agent.control.store import initialize_workspace, load_state, save_state
-from kaggle_agent.control.submission import build_submission_candidate
+from kaggle_agent.control.submission import build_submission_candidate, dry_run_submission_candidate, plan_submission_slots
 from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import workspace_lock
 
@@ -18,9 +18,21 @@ def load_config(root: Path | None = None) -> WorkspaceConfig:
     return load_workspace_config(root)
 
 
+def _load_runtime_yaml(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        import yaml
+    except ModuleNotFoundError:
+        return {}
+    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def init_workspace(config: WorkspaceConfig, *, archive_legacy: bool = True, force: bool = False) -> WorkspaceState:
     with workspace_lock(config.lock_path()):
         state = initialize_workspace(config, archive_legacy=archive_legacy, force=force)
+        ensure_surface_files(config)
         write_reports(config, state)
         save_state(config, state)
         return state
@@ -28,31 +40,38 @@ def init_workspace(config: WorkspaceConfig, *, archive_legacy: bool = True, forc
 
 def doctor_checks(config: WorkspaceConfig) -> list[tuple[bool, str, str]]:
     state = load_state(config)
+    ensure_surface_files(config)
     checks: list[tuple[bool, str, str]] = []
     default_config = config.runtime_root() / "configs" / "default.yaml"
+    debug_config = config.runtime_root() / "configs" / "debug.yaml"
     default_payload = _load_runtime_yaml(default_config)
     training_backend = str(default_payload.get("training", {}).get("backend", ""))
     model_provider = str(default_payload.get("model", {}).get("backbone_provider", ""))
+
     checks.append((config.root.exists(), "workspace_root", str(config.root)))
     checks.append((config.runtime_root().exists(), "runtime_root", str(config.runtime_root())))
     checks.append(((config.root / config.runtime.train_entrypoint).exists(), "train_entrypoint", str(config.root / config.runtime.train_entrypoint)))
+    checks.append((default_config.exists(), "default_config", str(default_config)))
+    checks.append((debug_config.exists(), "debug_config", str(debug_config)))
     checks.append((Path(config.data.root).exists(), "data_root", config.data.root))
-    checks.append(((Path(config.data.root) / config.data.train_csv).exists(), "train_csv", str(Path(config.data.root) / config.data.train_csv)))
-    checks.append(((Path(config.data.root) / config.data.taxonomy_csv).exists(), "taxonomy_csv", str(Path(config.data.root) / config.data.taxonomy_csv)))
-    checks.append(((Path(config.data.root) / config.data.sample_submission_csv).exists(), "sample_submission_csv", str(Path(config.data.root) / config.data.sample_submission_csv)))
-    checks.append(
-        (
-            (Path(config.data.root) / config.data.train_soundscapes_labels_csv).exists(),
-            "train_soundscapes_labels_csv",
-            str(Path(config.data.root) / config.data.train_soundscapes_labels_csv),
-        )
-    )
-    checks.append((importlib.util.find_spec("yaml") is not None, "pyyaml", "PyYAML importable"))
+    checks.append((_load_runtime_yaml(default_config) != {}, "runtime_yaml_parse", "default runtime yaml"))
+    checks.append((config.ledger_path().exists(), "ledger_db", str(config.ledger_path())))
+    checks.append((config.root_doc_path("COMPETITION.md").exists(), "competition_doc", str(config.root_doc_path("COMPETITION.md"))))
+    checks.append((config.root_doc_path("CHECKLIST.md").exists(), "checklist_doc", str(config.root_doc_path("CHECKLIST.md"))))
+    checks.append((config.prompt_path("report.md").exists(), "prompt_report", str(config.prompt_path("report.md"))))
+    checks.append((True, "report_adapter", config.adapters.report_command or "(internal fallback)"))
     checks.append((True, "research_adapter", config.adapters.research_command or "(internal fallback)"))
     checks.append((True, "decision_adapter", config.adapters.decision_command or "(internal fallback)"))
     checks.append((True, "planner_adapter", config.adapters.planner_command or "(internal fallback)"))
+    checks.append((True, "codegen_adapter", config.adapters.codegen_command or "(internal fallback)"))
+    checks.append((True, "critic_adapter", config.adapters.critic_command or "(internal fallback)"))
+    checks.append((True, "submission_adapter", config.adapters.submission_command or "(internal fallback)"))
     checks.append((len(state.runtime.active_run_ids) <= config.automation.max_active_runs, "active_run_limit", ",".join(state.runtime.active_run_ids) or "none"))
-    checks.append((bool(state.experiments), "seeded_experiments", str(len(state.experiments))))
+    checks.append((bool(state.work_items), "seeded_work_items", str(len(state.work_items))))
+    checks.append((Path(config.data.root, config.data.sample_submission_csv).exists(), "sample_submission_csv", str(Path(config.data.root, config.data.sample_submission_csv))))
+    checks.append((not config.kaggle.cpu_submission_only or not config.kaggle.enable_gpu, "cpu_submission_contract", f"cpu_only={config.kaggle.cpu_submission_only}, enable_gpu={config.kaggle.enable_gpu}"))
+    checks.append((not config.kaggle.enable_internet, "internet_off_default", str(config.kaggle.enable_internet)))
+
     if training_backend == "sklearn_cached_probe":
         checks.append((bool(config.data.perch_cache_dir.strip()), "perch_cache_dir", config.data.perch_cache_dir or "(unset)"))
         if config.data.perch_cache_dir.strip():
@@ -68,20 +87,7 @@ def doctor_checks(config: WorkspaceConfig) -> list[tuple[bool, str, str]]:
         checks.append((importlib.util.find_spec("tensorflow") is not None, "tensorflow", "required for real Perch backend"))
         checks.append((importlib.util.find_spec("soundfile") is not None, "soundfile", "required for audio decode with saved-model backend"))
         checks.append((bool(config.data.perch_model_dir.strip()), "perch_model_dir", config.data.perch_model_dir or "(unset)"))
-        if config.data.perch_model_dir.strip():
-            checks.append((Path(config.data.perch_model_dir).exists(), "perch_model_root_exists", config.data.perch_model_dir))
     return checks
-
-
-def _load_runtime_yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    try:
-        import yaml
-    except ModuleNotFoundError:
-        return {}
-    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def get_status_state(config: WorkspaceConfig) -> WorkspaceState:
@@ -92,7 +98,14 @@ def get_status_state(config: WorkspaceConfig) -> WorkspaceState:
         return state
 
 
-def enqueue_config(config: WorkspaceConfig, config_path: str, *, title: str | None = None, family: str = "ad_hoc", priority: int = 50) -> WorkspaceState:
+def enqueue_config(
+    config: WorkspaceConfig,
+    config_path: str,
+    *,
+    title: str | None = None,
+    family: str = "ad_hoc",
+    priority: int = 50,
+) -> WorkspaceState:
     with workspace_lock(config.lock_path()):
         state = load_state(config)
         queue_config_experiment(config, state, config_path, title=title, family=family, priority=priority)
@@ -106,15 +119,11 @@ def start_next(config: WorkspaceConfig, *, background: bool = True) -> str | Non
         state = load_state(config)
         process_completed_runs(config, state)
         run, run_in_background = maybe_start_next_run(config, state, background=background)
+        if run is not None and not run_in_background:
+            process_completed_runs(config, state)
         write_reports(config, state)
         save_state(config, state)
-        if run is None:
-            return None
-        if not run_in_background:
-            process_completed_runs(config, state)
-            write_reports(config, state)
-            save_state(config, state)
-        return run.run_id
+        return None if run is None else run.run_id
 
 
 def tick(config: WorkspaceConfig, *, auto_start: bool = True) -> WorkspaceState:
@@ -128,15 +137,43 @@ def watch(config: WorkspaceConfig, *, interval_seconds: int, iterations: int, au
 def build_submission(config: WorkspaceConfig, run_id: str | None = None) -> str:
     with workspace_lock(config.lock_path()):
         state = load_state(config)
-        target_run = next((item for item in state.runs if item.run_id == run_id), None) if run_id else best_run(state)
-        if target_run is None:
+        if run_id is None:
+            candidate_run = next(
+                (
+                    item
+                    for item in sorted(state.runs, key=lambda value: (value.primary_metric_value or -1.0, value.completed_at), reverse=True)
+                    if item.status == "succeeded"
+                ),
+                None,
+            )
+        else:
+            candidate_run = next((item for item in state.runs if item.run_id == run_id), None)
+        if candidate_run is None:
             raise ValueError("No eligible run available for submission candidate generation.")
-        candidate = build_submission_candidate(config, state, target_run.run_id)
+        candidate = build_submission_candidate(config, state, candidate_run.run_id)
         write_reports(config, state)
         save_state(config, state)
         return candidate.id
 
 
-def list_ready_experiments(config: WorkspaceConfig) -> list[str]:
+def dry_run_submission(config: WorkspaceConfig, candidate_id: str) -> dict[str, Any]:
+    with workspace_lock(config.lock_path()):
+        state = load_state(config)
+        result = dry_run_submission_candidate(config, state, candidate_id)
+        write_reports(config, state)
+        save_state(config, state)
+        return result
+
+
+def plan_submission(config: WorkspaceConfig) -> dict[str, Any]:
+    with workspace_lock(config.lock_path()):
+        state = load_state(config)
+        result = plan_submission_slots(config, state)
+        write_reports(config, state)
+        save_state(config, state)
+        return result
+
+
+def list_ready_work_items(config: WorkspaceConfig) -> list[str]:
     state = load_state(config)
-    return [item.id for item in runnable_experiments(config, state)]
+    return [item.id for item in runnable_work_items(config, state)]

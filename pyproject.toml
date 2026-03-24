@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kaggle-agent"
-version = "0.2.0"
-description = "Three-plane autonomous Kaggle research system for BirdCLEF 2026."
+version = "0.3.0"
+description = "Agent-primary Kaggle Research OS for BirdCLEF 2026."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Codex" }]

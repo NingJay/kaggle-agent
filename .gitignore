@@ -36,6 +36,7 @@ state/
 artifacts/
 knowledge/
 legacy/
+reports/
 
 # Runtime outputs and generated configs
 BirdCLEF-2026-Codebase/outputs/

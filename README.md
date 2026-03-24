@@ -1,75 +1,90 @@
 # Kaggle Agent
 
-`kaggle_agent` is now organized as three explicit planes:
+`kaggle-agent` is now a BirdCLEF-focused Kaggle Research OS:
 
-- `Deterministic Control Plane`
-- `Model-Driven Decision Plane`
-- `BirdCLEF Runtime`
+- agent-primary
+- artifact-driven
+- spec-enforced
+- ledger-backed
 
-The old monolithic `workspace.py` flow has been replaced by:
+The public surface is a working research room, not a thin orchestration shell. The machine truth lives in `state/ledger.db`. Every autonomous stage emits both `*.json` and `*.md`. Reports, checklists, findings, issues, and submission intelligence are regenerated from the ledger.
 
-1. experiments and runs in `state/`
-2. run artifacts in `artifacts/`
-3. decision briefs, research summaries, decision records, and plans as first-class outputs
-4. a rewritten BirdCLEF runtime under `BirdCLEF-2026-Codebase/`
-
-## Core Directories
+## Stage Graph
 
 ```text
-kaggle_agent/
-├── workspace.toml
-├── artifacts/
-│   ├── runs/
-│   ├── decision_briefs/
-│   ├── research/
-│   ├── decisions/
-│   ├── plans/
-│   ├── reports/
-│   └── submissions/
-├── legacy/
+work_item
+-> execute
+-> evidence
+-> report
+-> research
+-> decision
+-> plan
+-> codegen
+-> critic
+-> validate
+-> submission
+```
+
+The runtime stays BirdCLEF-specific by default through `train_sed.py` and `BirdCLEF-2026-Codebase/`, but the orchestration kernel remains lightly generic.
+
+## Core Surface
+
+```text
+.
+├── AGENTS.md
+├── COMPETITION.md
+├── PLAYBOOK.md
+├── CHECKLIST.md
+├── JOURNAL.md
+├── FINDINGS.md
+├── ISSUES.md
+├── SUBMISSIONS.md
+├── prompts/
+├── reports/
 ├── state/
-├── kaggle_agent/
-│   ├── control/
-│   ├── decision/
-│   ├── adapters/
-│   └── service.py
+├── artifacts/
+├── knowledge/
 └── BirdCLEF-2026-Codebase/
 ```
 
-## New CLI
+## Key Commands
 
 ```bash
 python -m kaggle_agent.cli init
 python -m kaggle_agent.cli doctor
 python -m kaggle_agent.cli status
-python -m kaggle_agent.cli enqueue-config /abs/path/to/config.yaml
-python -m kaggle_agent.cli start-next
+python -m kaggle_agent.cli list-ready
+python -m kaggle_agent.cli start-next --sync
 python -m kaggle_agent.cli tick
 python -m kaggle_agent.cli watch --interval-seconds 600
-python -m kaggle_agent.cli build-submission
+python -m kaggle_agent.cli build-submission --run-id <run_id>
+python -m kaggle_agent.cli dry-run-submission <candidate_id>
+python -m kaggle_agent.cli plan-submission
 ```
 
 ## Runtime Notes
 
-- `configs/debug.yaml` uses a mock hash backbone and a pure-Python trainer for smoke tests.
-- `configs/default.yaml` is the real Perch-head path. It expects the saved model plus optional dependencies like TensorFlow and SoundFile.
-- Every completed run writes:
-  - `result.json`
-  - `metrics.json`
-  - `artifacts.json`
-  - `summary.md`
+- `configs/debug.yaml` is the smoke path and must stay runnable without TensorFlow or scikit-learn.
+- `configs/default.yaml` is the cached Perch probe baseline.
+- `BirdCLEF-2026-Codebase/src/birdclef_runtime/training.py` lazily imports the cached-probe backend so debug smoke does not require heavy probe dependencies at module import time.
 
-## Adapter Contract
+## Submission Contract
 
-The decision plane can call external tools through command adapters configured in `workspace.toml`.
+BirdCLEF scored bundles are treated as:
 
-Each adapter receives:
+- CPU-only
+- internet off
+- 90 minute maximum runtime
+- 5 daily submission slots
+- 2 final selection slots
 
-- `KAGGLE_AGENT_STAGE`
-- `KAGGLE_AGENT_WORKSPACE_ROOT`
-- `KAGGLE_AGENT_INPUT_FILE`
-- `KAGGLE_AGENT_OUTPUT_FILE`
+`build-submission` now writes a usable bundle:
 
-Additional stage-specific environment variables may be provided.
+- `candidate_manifest.json`
+- `candidate.md`
+- `bundle_runner.py`
+- `notebook.ipynb`
+- `kernel-metadata.json`
+- `dry_run.json`
 
-If no adapter command is configured, the system falls back to internal heuristic research/decision/planning logic.
+The local dry-run writes a `submission.csv` from the competition sample format so the bundle is contract-checked before any human-gated online push.

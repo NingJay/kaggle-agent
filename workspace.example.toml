@@ -1,7 +1,6 @@
 notes = [
-  "Three-plane architecture: control plane, decision plane, BirdCLEF runtime.",
-  "Primary control flow uses decision briefs, decision records, and generated configs.",
-  "Perch-head baseline is the runtime spine; debug runs use the mock backbone for smoke coverage.",
+  "BirdCLEF Evidence Research OS with a strict stage graph and ledger-backed reports.",
+  "The runtime stays BirdCLEF-specific, while the orchestration layer remains lightly generic.",
 ]
 
 [competition]
@@ -9,7 +8,8 @@ name = "BirdCLEF 2026"
 slug = "birdclef-2026"
 url = "https://www.kaggle.com/competitions/birdclef-2026"
 track = "code_competition"
-description = "AI-driven autonomous BirdCLEF research system with a deterministic control plane and model-driven decision plane."
+description = "Agent-primary BirdCLEF research workspace."
+contract = "birdclef_2026"
 
 [metrics]
 primary = "soundscape_macro_roc_auc"
@@ -33,6 +33,8 @@ artifact_dir = "artifacts"
 legacy_dir = "legacy"
 runtime_dir = "BirdCLEF-2026-Codebase"
 knowledge_dir = "knowledge"
+prompt_dir = "prompts"
+report_dir = "reports"
 
 [automation]
 monitor_interval_seconds = 600
@@ -42,11 +44,16 @@ default_timeout_minutes = 180
 max_active_runs = 1
 auto_execute_plans = true
 auto_start_planned_runs = true
+strict_stage_graph = true
 
 [adapters]
+evidence_command = ""
+report_command = ""
 research_command = ""
 decision_command = ""
 planner_command = ""
+codegen_command = ""
+critic_command = ""
 submission_command = ""
 
 [runtime]
@@ -59,6 +66,12 @@ generated_config_dir = "BirdCLEF-2026-Codebase/configs/generated"
 [kaggle]
 username = "your-kaggle-username"
 model_dataset_id = "your-kaggle-username/birdclef2026-model"
-kernel_slug = "birdclef-2026-agent-inference"
-enable_gpu = true
+kernel_slug = "birdclef-2026-research-os"
+enable_gpu = false
+enable_internet = false
 is_private = true
+cpu_submission_only = true
+scored_max_runtime_minutes = 90
+max_daily_submissions = 5
+max_final_submissions = 2
+dataset_sources = ["your-kaggle-username/birdclef2026-model"]

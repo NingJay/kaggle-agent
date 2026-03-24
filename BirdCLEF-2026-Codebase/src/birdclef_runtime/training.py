@@ -9,7 +9,6 @@ from typing import Any
 import yaml
 
 from birdclef_runtime.backends import build_backbone
-from birdclef_runtime.cached_probe import run_cached_probe_experiment
 from birdclef_runtime.data import Sample, build_dataset
 from birdclef_runtime.metrics import macro_roc_auc, padded_cmap, sigmoid
 
@@ -118,6 +117,8 @@ def run_training(config: dict[str, Any], runtime_root: Path) -> dict[str, Any]:
     run_dir, mirrored_dir = _prepare_output_dirs(config, runtime_root)
 
     if backend == "sklearn_cached_probe":
+        from birdclef_runtime.cached_probe import run_cached_probe_experiment
+
         cached_probe = run_cached_probe_experiment(config, runtime_root, run_dir)
         metrics = cached_probe["metrics"]
         primary_metric = str(

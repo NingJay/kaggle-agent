@@ -6,8 +6,9 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from kaggle_agent.control.store import find_experiment, find_run
-from kaggle_agent.schema import ExperimentSpec, RunRecord, WorkspaceConfig, WorkspaceState
+from kaggle_agent.control.scheduler import ensure_seed_spec, register_experiment_for_work_item
+from kaggle_agent.control.store import find_run, find_work_item
+from kaggle_agent.schema import RunRecord, SpecRecord, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_text, now_utc_iso, truncate
 
 
@@ -42,42 +43,6 @@ def choose_idle_gpu() -> str | None:
     return None
 
 
-def _launch_script(config: WorkspaceConfig, experiment: ExperimentSpec, run: RunRecord) -> str:
-    config_path = str((config.root / experiment.config_path).resolve())
-    exit_code_path = str(Path(run.run_dir) / "exit_code.txt")
-    runtime_overrides = _runtime_overrides(config)
-    env_exports = [
-        f"export KAGGLE_AGENT_WORKSPACE_ROOT={shlex.quote(str(config.root))}",
-        f"export KAGGLE_AGENT_EXPERIMENT_ID={shlex.quote(experiment.id)}",
-        f"export KAGGLE_AGENT_RUN_ID={shlex.quote(run.run_id)}",
-        f"export KAGGLE_AGENT_RUN_DIR={shlex.quote(run.run_dir)}",
-        f"export KAGGLE_AGENT_PRIMARY_METRIC={shlex.quote(config.metrics.primary)}",
-        f"export KAGGLE_AGENT_SECONDARY_METRICS={shlex.quote(json.dumps(config.metrics.secondary))}",
-    ]
-    if run.gpu_id:
-        env_exports.append(f"export CUDA_VISIBLE_DEVICES={shlex.quote(run.gpu_id)}")
-    lines = ["#!/usr/bin/env bash", "set +e"]
-    if config.runtime.shell_init.strip():
-        lines.append(config.runtime.shell_init)
-    if config.runtime.conda_env.strip():
-        lines.append(f"conda activate {shlex.quote(config.runtime.conda_env)}")
-    override_args = " ".join(shlex.quote(item) for item in runtime_overrides)
-    python_command = f"python {shlex.quote(config.runtime.train_entrypoint)} --config {shlex.quote(config_path)}"
-    if override_args:
-        python_command = f"{python_command} {override_args}"
-    lines.extend(
-        [
-            f"cd {shlex.quote(config.runtime.train_workdir)}",
-            *env_exports,
-            python_command,
-            "status=$?",
-            f"echo \"$status\" > {shlex.quote(exit_code_path)}",
-            "exit \"$status\"",
-        ]
-    )
-    return "\n".join(lines) + "\n"
-
-
 def _runtime_overrides(config: WorkspaceConfig) -> list[str]:
     overrides = [
         f"paths.data_root={Path(config.data.root).expanduser().resolve()}",
@@ -96,32 +61,88 @@ def _runtime_overrides(config: WorkspaceConfig) -> list[str]:
     return overrides
 
 
-def _next_run_id(state: WorkspaceState, experiment: ExperimentSpec) -> str:
-    run_id = f"run-{state.runtime.next_run_number:04d}-{experiment.id.replace('exp-', '')}"
+def _next_run_id(state: WorkspaceState, work_item_id: str) -> str:
+    suffix = work_item_id.replace("workitem-", "")
+    run_id = f"run-{state.runtime.next_run_number:04d}-{suffix}"
     state.runtime.next_run_number += 1
     return run_id
+
+
+def _validated_spec_for_work_item(state: WorkspaceState, work_item) -> SpecRecord | None:
+    if work_item.latest_spec_id:
+        direct = next((item for item in state.specs if item.spec_id == work_item.latest_spec_id and item.status == "validated"), None)
+        if direct is not None:
+            return direct
+    candidates = [item for item in state.specs if item.work_item_id == work_item.id and item.status == "validated"]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (item.updated_at, item.spec_id))
+    return candidates[-1]
+
+
+def _launch_script(config: WorkspaceConfig, work_item_id: str, spec: SpecRecord, run: RunRecord) -> str:
+    config_path = Path(spec.config_path)
+    if not config_path.is_absolute():
+        config_path = config.root / config_path
+    exit_code_path = Path(run.run_dir) / "exit_code.txt"
+    runtime_overrides = _runtime_overrides(config)
+    env_exports = [
+        f"export KAGGLE_AGENT_WORKSPACE_ROOT={shlex.quote(str(config.root))}",
+        f"export KAGGLE_AGENT_WORK_ITEM_ID={shlex.quote(work_item_id)}",
+        f"export KAGGLE_AGENT_EXPERIMENT_ID={shlex.quote(run.experiment_id)}",
+        f"export KAGGLE_AGENT_RUN_ID={shlex.quote(run.run_id)}",
+        f"export KAGGLE_AGENT_RUN_DIR={shlex.quote(run.run_dir)}",
+        f"export KAGGLE_AGENT_SPEC_ID={shlex.quote(spec.spec_id)}",
+        f"export KAGGLE_AGENT_PRIMARY_METRIC={shlex.quote(config.metrics.primary)}",
+        f"export KAGGLE_AGENT_SECONDARY_METRICS={shlex.quote(json.dumps(config.metrics.secondary))}",
+    ]
+    if run.gpu_id:
+        env_exports.append(f"export CUDA_VISIBLE_DEVICES={shlex.quote(run.gpu_id)}")
+    lines = ["#!/usr/bin/env bash", "set +e"]
+    if config.runtime.shell_init.strip():
+        lines.append(config.runtime.shell_init)
+    if config.runtime.conda_env.strip():
+        lines.append(f"conda activate {shlex.quote(config.runtime.conda_env)}")
+    override_args = " ".join(shlex.quote(item) for item in runtime_overrides)
+    python_command = f"python {shlex.quote(config.runtime.train_entrypoint)} --config {shlex.quote(str(config_path))}"
+    if override_args:
+        python_command = f"{python_command} {override_args}"
+    lines.extend(
+        [
+            f"cd {shlex.quote(config.runtime.train_workdir)}",
+            *env_exports,
+            python_command,
+            "status=$?",
+            f"echo \"$status\" > {shlex.quote(str(exit_code_path))}",
+            "exit \"$status\"",
+        ]
+    )
+    return "\n".join(lines) + "\n"
 
 
 def start_run(
     config: WorkspaceConfig,
     state: WorkspaceState,
-    experiment_id: str,
+    work_item_id: str,
     *,
     background: bool = True,
 ) -> RunRecord:
-    experiment = find_experiment(state, experiment_id)
-    runtime_overrides = _runtime_overrides(config)
-    run_id = _next_run_id(state, experiment)
+    work_item = find_work_item(state, work_item_id)
+    spec = _validated_spec_for_work_item(state, work_item)
+    if spec is None:
+        spec = ensure_seed_spec(state, work_item)
+    experiment = register_experiment_for_work_item(state, work_item, spec)
+    run_id = _next_run_id(state, work_item.id)
     run_dir = config.run_dir(run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = config.artifact_path("logs", f"{run_id}.log")
     gpu_id = choose_idle_gpu() or ""
-    command = f"python {config.runtime.train_entrypoint} --config {(config.root / experiment.config_path).resolve()}"
-    if runtime_overrides:
-        command = f"{command} {' '.join(runtime_overrides)}"
+    command = f"python {config.runtime.train_entrypoint} --config {spec.config_path}"
     run = RunRecord(
         run_id=run_id,
         experiment_id=experiment.id,
+        work_item_id=work_item.id,
+        spec_id=spec.spec_id,
         status="running",
         command=command,
         cwd=config.runtime.train_workdir,
@@ -131,10 +152,15 @@ def start_run(
         gpu_id=gpu_id,
     )
     launch_script = run_dir / "launch.sh"
-    atomic_write_text(launch_script, _launch_script(config, experiment, run))
+    atomic_write_text(launch_script, _launch_script(config, work_item.id, spec, run))
     launch_script.chmod(0o755)
+    work_item.status = "running"
+    work_item.latest_run_id = run.run_id
+    work_item.latest_spec_id = spec.spec_id
+    work_item.updated_at = now_utc_iso()
     experiment.status = "running"
     experiment.latest_run_id = run.run_id
+    experiment.spec_id = spec.spec_id
     experiment.updated_at = now_utc_iso()
     state.runs.append(run)
     state.runtime.active_run_ids.append(run.run_id)
@@ -189,7 +215,8 @@ def collect_finished_runs(config: WorkspaceConfig, state: WorkspaceState) -> lis
 
 def finalize_run(config: WorkspaceConfig, state: WorkspaceState, run_id: str) -> RunRecord:
     run = find_run(state, run_id)
-    experiment = find_experiment(state, run.experiment_id)
+    work_item = find_work_item(state, run.work_item_id)
+    experiment = next(item for item in state.experiments if item.id == run.experiment_id)
     exit_code_path = Path(run.run_dir) / "exit_code.txt"
     result_path = Path(run.run_dir) / "result.json"
     metrics_path = Path(run.run_dir) / "metrics.json"
@@ -212,6 +239,8 @@ def finalize_run(config: WorkspaceConfig, state: WorkspaceState, run_id: str) ->
     secondary = result_payload.get("secondary_metrics", {})
     if isinstance(secondary, dict):
         run.secondary_metrics = {str(key): float(value) for key, value in secondary.items()}
+    run.root_cause = str(result_payload.get("root_cause", run.error or "unknown"))
+    run.verdict = str(result_payload.get("verdict", "unknown"))
     run.status = "succeeded" if exit_code == 0 and result_payload else "failed"
     if run.status == "failed" and not run.error:
         if not exit_code_path.exists() and not result_path.exists():
@@ -224,8 +253,11 @@ def finalize_run(config: WorkspaceConfig, state: WorkspaceState, run_id: str) ->
     experiment.status = "succeeded" if run.status == "succeeded" else "failed"
     experiment.latest_run_id = run.run_id
     experiment.updated_at = now_utc_iso()
-    if not run.post_run_stage:
-        run.post_run_stage = "pending"
-        run.post_run_error = ""
-        run.post_run_updated_at = run.completed_at
+    work_item.latest_run_id = run.run_id
+    work_item.status = "reviewing"
+    work_item.updated_at = now_utc_iso()
+    if not run.stage_cursor:
+        run.stage_cursor = "evidence"
+        run.stage_error = ""
+        run.stage_updated_at = run.completed_at
     return run

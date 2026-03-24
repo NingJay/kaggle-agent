@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from kaggle_agent.decision.helpers import latest_stage_payload
 from kaggle_agent.decision.helpers import load_run_result
 from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_text, ensure_directory
@@ -26,7 +27,6 @@ def read_knowledge_context(config: WorkspaceConfig) -> str:
 
 def write_experiment_conclusions(config: WorkspaceConfig, state: WorkspaceState) -> Path:
     ensure_knowledge_layout(config)
-    decisions_by_run = {decision.source_run_id: decision for decision in state.decisions}
     completed_runs = [run for run in state.runs if run.status in {"succeeded", "failed"}]
     completed_runs.sort(key=lambda item: (item.completed_at, item.run_id))
 
@@ -35,9 +35,9 @@ def write_experiment_conclusions(config: WorkspaceConfig, state: WorkspaceState)
         lines.append("- No completed experiments yet.")
     for run in completed_runs:
         result = load_run_result(run)
-        decision = decisions_by_run.get(run.run_id)
+        decision = latest_stage_payload(state, run.run_id, "decision")
         verdict = str(result.get("verdict", "unknown"))
-        root_cause = decision.root_cause if decision else str(result.get("root_cause", run.error or "unknown"))
+        root_cause = str(decision.get("root_cause") or result.get("root_cause", run.error or "unknown"))
         metric = "-" if run.primary_metric_value is None else f"{run.primary_metric_value:.6f}"
         experiment_id = run.experiment_id
         lines.extend(
