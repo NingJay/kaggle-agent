@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stage",
+    "plan_status",
+    "source_run_id",
+    "reason",
+    "title",
+    "family",
+    "hypothesis",
+    "config_path",
+    "priority",
+    "depends_on",
+    "tags",
+    "launch_mode",
+    "dedupe_key",
+    "work_type",
+    "markdown"
+  ],
+  "properties": {
+    "stage": { "type": "string", "enum": ["plan"] },
+    "plan_status": { "type": "string", "enum": ["planned", "hold", "submission_candidate"] },
+    "source_run_id": { "type": "string" },
+    "reason": { "type": "string" },
+    "title": { "type": "string" },
+    "family": { "type": "string" },
+    "hypothesis": { "type": "string" },
+    "config_path": { "type": "string" },
+    "priority": { "type": "integer" },
+    "depends_on": { "type": "array", "items": { "type": "string" } },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "launch_mode": { "type": "string" },
+    "dedupe_key": { "type": "string" },
+    "work_type": { "type": "string" },
+    "markdown": { "type": "string" }
+  }
+}

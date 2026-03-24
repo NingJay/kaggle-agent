@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stage",
+    "status",
+    "reason",
+    "generated_config_yaml",
+    "patch_diff",
+    "run_bundle",
+    "markdown"
+  ],
+  "properties": {
+    "stage": { "type": "string", "enum": ["codegen"] },
+    "status": { "type": "string", "enum": ["generated", "noop"] },
+    "reason": { "type": "string" },
+    "generated_config_yaml": { "type": "string" },
+    "patch_diff": { "type": "string" },
+    "run_bundle": { "type": "object" },
+    "markdown": { "type": "string" }
+  }
+}

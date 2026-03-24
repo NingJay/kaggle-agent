@@ -269,6 +269,8 @@ class StageRun(_Serializable):
     spec_path: str = ""
     adapter_name: str = ""
     prompt_path: str = ""
+    schema_path: str = ""
+    provider_meta_path: str = ""
     validator_status: str = ""
     error: str = ""
     created_at: str = ""
@@ -283,10 +285,22 @@ class AgentRun(_Serializable):
     adapter_command: str
     prompt_path: str
     status: str
+    provider: str = ""
+    model: str = ""
+    schema_path: str = ""
     output_json_path: str = ""
     output_md_path: str = ""
+    raw_stdout_path: str = ""
+    raw_stderr_path: str = ""
+    raw_event_log_path: str = ""
+    provider_meta_path: str = ""
+    session_id: str = ""
+    thread_id: str = ""
+    exit_code: int | None = None
     log_path: str = ""
     created_at: str = ""
+    started_at: str = ""
+    completed_at: str = ""
 
 
 @dataclass

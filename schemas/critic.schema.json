@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stage",
+    "status",
+    "concerns",
+    "warnings",
+    "required_fixes",
+    "markdown"
+  ],
+  "properties": {
+    "stage": { "type": "string", "enum": ["critic"] },
+    "status": { "type": "string", "enum": ["approved", "rejected", "blocked"] },
+    "concerns": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "required_fixes": { "type": "array", "items": { "type": "string" } },
+    "markdown": { "type": "string" }
+  }
+}

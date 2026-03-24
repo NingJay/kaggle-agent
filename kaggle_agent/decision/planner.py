@@ -182,6 +182,7 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     }
     spec_yaml_path = Path(stage_run.output_dir) / "spec.yaml"
     atomic_write_text(spec_yaml_path, yaml.safe_dump(payload, sort_keys=False))
+    stage_run.spec_path = str(spec_yaml_path)
     markdown = stage_markdown(
         f"Plan {run_id}",
         [

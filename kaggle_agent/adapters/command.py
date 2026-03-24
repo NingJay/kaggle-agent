@@ -13,6 +13,13 @@ class CommandAdapterError(RuntimeError):
     pass
 
 
+class CommandAdapterUnavailable(CommandAdapterError):
+    pass
+
+
+ADAPTER_UNAVAILABLE_EXIT_CODE = 41
+
+
 def run_stage_adapter(
     command: str,
     *,
@@ -44,11 +51,15 @@ def run_stage_adapter(
         check=False,
     )
     combined = completed.stdout + ("\n" if completed.stdout and not completed.stdout.endswith("\n") else "") + completed.stderr
+    if completed.returncode == ADAPTER_UNAVAILABLE_EXIT_CODE:
+        raise CommandAdapterUnavailable(truncate(combined or f"{stage} adapter unavailable"))
     if completed.returncode != 0:
         raise CommandAdapterError(f"{stage} adapter failed: {truncate(combined or 'no output')}")
 
     json_path = output_dir / f"{stage}.json"
     md_path = output_dir / f"{stage}.md"
+    meta_path = output_dir / "provider_meta.json"
+    spec_path = output_dir / "spec.yaml"
     if not json_path.exists():
         if completed.stdout.strip().startswith("{"):
             atomic_write_text(json_path, completed.stdout.strip() + "\n")
@@ -57,7 +68,12 @@ def run_stage_adapter(
     if not md_path.exists():
         summary = combined.strip() or f"{stage} adapter completed without markdown output."
         atomic_write_text(md_path, summary + ("\n" if not summary.endswith("\n") else ""))
-    return {"json_path": json_path, "md_path": md_path}
+    result = {"json_path": json_path, "md_path": md_path}
+    if meta_path.exists():
+        result["meta_path"] = meta_path
+    if spec_path.exists():
+        result["spec_path"] = spec_path
+    return result
 
 
 def parse_json_payload(path_or_text: str | Path) -> dict[str, Any]:

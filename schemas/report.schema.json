@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stage",
+    "headline",
+    "focus",
+    "best_run_id",
+    "best_run_metric",
+    "primary_metric_value",
+    "root_cause",
+    "verdict",
+    "finding_titles",
+    "issue_titles",
+    "markdown"
+  ],
+  "properties": {
+    "stage": { "type": "string", "enum": ["report"] },
+    "headline": { "type": "string" },
+    "focus": { "type": "string" },
+    "best_run_id": { "type": "string" },
+    "best_run_metric": { "type": ["number", "null"] },
+    "primary_metric_value": { "type": ["number", "null"] },
+    "root_cause": { "type": "string" },
+    "verdict": { "type": "string" },
+    "finding_titles": { "type": "array", "items": { "type": "string" } },
+    "issue_titles": { "type": "array", "items": { "type": "string" } },
+    "markdown": { "type": "string" }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stage",
+    "root_cause",
+    "queries",
+    "adopt_now",
+    "consider",
+    "reject",
+    "knowledge_files_seen",
+    "markdown"
+  ],
+  "properties": {
+    "stage": { "type": "string", "enum": ["research"] },
+    "root_cause": { "type": "string" },
+    "queries": { "type": "array", "items": { "type": "string" } },
+    "adopt_now": { "type": "array", "items": { "type": "string" } },
+    "consider": { "type": "array", "items": { "type": "string" } },
+    "reject": { "type": "array", "items": { "type": "string" } },
+    "knowledge_files_seen": { "type": "integer" },
+    "markdown": { "type": "string" }
+  }
+}

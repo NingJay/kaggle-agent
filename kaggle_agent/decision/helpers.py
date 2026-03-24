@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from kaggle_agent.adapters.command import parse_json_payload, run_stage_adapter
+from kaggle_agent.adapters.command import CommandAdapterUnavailable, parse_json_payload, run_stage_adapter
 from kaggle_agent.schema import AgentRun, RunRecord, StageRun, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_json, atomic_write_text, ensure_directory, now_utc_iso, truncate
 
@@ -75,6 +75,11 @@ def prompt_path_for_stage(config: WorkspaceConfig, stage_name: str) -> Path | No
     return path if path.exists() else None
 
 
+def schema_path_for_stage(config: WorkspaceConfig, stage_name: str) -> Path | None:
+    path = config.root / "schemas" / f"{stage_name}.schema.json"
+    return path if path.exists() else None
+
+
 def _work_item_from_run(state: WorkspaceState, run: RunRecord):
     return next((item for item in state.work_items if item.id == run.work_item_id), None)
 
@@ -102,6 +107,7 @@ def begin_stage_run(
         output_json_path=str(output_dir / f"{stage_name}.json"),
         output_md_path=str(output_dir / f"{stage_name}.md"),
         prompt_path=str(prompt_path) if prompt_path is not None else "",
+        schema_path=str(schema_path_for_stage(config, stage_name) or ""),
         created_at=now_utc_iso(),
         updated_at=now_utc_iso(),
     )
@@ -129,12 +135,50 @@ def register_agent_run(
         agent_role=agent_role,
         adapter_command=command,
         prompt_path=stage_run.prompt_path,
+        schema_path=stage_run.schema_path,
         status="running",
         created_at=now_utc_iso(),
+        started_at=now_utc_iso(),
     )
     state.runtime.next_agent_run_number += 1
     state.agent_runs.append(agent_run)
     return agent_run
+
+
+def _read_meta_payload(path: Path | None) -> dict[str, Any]:
+    if path is None or not path.exists():
+        return {}
+    payload = load_json_file(path)
+    return payload if isinstance(payload, dict) else {}
+
+
+def _apply_provider_metadata(agent_run: AgentRun, stage_run: StageRun, result: dict[str, Path]) -> None:
+    meta_path = result.get("meta_path")
+    meta = _read_meta_payload(meta_path if isinstance(meta_path, Path) else None)
+    if isinstance(meta_path, Path) and meta_path.exists():
+        stage_run.provider_meta_path = str(meta_path)
+        agent_run.provider_meta_path = str(meta_path)
+    if "spec_path" in result and isinstance(result["spec_path"], Path):
+        stage_run.spec_path = str(result["spec_path"])
+    if meta:
+        agent_run.provider = str(meta.get("provider", ""))
+        agent_run.model = str(meta.get("model", ""))
+        agent_run.schema_path = str(meta.get("schema_path", agent_run.schema_path))
+        agent_run.raw_stdout_path = str(meta.get("raw_stdout_path", ""))
+        agent_run.raw_stderr_path = str(meta.get("raw_stderr_path", ""))
+        agent_run.raw_event_log_path = str(meta.get("raw_event_log_path", ""))
+        agent_run.session_id = str(meta.get("session_id", ""))
+        agent_run.thread_id = str(meta.get("thread_id", ""))
+        if meta.get("exit_code") is not None:
+            try:
+                agent_run.exit_code = int(meta["exit_code"])
+            except (TypeError, ValueError):
+                agent_run.exit_code = None
+        agent_run.started_at = str(meta.get("started_at", agent_run.started_at))
+        agent_run.completed_at = str(meta.get("completed_at", ""))
+        stage_run.schema_path = str(meta.get("schema_path", stage_run.schema_path))
+    else:
+        agent_run.completed_at = now_utc_iso()
 
 
 def complete_stage_run(
@@ -203,11 +247,18 @@ def run_configured_stage_adapter(
         agent_run.status = "completed"
         agent_run.output_json_path = str(result["json_path"])
         agent_run.output_md_path = str(result["md_path"])
+        _apply_provider_metadata(agent_run, stage_run, result)
         payload = load_json_file(result["json_path"])
         markdown = result["md_path"].read_text(encoding="utf-8")
         stage_run.adapter_name = adapter_field
         return payload, markdown
+    except CommandAdapterUnavailable as error:
+        agent_run.status = "skipped"
+        agent_run.log_path = truncate(str(error), limit=800)
+        agent_run.completed_at = now_utc_iso()
+        return None
     except Exception as error:  # noqa: BLE001
         agent_run.status = "failed"
         agent_run.log_path = truncate(str(error), limit=800)
+        agent_run.completed_at = now_utc_iso()
         raise

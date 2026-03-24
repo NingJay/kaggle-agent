@@ -1,0 +1,121 @@
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from kaggle_agent.adapters.command import parse_json_payload
+from kaggle_agent.adapters.providers import ProviderResponse, ProviderUnavailable
+
+
+CODEX_BINARY = "codex"
+
+
+def _first_string(obj: Any, key: str) -> str:
+    if isinstance(obj, dict):
+        value = obj.get(key)
+        if isinstance(value, str) and value:
+            return value
+        for item in obj.values():
+            found = _first_string(item, key)
+            if found:
+                return found
+    elif isinstance(obj, list):
+        for item in obj:
+            found = _first_string(item, key)
+            if found:
+                return found
+    return ""
+
+
+def run_codex_exec(
+    *,
+    prompt: str,
+    schema_path: Path,
+    workspace_root: Path,
+    output_dir: Path,
+) -> ProviderResponse:
+    binary = shutil.which(CODEX_BINARY)
+    if not binary:
+        raise ProviderUnavailable("codex binary is not available on PATH")
+
+    codex_api_key = os.environ.get("CODEX_API_KEY", "").strip()
+    openai_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not codex_api_key and not openai_api_key:
+        raise ProviderUnavailable("CODEX_API_KEY or OPENAI_API_KEY is not set")
+
+    response_path = output_dir / "provider_response.json"
+    env = os.environ.copy()
+    if not codex_api_key and openai_api_key:
+        env["CODEX_API_KEY"] = openai_api_key
+
+    args = [
+        binary,
+        "exec",
+        "--skip-git-repo-check",
+        "--sandbox",
+        "read-only",
+        "--output-schema",
+        str(schema_path),
+        "--output-last-message",
+        str(response_path),
+        "--json",
+        "--ephemeral",
+        "-C",
+        str(workspace_root),
+        "-",
+    ]
+    model = os.environ.get("KAGGLE_AGENT_CODEX_MODEL", "").strip()
+    if model:
+        args[2:2] = ["--model", model]
+
+    completed = subprocess.run(
+        args,
+        input=prompt,
+        capture_output=True,
+        text=True,
+        cwd=workspace_root,
+        env=env,
+        check=False,
+    )
+    if completed.returncode != 0:
+        stderr = (completed.stderr or completed.stdout or "codex invocation failed").strip()
+        raise RuntimeError(stderr)
+    if not response_path.exists():
+        raise RuntimeError("codex did not write provider_response.json")
+    payload = parse_json_payload(response_path)
+    if not isinstance(payload, dict):
+        raise RuntimeError("codex did not return a structured object")
+
+    session_id = ""
+    thread_id = ""
+    for line in completed.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not session_id:
+            session_id = _first_string(event, "session_id")
+        if not thread_id:
+            thread_id = _first_string(event, "thread_id")
+    if not session_id and thread_id:
+        session_id = thread_id
+
+    return ProviderResponse(
+        provider="codex",
+        model=model,
+        session_id=session_id,
+        thread_id=thread_id,
+        payload=payload,
+        raw_stdout=completed.stdout,
+        raw_stderr=completed.stderr,
+        event_log_text=completed.stdout,
+        exit_code=completed.returncode,
+    )
+

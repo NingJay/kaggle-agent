@@ -27,6 +27,40 @@ work_item
 
 The runtime stays BirdCLEF-specific by default through `train_sed.py` and `BirdCLEF-2026-Codebase/`, but the orchestration kernel remains lightly generic.
 
+## Headless Adapters
+
+The default adapter routing is now:
+
+- `report`, `research`, `decision` -> Claude Code headless
+- `plan`, `codegen` -> Codex `exec`
+- `critic` -> Claude Code headless with optional Amp sidecar
+- `evidence`, `validate`, and scored submission bundling stay deterministic
+
+The wrappers live at `kaggle_agent.adapters.stage_wrapper` and consume the existing stage contract:
+
+- `KAGGLE_AGENT_STAGE`
+- `KAGGLE_AGENT_WORKSPACE_ROOT`
+- `KAGGLE_AGENT_INPUT_MANIFEST`
+- `KAGGLE_AGENT_OUTPUT_DIR`
+- `KAGGLE_AGENT_PROMPT_FILE`
+
+Each wrapper writes:
+
+- `<stage>.json`
+- `<stage>.md`
+- `provider_meta.json`
+- `raw_stdout.txt`
+- `raw_stderr.txt`
+- `events.jsonl` when the provider supports event streaming
+
+Recommended environment variables:
+
+- `ANTHROPIC_API_KEY` for Claude-backed stages
+- `CODEX_API_KEY` or `OPENAI_API_KEY` for Codex-backed stages
+- `AMP_API_KEY` for the optional Amp critic sidecar
+
+If a provider binary or required API key is missing, the wrapper exits with a soft-skip code and the existing deterministic fallback takes over. If the provider returns malformed JSON or violates the stage schema, the stage fails hard.
+
 ## Core Surface
 
 ```text
