@@ -105,6 +105,7 @@ def _build_mapping_context(
     *,
     labels: list[str],
     targets: np.ndarray,
+    soundscape_targets: np.ndarray | None = None,
     taxonomy: pd.DataFrame,
     runtime_root: Path,
     config: dict[str, Any],
@@ -116,7 +117,8 @@ def _build_mapping_context(
         family_groups.setdefault(class_name_map.get(label, "Unknown"), []).append(index)
     family_idx_map = {name: np.array(indices, dtype=np.int32) for name, indices in family_groups.items()}
 
-    active_mask = targets.sum(axis=0) > 0
+    all_targets = soundscape_targets if soundscape_targets is not None else targets
+    active_mask = all_targets.sum(axis=0) > 0
     active_indices = np.where(active_mask)[0].astype(np.int32)
     idx_active_texture = np.array(
         [index for index in active_indices if class_name_map.get(labels[index]) in TEXTURE_TAXA],
@@ -372,6 +374,13 @@ def _smooth_cols(scores: np.ndarray, columns: np.ndarray, *, windows_per_file: i
     return smoothed
 
 
+def _gaussian_smooth(scores: np.ndarray, weights: np.ndarray, windows_per_file: int) -> np.ndarray:
+    smoothed = scores.reshape(-1, windows_per_file, scores.shape[1]).copy()
+    for i in range(smoothed.shape[0]):
+        smoothed[i] = convolve1d(smoothed[i], weights, axis=0, mode="nearest")
+    return smoothed.reshape(-1, scores.shape[1])
+
+
 def _fuse_scores(
     base_scores: np.ndarray,
     *,
@@ -507,6 +516,219 @@ def _group_kfold(groups: np.ndarray, n_splits: int) -> GroupKFold:
 def _macro_auc(targets: np.ndarray, predictions: np.ndarray) -> float:
     active_mask = targets.sum(axis=0) > 0
     return float(roc_auc_score(targets[:, active_mask], predictions[:, active_mask], average="macro"))
+
+
+def _create_site_holdout(
+    sites: np.ndarray,
+    filenames: np.ndarray,
+    *,
+    holdout_fraction: float = 0.20,
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """Deterministic site-level holdout split.
+
+    Holds out ~holdout_fraction of fully-labeled files by site, avoiding
+    dominant sites (>40 % of files) to keep the training set representative.
+    """
+    sites_str = np.array([str(s) for s in sites])
+    filenames_str = np.array([str(f) for f in filenames])
+    unique_sites = sorted(set(sites_str))
+    files_per_site: dict[str, int] = {}
+    for site in unique_sites:
+        files_per_site[site] = len(set(filenames_str[sites_str == site]))
+
+    total_files = sum(files_per_site.values())
+    target = max(1, round(total_files * holdout_fraction))
+
+    candidates = [s for s in unique_sites if files_per_site[s] <= total_files * 0.4]
+    if not candidates:
+        candidates = list(unique_sites)
+
+    rng = np.random.RandomState(seed)
+    perm = rng.permutation(len(candidates))
+    candidates = [candidates[i] for i in perm]
+
+    val_sites: list[str] = []
+    count = 0
+    for site in candidates:
+        val_sites.append(site)
+        count += files_per_site[site]
+        if count >= target:
+            break
+
+    val_set = set(val_sites)
+    val_mask = np.array([s in val_set for s in sites_str])
+    return ~val_mask, val_mask, sorted(val_sites)
+
+
+def _evaluate_holdout(
+    *,
+    embeddings: np.ndarray,
+    raw_scores: np.ndarray,
+    targets: np.ndarray,
+    train_mask: np.ndarray,
+    val_mask: np.ndarray,
+    val_sites: list[str],
+    meta_df: pd.DataFrame,
+    filenames: np.ndarray,
+    soundscape_df: pd.DataFrame,
+    soundscape_targets: np.ndarray,
+    mapping: MappingContext,
+    pca_dim: int,
+    min_pos: int,
+    probe_c: float,
+    max_iter: int,
+    use_raw_scores: bool,
+    probe_alpha: float,
+    lambda_event: float,
+    lambda_texture: float,
+    lambda_proxy_texture: float,
+    smooth_texture_alpha: float,
+    windows_per_file: int,
+    use_prototype_similarity: bool,
+    use_family_mean: bool,
+    use_sequential_features: bool,
+    final_gaussian_smoothing: bool,
+    gaussian_weights: np.ndarray,
+) -> dict[str, Any]:
+    """Fit the full Bayesian-prior + probe pipeline on train-split data only,
+    then score the held-out val-split to produce a leak-free validation metric
+    comparable to SED experiments' SS Val AUC.
+    """
+    val_site_set = set(val_sites)
+    train_sc_mask = ~soundscape_df["site"].astype(str).isin(val_site_set).values
+    tables = _fit_prior_tables(
+        soundscape_df[train_sc_mask].reset_index(drop=True),
+        soundscape_targets[train_sc_mask],
+    )
+
+    train_idx = np.where(train_mask)[0]
+    val_idx = np.where(val_mask)[0]
+
+    train_base, train_prior = _fuse_scores(
+        raw_scores[train_mask],
+        sites=meta_df.iloc[train_idx]["site"].to_numpy(),
+        hours=meta_df.iloc[train_idx]["hour_utc"].to_numpy(),
+        tables=tables,
+        mapping=mapping,
+        lambda_event=lambda_event,
+        lambda_texture=lambda_texture,
+        lambda_proxy_texture=lambda_proxy_texture,
+        smooth_texture_alpha=smooth_texture_alpha,
+        windows_per_file=windows_per_file,
+    )
+    val_base, val_prior = _fuse_scores(
+        raw_scores[val_mask],
+        sites=meta_df.iloc[val_idx]["site"].to_numpy(),
+        hours=meta_df.iloc[val_idx]["hour_utc"].to_numpy(),
+        tables=tables,
+        mapping=mapping,
+        lambda_event=lambda_event,
+        lambda_texture=lambda_texture,
+        lambda_proxy_texture=lambda_proxy_texture,
+        smooth_texture_alpha=smooth_texture_alpha,
+        windows_per_file=windows_per_file,
+    )
+
+    scaler = StandardScaler()
+    scaled_train = scaler.fit_transform(embeddings[train_mask])
+    n_components = max(1, min(pca_dim, scaled_train.shape[0] - 1, scaled_train.shape[1]))
+    pca = PCA(n_components=n_components)
+    reduced_train = pca.fit_transform(scaled_train).astype(np.float32)
+    reduced_val = pca.transform(scaler.transform(embeddings[val_mask])).astype(np.float32)
+
+    train_targets = targets[train_mask]
+    prototypes = (
+        _build_class_prototypes(reduced_train, train_targets, min_pos=min_pos)
+        if use_prototype_similarity
+        else {}
+    )
+
+    positive_counts = train_targets.sum(axis=0)
+    models: dict[int, LogisticRegression] = {}
+    all_train_local = np.arange(train_mask.sum())
+
+    for class_index in np.where(positive_counts >= min_pos)[0]:
+        class_targets = train_targets[:, class_index]
+        if class_targets.sum() == 0 or class_targets.sum() == len(class_targets):
+            continue
+        proto_sim = None
+        if use_prototype_similarity and class_index in prototypes:
+            proto_sim = _cosine_sim_to_prototype(reduced_train, prototypes[class_index])
+        family_mean = (
+            _family_mean_features(class_index, train_base, mapping, all_train_local)
+            if use_family_mean
+            else None
+        )
+        features = _build_class_features(
+            reduced_train,
+            raw_scores=raw_scores[train_mask, class_index],
+            prior_scores=train_prior[:, class_index],
+            base_scores=train_base[:, class_index],
+            windows_per_file=windows_per_file,
+            use_raw_scores=use_raw_scores,
+            use_prior_scores=True,
+            use_sequential_features=use_sequential_features,
+            prototype_similarity=proto_sim,
+            family_mean=family_mean,
+        )
+        clf = LogisticRegression(C=probe_c, max_iter=max_iter, solver="liblinear", class_weight="balanced")
+        clf.fit(features, class_targets)
+        models[int(class_index)] = clf
+
+    val_predictions = val_base.copy()
+    all_val_local = np.arange(val_mask.sum())
+
+    for class_index, clf in models.items():
+        proto_sim = None
+        if use_prototype_similarity and class_index in prototypes:
+            proto_sim = _cosine_sim_to_prototype(reduced_val, prototypes[class_index])
+        family_mean = (
+            _family_mean_features(class_index, val_base, mapping, all_val_local)
+            if use_family_mean
+            else None
+        )
+        features = _build_class_features(
+            reduced_val,
+            raw_scores=raw_scores[val_mask, class_index],
+            prior_scores=val_prior[:, class_index],
+            base_scores=val_base[:, class_index],
+            windows_per_file=windows_per_file,
+            use_raw_scores=use_raw_scores,
+            use_prior_scores=True,
+            use_sequential_features=use_sequential_features,
+            prototype_similarity=proto_sim,
+            family_mean=family_mean,
+        )
+        probe_logits = clf.decision_function(features).astype(np.float32)
+        val_predictions[:, class_index] = (
+            (1.0 - probe_alpha) * val_base[:, class_index] + probe_alpha * probe_logits
+        )
+
+    if final_gaussian_smoothing:
+        val_predictions = _gaussian_smooth(val_predictions, gaussian_weights, windows_per_file)
+
+    val_targets = targets[val_mask]
+    try:
+        prior_auc = float(_macro_auc(val_targets, val_base))
+    except ValueError:
+        prior_auc = float("nan")
+    try:
+        val_auc = float(_macro_auc(val_targets, val_predictions))
+    except ValueError:
+        val_auc = float("nan")
+
+    filenames_str = np.array([str(f) for f in filenames])
+    return {
+        "val_soundscape_macro_roc_auc": val_auc,
+        "val_prior_fusion_macro_roc_auc": prior_auc,
+        "val_files": int(len(set(filenames_str[val_mask]))),
+        "val_windows": int(val_mask.sum()),
+        "val_sites": val_sites,
+        "val_fitted_classes": len(models),
+        "train_files": int(len(set(filenames_str[train_mask]))),
+        "train_windows": int(train_mask.sum()),
+    }
 
 
 def _fit_reference_pipeline(
@@ -714,6 +936,7 @@ def run_cached_probe_experiment(config: dict[str, Any], runtime_root: Path, run_
     mapping = _build_mapping_context(
         labels=labels,
         targets=targets,
+        soundscape_targets=soundscape_targets,
         taxonomy=taxonomy,
         runtime_root=runtime_root,
         config=config,
@@ -765,15 +988,64 @@ def run_cached_probe_experiment(config: dict[str, Any], runtime_root: Path, run_
             use_family_mean=use_family_mean,
             use_sequential_features=use_sequential_features,
         )
-        macro_auc = float(reference_result["macro_auc"])
+        oof_macro_auc = float(reference_result["macro_auc"])
         prior_auc = float(reference_result["prior_macro_auc"])
         oof_predictions = reference_result["oof_predictions"]
         scaler = reference_result["scaler"]
         pca = reference_result["pca"]
+        reduced = reference_result["reduced_embeddings"]
+
+        final_tables = reference_result["final_tables"]
+        full_base, full_prior = _fuse_scores(
+            raw_scores,
+            sites=meta_df["site"].to_numpy(),
+            hours=meta_df["hour_utc"].to_numpy(),
+            tables=final_tables,
+            mapping=mapping,
+            lambda_event=lambda_event,
+            lambda_texture=lambda_texture,
+            lambda_proxy_texture=lambda_proxy_texture,
+            smooth_texture_alpha=smooth_texture_alpha,
+            windows_per_file=windows_per_file,
+        )
+        full_predictions = full_base.copy()
+        full_prototypes = reference_result["class_prototypes"]
+        for class_index, clf in models.items():
+            proto_sim = None
+            if use_prototype_similarity and class_index in full_prototypes:
+                proto_sim = _cosine_sim_to_prototype(reduced, full_prototypes[class_index])
+            family_mean_val = (
+                _family_mean_features(class_index, full_base, mapping, np.arange(len(full_base)))
+                if use_family_mean
+                else None
+            )
+            features = _build_class_features(
+                reduced,
+                raw_scores=raw_scores[:, class_index],
+                prior_scores=full_prior[:, class_index],
+                base_scores=full_base[:, class_index],
+                windows_per_file=windows_per_file,
+                use_raw_scores=use_raw_scores,
+                use_prior_scores=True,
+                use_sequential_features=use_sequential_features,
+                prototype_similarity=proto_sim,
+                family_mean=family_mean_val,
+            )
+            probe_logits = clf.decision_function(features).astype(np.float32)
+            full_predictions[:, class_index] = (
+                (1.0 - probe_alpha) * full_base[:, class_index] + probe_alpha * probe_logits
+            )
+        if final_gaussian_smoothing:
+            full_predictions = _gaussian_smooth(full_predictions, gaussian_weights, windows_per_file)
+
+        macro_auc = _macro_auc(targets, full_predictions)
         fitted_classes = len(models)
-        extra_metrics = {"prior_fusion_macro_roc_auc": prior_auc}
+        extra_metrics = {
+            "prior_fusion_macro_roc_auc": prior_auc,
+            "oof_probe_macro_roc_auc": oof_macro_auc,
+        }
     else:
-        oof_predictions, scaler, pca, fitted_classes = _fit_oof_probe(
+        oof_predictions, scaler, pca, oof_fitted = _fit_oof_probe(
             embeddings,
             raw_scores,
             targets,
@@ -785,7 +1057,7 @@ def run_cached_probe_experiment(config: dict[str, Any], runtime_root: Path, run_
             n_splits=probe_group_folds,
             use_raw_scores=use_raw_scores,
         )
-        macro_auc = _macro_auc(targets, oof_predictions)
+        oof_macro_auc = _macro_auc(targets, oof_predictions)
         prior_auc = None
         reduced_embeddings = pca.transform(scaler.transform(embeddings)).astype(np.float32)
         models = _fit_full_models(
@@ -797,16 +1069,70 @@ def run_cached_probe_experiment(config: dict[str, Any], runtime_root: Path, run_
             max_iter=max_iter,
             use_raw_scores=use_raw_scores,
         )
+        full_predictions = raw_scores.copy()
+        for class_index, clf in models.items():
+            features = reduced_embeddings
+            if use_raw_scores:
+                features = np.concatenate([features, raw_scores[:, class_index : class_index + 1]], axis=1)
+            full_predictions[:, class_index] = clf.predict_proba(features)[:, 1].astype(np.float32)
+        macro_auc = _macro_auc(targets, full_predictions)
         reference_result = {
             "oof_base": raw_scores.astype(np.float32),
             "oof_prior": np.zeros_like(raw_scores, dtype=np.float32),
             "final_tables": {},
             "class_prototypes": {},
         }
-        extra_metrics = {}
+        fitted_classes = len(models)
+        extra_metrics = {"oof_probe_macro_roc_auc": oof_macro_auc}
 
     cmap = float(padded_cmap(targets.tolist(), oof_predictions.tolist()))
     active_classes = int(mapping.active_mask.sum())
+
+    validation_holdout = bool(training_cfg.get("validation_holdout", True))
+    holdout_fraction = float(training_cfg.get("validation_holdout_fraction", 0.20))
+    holdout_seed = int(training_cfg.get("validation_holdout_seed", 42))
+    holdout_result: dict[str, Any] | None = None
+
+    if validation_holdout and reference_pipeline:
+        filenames_arr = aligned_truth["filename"].to_numpy()
+        train_mask_h, val_mask_h, val_sites = _create_site_holdout(
+            groups,
+            filenames_arr,
+            holdout_fraction=holdout_fraction,
+            seed=holdout_seed,
+        )
+        if val_mask_h.sum() >= windows_per_file and val_mask_h.sum() % windows_per_file == 0:
+            holdout_result = _evaluate_holdout(
+                embeddings=embeddings,
+                raw_scores=raw_scores,
+                targets=targets,
+                train_mask=train_mask_h,
+                val_mask=val_mask_h,
+                val_sites=val_sites,
+                meta_df=meta_df,
+                filenames=filenames_arr,
+                soundscape_df=soundscape_df,
+                soundscape_targets=soundscape_targets,
+                mapping=mapping,
+                pca_dim=probe_pca_dim,
+                min_pos=probe_min_pos,
+                probe_c=probe_c,
+                max_iter=max_iter,
+                use_raw_scores=use_raw_scores,
+                probe_alpha=probe_alpha,
+                lambda_event=lambda_event,
+                lambda_texture=lambda_texture,
+                lambda_proxy_texture=lambda_proxy_texture,
+                smooth_texture_alpha=smooth_texture_alpha,
+                windows_per_file=windows_per_file,
+                use_prototype_similarity=use_prototype_similarity,
+                use_family_mean=use_family_mean,
+                use_sequential_features=use_sequential_features,
+                final_gaussian_smoothing=final_gaussian_smoothing,
+                gaussian_weights=gaussian_weights,
+            )
+            extra_metrics["val_soundscape_macro_roc_auc"] = holdout_result["val_soundscape_macro_roc_auc"]
+            extra_metrics["val_prior_fusion_macro_roc_auc"] = holdout_result["val_prior_fusion_macro_roc_auc"]
 
     oof_path = run_dir / "oof_predictions.npz"
     np.savez_compressed(
@@ -911,27 +1237,54 @@ def run_cached_probe_experiment(config: dict[str, Any], runtime_root: Path, run_
                 f"- prior_fusion_macro_roc_auc={prior_auc:.6f}",
             ]
         )
+    oof_auc_val = extra_metrics.get("oof_probe_macro_roc_auc")
     summary_lines.extend(
         [
-            f"- soundscape_macro_roc_auc={macro_auc:.6f}",
+            f"- soundscape_macro_roc_auc={macro_auc:.6f} (full-pipeline resubstitution)",
+            f"- oof_probe_macro_roc_auc={oof_auc_val:.6f}" if oof_auc_val is not None else "",
             f"- padded_cmap={cmap:.6f}",
         ]
     )
+    if holdout_result:
+        summary_lines.extend(
+            [
+                "",
+                f"### Holdout Validation (sites: {', '.join(holdout_result['val_sites'])})",
+                f"- Train: {holdout_result['train_files']} files ({holdout_result['train_windows']} windows)",
+                f"- Val: {holdout_result['val_files']} files ({holdout_result['val_windows']} windows)",
+                f"- val_soundscape_macro_roc_auc={holdout_result['val_soundscape_macro_roc_auc']:.6f}",
+                f"- val_prior_fusion_macro_roc_auc={holdout_result['val_prior_fusion_macro_roc_auc']:.6f}",
+                f"- Val fitted classes: {holdout_result['val_fitted_classes']}",
+            ]
+        )
+    summary_lines = [line for line in summary_lines if line]
     summary_markdown = "\n".join(summary_lines)
 
+    # Use holdout validation as primary metric if available, otherwise prior fusion OOF
+    if holdout_result:
+        primary_metric_name = "val_soundscape_macro_roc_auc"
+        primary_metric_value = holdout_result["val_soundscape_macro_roc_auc"]
+    else:
+        primary_metric_name = "prior_fusion_macro_roc_auc"
+        primary_metric_value = prior_auc
+
     metrics = {
-        "soundscape_macro_roc_auc": macro_auc,
+        "soundscape_macro_roc_auc": macro_auc,  # Keep for backward compatibility
         "padded_cmap": cmap,
         **extra_metrics,
     }
+    if holdout_result:
+        metrics["val_soundscape_macro_roc_auc"] = primary_metric_value
+    else:
+        metrics["prior_fusion_macro_roc_auc"] = primary_metric_value
     root_cause = _root_cause(
         macro_auc,
         len(models),
         active_classes,
         reference_pipeline=reference_pipeline,
     )
-    threshold = float(config.get("metrics", {}).get("submission_candidate_threshold", 0.75))
-    verdict = "submission-candidate" if macro_auc >= threshold else "baseline-ready"
+    # Perch pipeline requires Kaggle submission for true validation
+    verdict = "submission-required"
     return {
         "metrics": metrics,
         "artifacts": {

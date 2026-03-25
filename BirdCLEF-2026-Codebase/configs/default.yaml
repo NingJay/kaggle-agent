@@ -3,7 +3,7 @@ experiment:
   seed: 42
 
 paths:
-  data_root: ./birdclef-2026
+  data_root: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/dataset
   output_root: ./outputs
 
 data:
@@ -14,7 +14,7 @@ data:
   train_soundscapes_dir: train_soundscapes
   train_soundscapes_labels_csv: train_soundscapes_labels.csv
   test_soundscapes_dir: test_soundscapes
-  perch_cache_dir: ""
+  perch_cache_dir: "/home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/input/perch-meta"
 
 model:
   backbone_provider: perch_saved_model
@@ -46,6 +46,8 @@ training:
 metrics:
   primary: soundscape_macro_roc_auc
   secondary:
+    - val_soundscape_macro_roc_auc
     - padded_cmap
     - prior_fusion_macro_roc_auc
+    - val_prior_fusion_macro_roc_auc
   submission_candidate_threshold: 0.85
