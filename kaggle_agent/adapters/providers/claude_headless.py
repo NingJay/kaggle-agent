@@ -42,8 +42,6 @@ def run_claude_headless(
     binary = shutil.which(CLAUDE_BINARY)
     if not binary:
         raise ProviderUnavailable("claude binary is not available on PATH")
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise ProviderUnavailable("ANTHROPIC_API_KEY is not set")
 
     args = [
         binary,
@@ -94,4 +92,3 @@ def run_claude_headless(
         raw_stderr=completed.stderr,
         exit_code=completed.returncode,
     )
-

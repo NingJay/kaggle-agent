@@ -53,13 +53,13 @@ Each wrapper writes:
 - `raw_stderr.txt`
 - `events.jsonl` when the provider supports event streaming
 
-Recommended environment variables:
+Optional environment variables when you are not already logged into the local CLIs:
 
 - `ANTHROPIC_API_KEY` for Claude-backed stages
 - `CODEX_API_KEY` or `OPENAI_API_KEY` for Codex-backed stages
 - `AMP_API_KEY` for the optional Amp critic sidecar
 
-If a provider binary or required API key is missing, the wrapper exits with a soft-skip code and the existing deterministic fallback takes over. If the provider returns malformed JSON or violates the stage schema, the stage fails hard.
+If a provider binary is missing, the wrapper exits with a soft-skip code and the existing deterministic fallback takes over. Claude/Codex can also run off local CLI login state without explicit env vars. If the provider returns malformed JSON or violates the stage schema, the stage fails hard.
 
 ## Core Surface
 

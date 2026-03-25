@@ -24,15 +24,28 @@ model:
 
 training:
   backend: sklearn_cached_probe
+  reference_bayesian_pipeline: true
   probe_pca_dim: 32
   probe_min_pos: 8
   probe_c: 0.25
+  probe_alpha: 0.40
   probe_group_folds: 5
   probe_use_raw_scores: true
+  probe_use_sequential_features: true
+  probe_use_prototype_similarity: true
+  probe_use_family_mean: true
+  prior_lambda_event: 0.4
+  prior_lambda_texture: 1.0
+  prior_lambda_proxy_texture: 0.8
+  smooth_texture_alpha: 0.35
+  final_gaussian_smoothing: true
+  gaussian_weights: [0.1, 0.2, 0.4, 0.2, 0.1]
+  windows_per_file: 12
   max_iter: 400
 
 metrics:
   primary: soundscape_macro_roc_auc
   secondary:
     - padded_cmap
-  submission_candidate_threshold: 0.75
+    - prior_fusion_macro_roc_auc
+  submission_candidate_threshold: 0.85

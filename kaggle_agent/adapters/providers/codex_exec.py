@@ -44,9 +44,6 @@ def run_codex_exec(
 
     codex_api_key = os.environ.get("CODEX_API_KEY", "").strip()
     openai_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not codex_api_key and not openai_api_key:
-        raise ProviderUnavailable("CODEX_API_KEY or OPENAI_API_KEY is not set")
-
     response_path = output_dir / "provider_response.json"
     env = os.environ.copy()
     if not codex_api_key and openai_api_key:
@@ -118,4 +115,3 @@ def run_codex_exec(
         event_log_text=completed.stdout,
         exit_code=completed.returncode,
     )
-

@@ -66,7 +66,7 @@ def _assistant_summary(stream_json: str) -> tuple[str, str]:
 
 def run_amp_probe(*, prompt: str, workspace_root: Path) -> AmpProbeResult | None:
     binary = shutil.which(AMP_BINARY)
-    if not binary or not os.environ.get("AMP_API_KEY"):
+    if not binary:
         return None
     args = [
         binary,
@@ -83,6 +83,8 @@ def run_amp_probe(*, prompt: str, workspace_root: Path) -> AmpProbeResult | None
         cwd=workspace_root,
         check=False,
     )
+    if completed.returncode != 0:
+        return None
     summary, thread_id = _assistant_summary(completed.stdout)
     return AmpProbeResult(
         summary=summary,
@@ -92,4 +94,3 @@ def run_amp_probe(*, prompt: str, workspace_root: Path) -> AmpProbeResult | None
         event_log_text=completed.stdout,
         exit_code=completed.returncode,
     )
-
