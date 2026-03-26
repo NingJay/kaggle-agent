@@ -3,8 +3,5 @@
 Keep durable wins and losses here.
 
 <!-- AUTO-GENERATED:START -->
-- `run-0001-perch-debug-smoke` | Perch-head debug smoke completed | soundscape_macro_roc_auc=0.5 and verdict baseline-ready.
-- `run-0002-perch-baseline` | Perch cached-probe baseline completed | soundscape_macro_roc_auc=0.6422972534243081 and verdict baseline-ready.
-- `run-0003-0001-reference-notebook-baseline` | Reference notebook baseline completed | soundscape_macro_roc_auc=0.5196243178556774 and verdict baseline-ready.
-- `run-0004-0002-perch-fixed-baseline-v1` | perch fixed baseline v1 completed | val_soundscape_macro_roc_auc=0.6648795952507471 and verdict submission-required.
+- No findings yet.
 <!-- AUTO-GENERATED:END -->
