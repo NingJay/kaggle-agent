@@ -1,24 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 from kaggle_agent.adapters.command import CommandAdapterUnavailable, parse_json_payload, run_stage_adapter
+from kaggle_agent.layout import STAGE_SEQUENCE, current_attempt_slug, run_label, stage_label
 from kaggle_agent.schema import AgentRun, RunRecord, StageRun, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_json, atomic_write_text, ensure_directory, now_utc_iso, truncate
-
-
-STAGE_SEQUENCE = [
-    "evidence",
-    "report",
-    "research",
-    "decision",
-    "plan",
-    "codegen",
-    "critic",
-    "validate",
-    "submission",
-]
 
 STAGE_TO_ADAPTER_FIELD = {
     "evidence": "evidence_command",
@@ -94,7 +83,16 @@ def begin_stage_run(
 ) -> tuple[StageRun, Path]:
     stage_run_id = f"stage-{state.runtime.next_stage_number:04d}-{stage_name}"
     state.runtime.next_stage_number += 1
-    output_dir = ensure_directory(config.stage_dir(stage_name, stage_run_id))
+    work_item = _work_item_from_run(state, run)
+    attempt_slug = current_attempt_slug(state.runtime)
+    readable_run_label = run_label(run.run_id, work_item.title if work_item is not None else run.experiment_id)
+    output_dir = ensure_directory(
+        config.stage_dir(
+            attempt_slug,
+            readable_run_label,
+            stage_label(stage_name, stage_status="running"),
+        )
+    )
     prompt_path = prompt_path_for_stage(config, stage_name)
     stage_run = StageRun(
         stage_run_id=stage_run_id,
@@ -119,6 +117,85 @@ def begin_stage_run(
         work_item.latest_stage_run_id = stage_run.stage_run_id
         work_item.updated_at = stage_run.updated_at
     return stage_run, output_dir / "input_manifest.json"
+
+
+def _rebase_stage_path(path_value: str, old_dir: Path, new_dir: Path) -> str:
+    if not path_value:
+        return path_value
+    path = Path(path_value)
+    try:
+        return str(new_dir / path.relative_to(old_dir))
+    except ValueError:
+        return path_value
+
+
+def _relocate_stage_output(
+    state: WorkspaceState | None,
+    stage_run: StageRun,
+    *,
+    payload: dict[str, Any] | None = None,
+    status: str,
+    validator_status: str = "",
+) -> tuple[Path, Path]:
+    old_dir = Path(stage_run.output_dir)
+    new_dir = old_dir.parent / stage_label(
+        stage_run.stage_name,
+        payload,
+        stage_status=status,
+        validator_status=validator_status,
+    )
+    if new_dir == old_dir:
+        return old_dir, new_dir
+    if old_dir.exists():
+        ensure_directory(new_dir.parent)
+        old_dir.rename(new_dir)
+    stage_run.output_dir = str(new_dir)
+    stage_run.output_json_path = _rebase_stage_path(stage_run.output_json_path, old_dir, new_dir)
+    stage_run.output_md_path = _rebase_stage_path(stage_run.output_md_path, old_dir, new_dir)
+    stage_run.spec_path = _rebase_stage_path(stage_run.spec_path, old_dir, new_dir)
+    stage_run.provider_meta_path = _rebase_stage_path(stage_run.provider_meta_path, old_dir, new_dir)
+    if state is None:
+        return old_dir, new_dir
+    for agent_run in state.agent_runs:
+        if agent_run.stage_run_id != stage_run.stage_run_id:
+            continue
+        agent_run.output_json_path = _rebase_stage_path(agent_run.output_json_path, old_dir, new_dir)
+        agent_run.output_md_path = _rebase_stage_path(agent_run.output_md_path, old_dir, new_dir)
+        agent_run.raw_stdout_path = _rebase_stage_path(agent_run.raw_stdout_path, old_dir, new_dir)
+        agent_run.raw_stderr_path = _rebase_stage_path(agent_run.raw_stderr_path, old_dir, new_dir)
+        agent_run.raw_event_log_path = _rebase_stage_path(agent_run.raw_event_log_path, old_dir, new_dir)
+        agent_run.provider_meta_path = _rebase_stage_path(agent_run.provider_meta_path, old_dir, new_dir)
+    for spec in state.specs:
+        if spec.source_stage_run_id == stage_run.stage_run_id:
+            spec.payload_path = _rebase_stage_path(spec.payload_path, old_dir, new_dir)
+    for validation in state.validations:
+        if validation.source_stage_run_id != stage_run.stage_run_id:
+            continue
+        validation.output_json_path = _rebase_stage_path(validation.output_json_path, old_dir, new_dir)
+        validation.output_md_path = _rebase_stage_path(validation.output_md_path, old_dir, new_dir)
+    for json_path in new_dir.rglob("*.json"):
+        _rewrite_json_file_paths(json_path, old_dir, new_dir)
+    return old_dir, new_dir
+
+
+def _rebase_payload_paths(value: Any, old_dir: Path, new_dir: Path) -> Any:
+    if isinstance(value, str):
+        return _rebase_stage_path(value, old_dir, new_dir)
+    if isinstance(value, list):
+        return [_rebase_payload_paths(item, old_dir, new_dir) for item in value]
+    if isinstance(value, dict):
+        return {key: _rebase_payload_paths(item, old_dir, new_dir) for key, item in value.items()}
+    return value
+
+
+def _rewrite_json_file_paths(path: Path, old_dir: Path, new_dir: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+    atomic_write_json(path, _rebase_payload_paths(payload, old_dir, new_dir))
 
 
 def register_agent_run(
@@ -184,20 +261,24 @@ def _apply_provider_metadata(agent_run: AgentRun, stage_run: StageRun, result: d
 def complete_stage_run(
     stage_run: StageRun,
     *,
+    state: WorkspaceState | None = None,
     payload: dict[str, Any],
     markdown: str,
     status: str = "completed",
     validator_status: str = "",
 ) -> None:
-    atomic_write_json(Path(stage_run.output_json_path), payload)
+    old_dir, new_dir = _relocate_stage_output(state, stage_run, payload=payload, status=status, validator_status=validator_status)
+    persisted_payload = _rebase_payload_paths(payload, old_dir, new_dir)
+    atomic_write_json(Path(stage_run.output_json_path), persisted_payload)
     atomic_write_text(Path(stage_run.output_md_path), markdown if markdown.endswith("\n") else markdown + "\n")
     stage_run.status = status
     stage_run.validator_status = validator_status
     stage_run.updated_at = now_utc_iso()
 
 
-def fail_stage_run(stage_run: StageRun, error: Exception | str) -> None:
+def fail_stage_run(stage_run: StageRun, error: Exception | str, *, state: WorkspaceState | None = None) -> None:
     message = truncate(str(error), limit=800)
+    _relocate_stage_output(state, stage_run, status="failed")
     stage_run.status = "failed"
     stage_run.error = message
     stage_run.updated_at = now_utc_iso()

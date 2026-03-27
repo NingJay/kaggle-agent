@@ -4,6 +4,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
+from kaggle_agent.layout import DEFAULT_ATTEMPT_SLUG, ROOT_SURFACE_DOC_NAMES
 from kaggle_agent.schema import (
     AgentRun,
     ExperimentSpec,
@@ -44,7 +45,12 @@ STATE_TABLES = list(TABLE_TO_MODEL.keys())
 
 def _default_runtime_state() -> RuntimeState:
     timestamp = now_utc_iso()
-    return RuntimeState(initialized_at=timestamp, last_tick_at=timestamp, last_report_at=timestamp)
+    return RuntimeState(
+        initialized_at=timestamp,
+        last_tick_at=timestamp,
+        last_report_at=timestamp,
+        current_attempt_slug=DEFAULT_ATTEMPT_SLUG,
+    )
 
 
 def _open_ledger(config: WorkspaceConfig) -> sqlite3.Connection:
@@ -128,23 +134,12 @@ def ensure_layout(config: WorkspaceConfig) -> None:
     ensure_directory(config.export_root())
     ensure_directory(config.snapshot_root())
     ensure_directory(config.artifact_root())
+    ensure_directory(config.attempts_root())
+    ensure_directory(config.artifact_path("submissions"))
     ensure_directory(config.report_root())
     ensure_directory(config.legacy_root())
     ensure_directory(config.knowledge_root())
     ensure_directory(config.prompt_root())
-    for category in [
-        "runs",
-        "evidence",
-        "reports",
-        "research",
-        "decisions",
-        "plans",
-        "codegen",
-        "validations",
-        "submissions",
-        "logs",
-    ]:
-        ensure_directory(config.artifact_path(category))
     for category in ["research", "papers"]:
         ensure_directory(config.knowledge_path(category))
     ensure_directory(config.generated_config_root())
@@ -170,18 +165,6 @@ def _default_work_items(config: WorkspaceConfig) -> list[WorkItem]:
     timestamp = now_utc_iso()
     return [
         WorkItem(
-            id="workitem-perch-debug-smoke",
-            title="Perch-head debug smoke",
-            work_type="experiment_iteration",
-            family="perch_head_debug",
-            priority=10,
-            config_path=str((config.runtime_root() / "configs" / "debug.yaml").relative_to(config.root)),
-            pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
-            dedupe_key="seed:perch-debug-smoke",
-            created_at=timestamp,
-            updated_at=timestamp,
-        ),
-        WorkItem(
             id="workitem-perch-baseline",
             title="Perch cached-probe baseline",
             work_type="experiment_iteration",
@@ -189,7 +172,6 @@ def _default_work_items(config: WorkspaceConfig) -> list[WorkItem]:
             priority=20,
             config_path=str((config.runtime_root() / "configs" / "default.yaml").relative_to(config.root)),
             pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
-            depends_on=["workitem-perch-debug-smoke"],
             dedupe_key="seed:perch-baseline",
             created_at=timestamp,
             updated_at=timestamp,
@@ -274,12 +256,22 @@ def save_state(config: WorkspaceConfig, state: WorkspaceState) -> None:
     _snapshot_state(config, state)
 
 
+def _clear_workspace_state(config: WorkspaceConfig) -> None:
+    for path in [config.artifact_root(), config.state_root(), config.report_root()]:
+        if path.exists():
+            shutil.rmtree(path)
+    for name in ROOT_SURFACE_DOC_NAMES:
+        doc_path = config.root_doc_path(name)
+        if doc_path.exists():
+            doc_path.unlink()
+
+
 def initialize_workspace(config: WorkspaceConfig, archive_legacy: bool = True, force: bool = False) -> WorkspaceState:
-    if archive_legacy:
+    if force:
+        _clear_workspace_state(config)
+    elif archive_legacy:
         archive_legacy_artifacts(config)
     ensure_layout(config)
-    if force and config.ledger_path().exists():
-        config.ledger_path().unlink()
     _ensure_ledger(config)
     state = load_state(config)
     if force:

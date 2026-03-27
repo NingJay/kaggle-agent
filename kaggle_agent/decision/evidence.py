@@ -122,7 +122,7 @@ def build_evidence(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     )
     if adapted is not None:
         payload, markdown = adapted
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
 
     primary_metric = run.primary_metric_name or str(result.get("primary_metric_name", config.metrics.primary))
@@ -164,7 +164,7 @@ def build_evidence(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     if result.get("summary_markdown"):
         lines.extend(["", "## Runtime Summary", str(result["summary_markdown"])])
     markdown = stage_markdown(f"Evidence Bundle {run.run_id}", lines)
-    complete_stage_run(stage_run, payload=payload, markdown=markdown)
+    complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
 
     if run.primary_metric_value is not None:
         _record_metric(

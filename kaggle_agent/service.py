@@ -7,9 +7,10 @@ from typing import Any
 from kaggle_agent.config import load_workspace_config
 from kaggle_agent.control.monitor import maybe_start_next_run, process_completed_runs, tick_workspace, watch_workspace
 from kaggle_agent.control.reporting import ensure_surface_files, write_reports
-from kaggle_agent.control.scheduler import queue_config_experiment, runnable_work_items
+from kaggle_agent.control.scheduler import queue_config_experiment, register_work_item, runnable_work_items
 from kaggle_agent.control.store import initialize_workspace, load_state, save_state
 from kaggle_agent.control.submission import build_submission_candidate, dry_run_submission_candidate, plan_submission_slots
+from kaggle_agent.layout import current_attempt_slug
 from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import workspace_lock
 
@@ -109,6 +110,27 @@ def enqueue_config(
     with workspace_lock(config.lock_path()):
         state = load_state(config)
         queue_config_experiment(config, state, config_path, title=title, family=family, priority=priority)
+        write_reports(config, state)
+        save_state(config, state)
+        return state
+
+
+def enqueue_preflight(config: WorkspaceConfig, *, priority: int = 5) -> WorkspaceState:
+    with workspace_lock(config.lock_path()):
+        state = load_state(config)
+        attempt_slug = current_attempt_slug(state.runtime)
+        debug_config = str((config.runtime_root() / "configs" / "debug.yaml").relative_to(config.root))
+        register_work_item(
+            state,
+            title=f"Preflight debug check for {attempt_slug}",
+            work_type="preflight_check",
+            family="perch_head_debug",
+            config_path=debug_config,
+            priority=priority,
+            pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
+            dedupe_key=f"manual:preflight:{attempt_slug}",
+            notes=["Explicit preflight work item. Does not gate the baseline queue."],
+        )
         write_reports(config, state)
         save_state(config, state)
         return state

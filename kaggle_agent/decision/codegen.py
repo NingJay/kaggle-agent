@@ -35,7 +35,7 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     )
     if adapted is not None:
         payload, markdown = adapted
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
 
     plan_status = str(plan.get("plan_status", "hold"))
@@ -52,7 +52,7 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             f"Codegen {run_id}",
             [f"- Status: `noop`", f"- Reason: {payload['reason']}"],
         )
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
 
     config_path = Path(str(plan["config_path"]))
@@ -88,5 +88,5 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             f"- Run bundle: `{run_bundle_path}`",
         ],
     )
-    complete_stage_run(stage_run, payload=payload, markdown=markdown)
+    complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     return stage_run

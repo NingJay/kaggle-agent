@@ -101,7 +101,7 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     )
     if adapted is not None:
         payload, markdown = adapted
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
 
     next_action = str(decision.get("next_action", "hold"))
@@ -113,7 +113,7 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "reason": decision.get("why", "No automatic action scheduled."),
         }
         markdown = stage_markdown(f"Plan {run_id}", [f"- Status: `hold`", f"- Reason: {payload['reason']}"])
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
 
     if next_action == "submit_candidate":
@@ -127,7 +127,7 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             f"Plan {run_id}",
             [f"- Status: `submission_candidate`", f"- Reason: {payload['reason']}"],
         )
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
 
     source_config_path = Path(str(decision.get("next_config_path", experiment.config_path)))
@@ -193,5 +193,5 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             f"- Hypothesis: {hypothesis}",
         ],
     )
-    complete_stage_run(stage_run, payload=payload, markdown=markdown)
+    complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     return stage_run

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from kaggle_agent.control.submission import plan_submission_slots
 from kaggle_agent.knowledge import write_experiment_conclusions
+from kaggle_agent.layout import artifact_relative_path, current_attempt_slug, run_label_from_path, stage_label_from_path
 from kaggle_agent.schema import RunRecord, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_text, ensure_directory, replace_between_markers
 
@@ -124,32 +125,54 @@ def _replace_auto_block(config: WorkspaceConfig, name: str, content: str) -> Non
     atomic_write_text(path, updated)
 
 
+def _latest_stage_label(state: WorkspaceState, stage_run_id: str) -> str:
+    if not stage_run_id:
+        return "n/a"
+    stage_run = next((item for item in state.stage_runs if item.stage_run_id == stage_run_id), None)
+    if stage_run is None:
+        return "n/a"
+    return stage_label_from_path(
+        stage_run.output_dir,
+        stage_run.stage_name,
+        stage_status=stage_run.status,
+        validator_status=stage_run.validator_status,
+    )
+
+
 def _surface_updates(config: WorkspaceConfig, state: WorkspaceState) -> None:
-    checklist = []
+    attempt_slug = current_attempt_slug(state.runtime)
+    checklist = [f"- Current attempt: `{attempt_slug}`", ""]
     for work_item in sorted(state.work_items, key=lambda item: (item.priority, item.created_at, item.id)):
+        run_display = next((run_label_from_path(run.run_dir) for run in state.runs if run.run_id == work_item.latest_run_id), "") or "n/a"
         checklist.append(
-            f"- [{ 'x' if work_item.status in {'complete', 'submitted'} else ' ' }] `{work_item.id}` | {work_item.status} | p{work_item.priority} | {work_item.title}"
+            f"- [{'x' if work_item.status in {'complete', 'submitted'} else ' '}] `{work_item.id}` | {work_item.status} | p{work_item.priority} | {work_item.title} | run={run_display} | stage={_latest_stage_label(state, work_item.latest_stage_run_id)}"
         )
     _replace_auto_block(config, "CHECKLIST.md", "\n".join(checklist) or "- No queued work items.")
 
-    journal = []
+    journal = [f"- Current attempt: `{attempt_slug}`", ""]
     for run in state.runs[-12:]:
+        latest_stage_label = _latest_stage_label(state, run.latest_stage_run_id)
         journal.append(
-            f"- `{run.run_id}` | {run.status} | cursor={run.stage_cursor or 'n/a'} | metric={run.primary_metric_name}={run.primary_metric_value}"
+            f"- `{run_label_from_path(run.run_dir) or run.run_id}` | {run.status} | cursor={run.stage_cursor or 'n/a'} | latest_stage={latest_stage_label} | metric={run.primary_metric_name}={run.primary_metric_value}"
         )
     _replace_auto_block(config, "JOURNAL.md", "\n".join(journal) or "- No runs yet.")
 
-    findings = [f"- `{item.run_id}` | {item.title} | {item.summary}" for item in state.findings[-20:]]
+    findings = [f"- Current attempt: `{attempt_slug}`", ""]
+    findings.extend(f"- `{item.run_id}` | {item.title} | {item.summary}" for item in state.findings[-20:])
     _replace_auto_block(config, "FINDINGS.md", "\n".join(findings) or "- No findings yet.")
 
-    issues = [f"- `{item.run_id}` | {item.title} | {item.summary}" for item in state.issues[-20:]]
+    issues = [f"- Current attempt: `{attempt_slug}`", ""]
+    issues.extend(f"- `{item.run_id}` | {item.title} | {item.summary}" for item in state.issues[-20:])
     _replace_auto_block(config, "ISSUES.md", "\n".join(issues) or "- No issues yet.")
 
     slot_plan = plan_submission_slots(config, state)
-    submissions = [
+    submissions = [f"- Current attempt: `{attempt_slug}`", ""]
+    submissions.extend(
+        [
         f"- `{item.id}` | {item.status} | cpu_ready={item.cpu_ready} | pred_lb={item.predicted_public_lb}"
         for item in state.submissions[-20:]
-    ]
+        ]
+    )
     submissions.extend(
         [
             "",
@@ -163,9 +186,11 @@ def _surface_updates(config: WorkspaceConfig, state: WorkspaceState) -> None:
 def _overview_markdown(config: WorkspaceConfig, state: WorkspaceState) -> str:
     leader = best_run(state)
     slot_plan = plan_submission_slots(config, state)
+    attempt_slug = current_attempt_slug(state.runtime)
     lines = [
         f"# {config.competition.name} Research OS",
         "",
+        f"- Current attempt: `{attempt_slug}`",
         f"- Competition: {config.competition.url}",
         f"- Active runs: {', '.join(state.runtime.active_run_ids) if state.runtime.active_run_ids else 'none'}",
         f"- Work items: {len(state.work_items)}",
@@ -181,7 +206,7 @@ def _overview_markdown(config: WorkspaceConfig, state: WorkspaceState) -> str:
     else:
         lines.extend(
             [
-                f"- Run: `{leader.run_id}`",
+                f"- Run: `{run_label_from_path(leader.run_dir) or leader.run_id}`",
                 f"- Experiment: `{leader.experiment_id}`",
                 f"- Metric: `{leader.primary_metric_name}={leader.primary_metric_value:.6f}`",
                 f"- Verdict: `{leader.verdict}`",
@@ -244,21 +269,22 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
         (
             "Situation",
             "<ul>"
+            f"<li>Current attempt: {html.escape(current_attempt_slug(state.runtime))}</li>"
             f"<li>Active runs: {html.escape(', '.join(state.runtime.active_run_ids) if state.runtime.active_run_ids else 'none')}</li>"
             f"<li>Queued work items: {len([item for item in state.work_items if item.status == 'queued'])}</li>"
             f"<li>Completed work items: {len([item for item in state.work_items if item.status in {'complete', 'submitted'}])}</li>"
             f"<li>Remaining daily slots: {slot_plan['remaining_daily_slots']}</li>"
             "</ul>",
         ),
-        (
-            "Best Run",
             (
-                "<p>No successful run yet.</p>"
-                if leader is None
-                else f"<p><strong>{html.escape(leader.run_id)}</strong><br>{html.escape(leader.experiment_id)}"
-                f"<br>{html.escape(leader.primary_metric_name)}={leader.primary_metric_value:.6f}</p>"
+                "Best Run",
+                (
+                    "<p>No successful run yet.</p>"
+                    if leader is None
+                    else f"<p><strong>{html.escape(run_label_from_path(leader.run_dir) or leader.run_id)}</strong><br>{html.escape(leader.experiment_id)}"
+                    f"<br>{html.escape(leader.primary_metric_name)}={leader.primary_metric_value:.6f}</p>"
+                ),
             ),
-        ),
         (
             "Next Priorities",
             "<ul>" + "".join(
@@ -281,7 +307,7 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
     ) or "<tr><td colspan='5'>No experiments</td></tr>"
     run_rows = "".join(
         "<tr>"
-        f"<td>{html.escape(item.run_id)}</td>"
+        f"<td>{html.escape(run_label_from_path(item.run_dir) or item.run_id)}</td>"
         f"<td>{html.escape(item.status)}</td>"
         f"<td>{html.escape(item.stage_cursor or 'complete')}</td>"
         f"<td>{html.escape(item.primary_metric_name)}</td>"

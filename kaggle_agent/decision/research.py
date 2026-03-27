@@ -88,7 +88,7 @@ def build_research(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     )
     if adapted is not None:
         payload, markdown = adapted
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     else:
         payload = _default_research_payload(
             str(report_payload.get("root_cause", run.root_cause or run.error or "missing context")),
@@ -108,7 +108,7 @@ def build_research(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         if payload["reject"]:
             lines.extend(["", "## Reject For Now", *(f"- {item}" for item in payload["reject"])])
         markdown = stage_markdown(f"Research Summary {run_id}", lines)
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
 
     note_payload = latest_stage_payload(state, run_id, "research")
     summary = "; ".join(str(item) for item in note_payload.get("adopt_now", [])) or "no structured research actions"

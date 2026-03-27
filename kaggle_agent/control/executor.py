@@ -8,6 +8,7 @@ from pathlib import Path
 
 from kaggle_agent.control.scheduler import ensure_seed_spec, register_experiment_for_work_item
 from kaggle_agent.control.store import find_run, find_work_item
+from kaggle_agent.layout import current_attempt_slug, run_label
 from kaggle_agent.schema import RunRecord, SpecRecord, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_text, now_utc_iso, truncate
 
@@ -133,9 +134,11 @@ def start_run(
         spec = ensure_seed_spec(state, work_item)
     experiment = register_experiment_for_work_item(state, work_item, spec)
     run_id = _next_run_id(state, work_item.id)
-    run_dir = config.run_dir(run_id)
+    attempt_slug = current_attempt_slug(state.runtime)
+    readable_run_label = run_label(run_id, work_item.title)
+    run_dir = config.run_runtime_dir(attempt_slug, readable_run_label)
     run_dir.mkdir(parents=True, exist_ok=True)
-    log_path = config.artifact_path("logs", f"{run_id}.log")
+    log_path = config.run_log_path(attempt_slug, readable_run_label)
     gpu_id = choose_idle_gpu() or ""
     command = f"python {config.runtime.train_entrypoint} --config {spec.config_path}"
     run = RunRecord(

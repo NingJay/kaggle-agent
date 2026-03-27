@@ -61,7 +61,7 @@ submission_command = ""
 
 [runtime]
 conda_env = "kaggle-agent"
-shell_init = "source /path/to/miniconda3/etc/profile.d/conda.sh"
+shell_init = "source /home/staff/jiayining/miniconda3/etc/profile.d/conda.sh"
 train_workdir = "/abs/path/to/kaggle_agent"
 train_entrypoint = "train_sed.py"
 generated_config_dir = "BirdCLEF-2026-Codebase/configs/generated"

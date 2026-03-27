@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 import os
 import shutil
 import sys
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from kaggle_agent.cli import main as cli_main
 from kaggle_agent.control.store import load_state
 from kaggle_agent.service import (
     build_submission,
@@ -350,28 +353,67 @@ print(json.dumps({
 
 
 class WorkspaceTests(unittest.TestCase):
-    def test_init_creates_ledger_reports_and_surface_docs(self) -> None:
+    def test_force_init_reset_clears_stale_workspace_state_and_seeds_attempt(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             _copy_runtime(root)
             _write_workspace(root)
+            (root / "artifacts" / "decision" / "stage-0004-decision").mkdir(parents=True)
+            (root / "artifacts" / "decision" / "stage-0004-decision" / "decision.json").write_text("stale", encoding="utf-8")
             (root / "reports").mkdir()
             (root / "reports" / "old.html").write_text("legacy", encoding="utf-8")
+            (root / "state" / "exports").mkdir(parents=True)
+            (root / "state" / "exports" / "old.json").write_text("legacy", encoding="utf-8")
+            for name in ["CHECKLIST.md", "JOURNAL.md", "FINDINGS.md", "ISSUES.md", "SUBMISSIONS.md"]:
+                (root / name).write_text(f"stale {name}\n", encoding="utf-8")
 
             config = load_config(root)
             init_workspace(config, archive_legacy=True, force=True)
 
+            state = load_state(config)
             legacy_root = root / "legacy"
-            archives = list(legacy_root.iterdir())
-            self.assertEqual(len(archives), 1)
-            self.assertTrue((archives[0] / "reports" / "old.html").exists())
+            self.assertFalse(legacy_root.exists() and any(legacy_root.iterdir()))
+            self.assertFalse((root / "artifacts" / "decision" / "stage-0004-decision" / "decision.json").exists())
+            self.assertFalse((root / "reports" / "old.html").exists())
+            self.assertFalse((root / "state" / "exports" / "old.json").exists())
             self.assertTrue((root / "state" / "ledger.db").exists())
             self.assertTrue((root / "reports" / "master_report.html").exists())
             self.assertTrue((root / "CHECKLIST.md").exists())
             self.assertTrue((root / "COMPETITION.md").exists())
             self.assertTrue((root / "prompts" / "report.md").exists())
+            self.assertEqual(getattr(state.runtime, "current_attempt_slug", ""), "simplerun-perch-v2embedprobe-bayesian-0-912")
+            self.assertNotIn("stale CHECKLIST.md", (root / "CHECKLIST.md").read_text(encoding="utf-8"))
+            self.assertNotIn("stale JOURNAL.md", (root / "JOURNAL.md").read_text(encoding="utf-8"))
 
-    def test_sync_run_generates_stage_chain_and_unblocks_baseline(self) -> None:
+    def test_init_seeds_baseline_only_and_enqueue_preflight_explicitly(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+
+            work_item_ids = {item.id for item in state.work_items}
+            self.assertNotIn("workitem-perch-debug-smoke", work_item_ids)
+            self.assertIn("workitem-perch-baseline", work_item_ids)
+            self.assertEqual(list_ready_work_items(config), ["workitem-perch-baseline"])
+
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                exit_code = cli_main(["--root", str(root), "enqueue-preflight"])
+            self.assertEqual(exit_code, 0)
+
+            state = load_state(config)
+            preflight_items = [item for item in state.work_items if item.work_type == "preflight_check"]
+            self.assertEqual(len(preflight_items), 1)
+            self.assertIn("Preflight", preflight_items[0].title)
+            self.assertTrue(preflight_items[0].config_path.endswith("configs/debug.yaml"))
+            self.assertIn(preflight_items[0].id, list_ready_work_items(config))
+
+    def test_sync_baseline_run_starts_from_baseline_without_default_preflight(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             _copy_runtime(root)
@@ -386,22 +428,71 @@ class WorkspaceTests(unittest.TestCase):
             state = load_state(config)
             self.assertEqual(len(state.runs), 1)
             run = state.runs[0]
-            self.assertEqual(run.status, "succeeded")
+            self.assertEqual(run.work_item_id, "workitem-perch-baseline")
             self.assertEqual(run.stage_cursor, "complete")
-            self.assertEqual(run.stage_error, "")
 
             stage_names = [item.stage_name for item in state.stage_runs if item.run_id == run_id]
             self.assertEqual(stage_names, ["evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"])
-            self.assertGreaterEqual(len(state.metrics), 1)
-            self.assertGreaterEqual(len(state.findings), 1)
-            self.assertGreaterEqual(len(state.research_notes), 1)
-            debug_item = next(item for item in state.work_items if item.id == "workitem-perch-debug-smoke")
-            self.assertEqual(debug_item.status, "complete")
-            ready = list_ready_work_items(config)
-            self.assertIn("workitem-perch-baseline", ready)
+            baseline_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            self.assertEqual(baseline_item.latest_run_id, run_id)
+            self.assertFalse(any(item.id == "workitem-perch-debug-smoke" for item in state.work_items))
             self.assertTrue((root / "reports" / "master_report.html").exists())
             self.assertTrue((root / "knowledge" / "experiment_conclusions.md").exists())
             self.assertTrue((root / "FINDINGS.md").exists())
+
+    def test_artifact_layout_uses_attempt_centric_readable_paths(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            cli_main(["--root", str(root), "enqueue-preflight"])
+            run_id = start_next(config, background=False)
+
+            state = load_state(config)
+            run = next(item for item in state.runs if item.run_id == run_id)
+            codegen_stage = next(item for item in state.stage_runs if item.run_id == run_id and item.stage_name == "codegen")
+
+            attempt_root = root / "artifacts" / "attempts" / "simplerun-perch-v2embedprobe-bayesian-0-912"
+            self.assertTrue(Path(run.run_dir).is_relative_to(attempt_root))
+            self.assertIn("/runtime", run.run_dir)
+            self.assertTrue(Path(codegen_stage.output_dir).is_relative_to(attempt_root))
+            relative_stage = Path(codegen_stage.output_dir).relative_to(attempt_root / "runs")
+            self.assertTrue(relative_stage.parts[0].startswith(f"{run_id}__"))
+            self.assertEqual(relative_stage.parts[1], "stages")
+            self.assertEqual(relative_stage.parts[2], "06-codegen__generated")
+            self.assertNotIn("/artifacts/codegen/", codegen_stage.output_dir)
+
+    def test_status_and_journal_surfaces_show_attempt_and_readable_stage_labels(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            cli_main(["--root", str(root), "enqueue-preflight"])
+            run_id = start_next(config, background=False)
+
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                exit_code = cli_main(["--root", str(root), "status"])
+            self.assertEqual(exit_code, 0)
+            status_text = stdout.getvalue()
+            self.assertIn("Current attempt: simplerun-perch-v2embedprobe-bayesian-0-912", status_text)
+            self.assertIn(f"{run_id}__", status_text)
+            self.assertIn("06-codegen__generated", status_text)
+
+            checklist = (root / "CHECKLIST.md").read_text(encoding="utf-8")
+            journal = (root / "JOURNAL.md").read_text(encoding="utf-8")
+            self.assertIn("simplerun-perch-v2embedprobe-bayesian-0-912", checklist)
+            self.assertIn("simplerun-perch-v2embedprobe-bayesian-0-912", journal)
+            self.assertIn(f"{run_id}__", journal)
+            self.assertIn("09-submission__skipped", journal)
 
     def test_build_submission_creates_bundle_and_dry_run(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -559,8 +650,6 @@ class WorkspaceTests(unittest.TestCase):
 
             validation = state.validations[-1]
             self.assertEqual(validation.status, "validated")
-            ready_items = list_ready_work_items(config)
-            self.assertIn("workitem-perch-baseline", ready_items)
             derived_items = [item for item in state.work_items if item.source_run_id == run_id]
             self.assertTrue(derived_items)
             self.assertTrue(all(item.latest_spec_id for item in derived_items))

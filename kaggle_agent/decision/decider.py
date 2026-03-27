@@ -56,7 +56,7 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     )
     if adapted is not None:
         payload, markdown = adapted
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
 
     threshold = _submission_threshold(config, experiment.config_path)
@@ -128,5 +128,5 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             f"- Why: {payload['why']}",
         ],
     )
-    complete_stage_run(stage_run, payload=payload, markdown=markdown)
+    complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     return stage_run

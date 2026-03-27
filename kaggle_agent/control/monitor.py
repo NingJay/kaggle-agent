@@ -39,27 +39,25 @@ def _validated_spec_for_dedupe(state: WorkspaceState, dedupe_key: str) -> SpecRe
 
 
 def _create_or_update_spec(
-    config: WorkspaceConfig,
     state: WorkspaceState,
-    run_id: str,
-    stage_run_id: str,
+    stage_run,
     payload: dict[str, object],
 ) -> SpecRecord:
     existing = _validated_spec_for_dedupe(state, str(payload.get("dedupe_key", "")))
     if existing is not None:
         existing.config_path = str(payload["config_path"])
-        existing.payload_path = str(Path(config.stage_dir("validate", stage_run_id)) / "validate.json")
+        existing.payload_path = stage_run.output_json_path
         existing.updated_at = now_utc_iso()
         return existing
     spec = SpecRecord(
         spec_id=f"spec-{state.runtime.next_spec_number:04d}",
-        work_item_id=f"derived:{run_id}",
-        source_stage_run_id=stage_run_id,
+        work_item_id=f"derived:{stage_run.run_id}",
+        source_stage_run_id=stage_run.stage_run_id,
         spec_type="experiment",
         title=str(payload["title"]),
         family=str(payload["family"]),
         config_path=str(payload["config_path"]),
-        payload_path=str(Path(config.stage_dir("validate", stage_run_id)) / "validate.json"),
+        payload_path=stage_run.output_json_path,
         launch_mode=str(payload.get("launch_mode", "background")),
         status="validated",
         dedupe_key=str(payload.get("dedupe_key", "")),
@@ -113,7 +111,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
             summary = f"Validated follow-up config at {config_file}"
             plan_payload = dict(plan)
             plan_payload["config_path"] = str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
-            spec = _create_or_update_spec(config, state, run_id, stage_run.stage_run_id, plan_payload)
+            spec = _create_or_update_spec(state, stage_run, plan_payload)
             spec_id = spec.spec_id
             if config.automation.auto_execute_plans:
                 queued = register_work_item(
@@ -150,7 +148,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
             f"- Queued work item: `{queued_work_item_id or 'n/a'}`",
         ],
     )
-    complete_stage_run(stage_run, payload=payload, markdown=markdown, validator_status=status)
+    complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown, validator_status=status)
     validation = ValidationRecord(
         validation_id=f"validation-{state.runtime.next_validation_number:04d}",
         work_item_id=run.work_item_id,
@@ -218,7 +216,7 @@ def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id
             f"Submission {run_id}",
             ["- Status: `skipped`", f"- Reason: {payload['reason']}"],
         )
-    complete_stage_run(stage_run, payload=payload, markdown=markdown)
+    complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     return stage_run
 
 
@@ -275,7 +273,7 @@ def _process_run_stage_chain(config: WorkspaceConfig, state: WorkspaceState, run
         except Exception as error:  # noqa: BLE001
             latest = latest_stage_run(state, run_id)
             if latest is not None and latest.status == "running":
-                fail_stage_run(latest, error)
+                fail_stage_run(latest, error, state=state)
             run.stage_error = truncate(str(error), limit=800)
             run.stage_updated_at = now_utc_iso()
             break

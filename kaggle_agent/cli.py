@@ -7,6 +7,7 @@ from kaggle_agent.service import (
     build_submission,
     doctor_checks,
     dry_run_submission,
+    enqueue_preflight,
     enqueue_config,
     get_status_state,
     init_workspace,
@@ -17,6 +18,7 @@ from kaggle_agent.service import (
     tick,
     watch,
 )
+from kaggle_agent.layout import artifact_relative_path, current_attempt_slug, run_label_from_path, stage_label_from_path
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,6 +39,9 @@ def build_parser() -> argparse.ArgumentParser:
     enqueue_parser.add_argument("--title")
     enqueue_parser.add_argument("--family", default="ad_hoc")
     enqueue_parser.add_argument("--priority", type=int, default=50)
+
+    preflight_parser = subparsers.add_parser("enqueue-preflight", help="Queue an explicit debug preflight work item.")
+    preflight_parser.add_argument("--priority", type=int, default=5)
 
     start_parser = subparsers.add_parser("start-next", help="Start the next runnable work item.")
     start_parser.add_argument("--sync", action="store_true", help="Run synchronously instead of in background.")
@@ -62,17 +67,36 @@ def build_parser() -> argparse.ArgumentParser:
 def _print_status(root: Path) -> int:
     config = load_config(root)
     state = get_status_state(config)
+    print(f"Current attempt: {current_attempt_slug(state.runtime)}")
     print(f"Active runs: {', '.join(state.runtime.active_run_ids) if state.runtime.active_run_ids else 'none'}")
     print("Work Items:")
     for work_item in sorted(state.work_items, key=lambda item: (item.priority, item.created_at, item.id)):
-        print(f"  {work_item.id}\t{work_item.status}\tp{work_item.priority}\t{work_item.family}\t{work_item.title}")
+        latest_stage = next((item for item in state.stage_runs if item.stage_run_id == work_item.latest_stage_run_id), None)
+        stage_label = stage_label_from_path(
+            latest_stage.output_dir if latest_stage is not None else "",
+            latest_stage.stage_name if latest_stage is not None else "stage",
+            stage_status=latest_stage.status if latest_stage is not None else "",
+            validator_status=latest_stage.validator_status if latest_stage is not None else "",
+        )
+        run_label = next((run_label_from_path(item.run_dir) for item in state.runs if item.run_id == work_item.latest_run_id), "")
+        print(
+            f"  {work_item.id}\t{work_item.status}\tp{work_item.priority}\t{work_item.family}\t{work_item.title}"
+            f"\trun={run_label or 'n/a'}\tstage={stage_label if latest_stage is not None else 'n/a'}"
+        )
     print("Runs:")
     for run in state.runs[-10:]:
         metric = "-" if run.primary_metric_value is None else f"{run.primary_metric_name}={run.primary_metric_value:.6f}"
-        print(f"  {run.run_id}\t{run.status}\t{run.stage_cursor or 'complete'}\t{run.experiment_id}\t{metric}")
+        print(
+            f"  {run_label_from_path(run.run_dir) or run.run_id}\t{run.status}\t{run.stage_cursor or 'complete'}"
+            f"\t{run.experiment_id}\t{metric}\truntime={artifact_relative_path(run.run_dir, config.root)}"
+        )
     print("Stage Runs:")
     for stage_run in state.stage_runs[-10:]:
-        print(f"  {stage_run.stage_run_id}\t{stage_run.stage_name}\t{stage_run.status}\t{stage_run.run_id}")
+        print(
+            f"  {stage_label_from_path(stage_run.output_dir, stage_run.stage_name, stage_status=stage_run.status, validator_status=stage_run.validator_status)}"
+            f"\t{stage_run.status}\t{run_label_from_path(next((run.run_dir for run in state.runs if run.run_id == stage_run.run_id), '')) or stage_run.run_id}"
+            f"\t{artifact_relative_path(stage_run.output_dir, config.root)}"
+        )
     print("Submissions:")
     for candidate in state.submissions[-5:]:
         print(f"  {candidate.id}\t{candidate.status}\tcpu_ready={candidate.cpu_ready}\tsource={candidate.source_run_id}")
@@ -116,6 +140,13 @@ def main(argv: list[str] | None = None) -> int:
         config = load_config(root)
         state = enqueue_config(config, args.config_path, title=args.title, family=args.family, priority=args.priority)
         print(f"Queued work item. Total work items: {len(state.work_items)}")
+        return 0
+
+    if args.command == "enqueue-preflight":
+        config = load_config(root)
+        state = enqueue_preflight(config, priority=args.priority)
+        preflight_items = [item for item in state.work_items if item.work_type == "preflight_check"]
+        print(preflight_items[-1].id if preflight_items else "No preflight queued.")
         return 0
 
     if args.command == "start-next":

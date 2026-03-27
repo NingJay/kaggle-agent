@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from kaggle_agent.layout import DEFAULT_ATTEMPT_SLUG
+
 
 class _Serializable:
     @classmethod
@@ -138,11 +140,29 @@ class WorkspaceConfig:
         base = self.artifact_root() / category
         return base / name if name else base
 
-    def stage_dir(self, stage_name: str, token: str) -> Path:
-        return self.artifact_path(stage_name, token)
+    def attempts_root(self) -> Path:
+        return self.artifact_root() / "attempts"
 
-    def run_dir(self, run_id: str) -> Path:
-        return self.artifact_path("runs", run_id)
+    def attempt_root(self, attempt_slug: str = DEFAULT_ATTEMPT_SLUG) -> Path:
+        return self.attempts_root() / attempt_slug
+
+    def runs_root(self, attempt_slug: str = DEFAULT_ATTEMPT_SLUG) -> Path:
+        return self.attempt_root(attempt_slug) / "runs"
+
+    def run_root(self, attempt_slug: str, run_label: str) -> Path:
+        return self.runs_root(attempt_slug) / run_label
+
+    def run_runtime_dir(self, attempt_slug: str, run_label: str) -> Path:
+        return self.run_root(attempt_slug, run_label) / "runtime"
+
+    def run_log_path(self, attempt_slug: str, run_label: str) -> Path:
+        return self.run_runtime_dir(attempt_slug, run_label) / "train.log"
+
+    def stage_root(self, attempt_slug: str, run_label: str) -> Path:
+        return self.run_root(attempt_slug, run_label) / "stages"
+
+    def stage_dir(self, attempt_slug: str, run_label: str, stage_label: str) -> Path:
+        return self.stage_root(attempt_slug, run_label) / stage_label
 
     def report_root(self) -> Path:
         return self.root / self.paths.report_dir
@@ -424,6 +444,7 @@ class RuntimeState(_Serializable):
     initialized_at: str
     last_tick_at: str = ""
     last_report_at: str = ""
+    current_attempt_slug: str = DEFAULT_ATTEMPT_SLUG
     active_run_ids: list[str] = field(default_factory=list)
     next_run_number: int = 1
     next_decision_number: int = 1

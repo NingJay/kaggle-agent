@@ -11,6 +11,11 @@ Operate this repository as an agent-primary, artifact-driven, spec-enforced Kagg
 - Preserve the strict stage graph: `execute -> evidence -> report -> research -> decision -> plan -> codegen -> critic -> validate -> submission`.
 - Keep scored submission defaults CPU-only and internet-off.
 
+## Environment Bootstrap
+
+- Before running CLI commands or repo-local tests, execute `source /home/staff/jiayining/miniconda3/etc/profile.d/conda.sh && conda activate kaggle-agent`.
+- Runtime launch scripts should preserve the same `kaggle-agent` conda activation contract through `workspace.toml`.
+
 ## Ask-First Boundaries
 
 - Real Kaggle submissions

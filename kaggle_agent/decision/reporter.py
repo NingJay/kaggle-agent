@@ -56,7 +56,7 @@ def build_report(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     )
     if adapted is not None:
         payload, markdown = adapted
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     else:
         headline = (
             "Promote for submission intelligence"
@@ -101,7 +101,7 @@ def build_report(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         if issues:
             lines.extend(["", "## Issues", *(f"- {item.title}: {item.summary}" for item in issues)])
         markdown = stage_markdown(f"Run Report {run_id}", lines)
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
 
     html_path = Path(stage_run.output_dir) / "report.html"
     markdown_text = Path(stage_run.output_md_path).read_text(encoding="utf-8")

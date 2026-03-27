@@ -33,7 +33,7 @@ def build_critic(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     )
     if adapted is not None:
         payload, markdown = adapted
-        complete_stage_run(stage_run, payload=payload, markdown=markdown)
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
 
     status = "approved"
@@ -53,5 +53,5 @@ def build_critic(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         f"Critic Review {run_id}",
         [f"- Status: `{status}`", *(f"- Concern: {item}" for item in concerns)] or ["- Status: `approved`"],
     )
-    complete_stage_run(stage_run, payload=payload, markdown=markdown)
+    complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     return stage_run
