@@ -131,6 +131,9 @@ class WorkspaceConfig:
     def snapshot_root(self) -> Path:
         return self.state_root() / "snapshots"
 
+    def codegen_snapshot_root(self) -> Path:
+        return self.snapshot_root() / "codegen"
+
     def artifact_root(self) -> Path:
         return self.root / self.paths.artifact_dir
 
@@ -218,6 +221,7 @@ class ExperimentSpec(_Serializable):
     tags: list[str] = field(default_factory=list)
     status: str = "queued"
     launch_mode: str = "background"
+    code_state_ref: str = ""
     latest_run_id: str = ""
     latest_decision_id: str = ""
     created_at: str = ""
@@ -245,6 +249,7 @@ class RunRecord(_Serializable):
     primary_metric_name: str = ""
     primary_metric_value: float | None = None
     secondary_metrics: dict[str, float] = field(default_factory=dict)
+    code_state_ref: str = ""
     error: str = ""
     artifact_paths: dict[str, str] = field(default_factory=dict)
     root_cause: str = ""
@@ -314,6 +319,7 @@ class SpecRecord(_Serializable):
     config_path: str
     payload_path: str
     launch_mode: str = "background"
+    code_state_ref: str = ""
     status: str = "draft"
     dedupe_key: str = ""
     created_at: str = ""

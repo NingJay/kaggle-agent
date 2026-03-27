@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -80,10 +81,36 @@ def _validated_spec_for_work_item(state: WorkspaceState, work_item) -> SpecRecor
     return candidates[-1]
 
 
-def _launch_script(config: WorkspaceConfig, work_item_id: str, spec: SpecRecord, run: RunRecord) -> str:
+def _resolve_execution_workspace(config: WorkspaceConfig, spec: SpecRecord, run: RunRecord) -> tuple[Path, Path, Path]:
     config_path = Path(spec.config_path)
+    train_entrypoint = Path(config.runtime.train_entrypoint)
+    if spec.code_state_ref.strip():
+        source_root = Path(spec.code_state_ref).expanduser().resolve()
+        if not source_root.exists():
+            raise FileNotFoundError(f"Code state not found: {source_root}")
+        run_workspace = Path(run.run_dir) / "code_state_workspace"
+        if run_workspace.exists():
+            shutil.rmtree(run_workspace)
+        shutil.copytree(source_root, run_workspace)
+        if config_path.is_absolute() and config_path.is_relative_to(config.root):
+            config_path = run_workspace / config_path.relative_to(config.root)
+        elif not config_path.is_absolute():
+            config_path = run_workspace / config_path
+        if train_entrypoint.is_absolute() and train_entrypoint.is_relative_to(config.root):
+            train_entrypoint = run_workspace / train_entrypoint.relative_to(config.root)
+        elif not train_entrypoint.is_absolute():
+            train_entrypoint = run_workspace / train_entrypoint
+        return run_workspace, config_path, train_entrypoint
+
     if not config_path.is_absolute():
         config_path = config.root / config_path
+    if not train_entrypoint.is_absolute():
+        train_entrypoint = Path(config.runtime.train_workdir) / train_entrypoint
+    return Path(config.runtime.train_workdir), config_path, train_entrypoint
+
+
+def _launch_script(config: WorkspaceConfig, work_item_id: str, spec: SpecRecord, run: RunRecord) -> str:
+    execution_root, config_path, train_entrypoint = _resolve_execution_workspace(config, spec, run)
     exit_code_path = Path(run.run_dir) / "exit_code.txt"
     runtime_overrides = _runtime_overrides(config)
     env_exports = [
@@ -95,6 +122,7 @@ def _launch_script(config: WorkspaceConfig, work_item_id: str, spec: SpecRecord,
         f"export KAGGLE_AGENT_SPEC_ID={shlex.quote(spec.spec_id)}",
         f"export KAGGLE_AGENT_PRIMARY_METRIC={shlex.quote(config.metrics.primary)}",
         f"export KAGGLE_AGENT_SECONDARY_METRICS={shlex.quote(json.dumps(config.metrics.secondary))}",
+        f"export KAGGLE_AGENT_CODE_STATE_REF={shlex.quote(spec.code_state_ref)}",
     ]
     if run.gpu_id:
         env_exports.append(f"export CUDA_VISIBLE_DEVICES={shlex.quote(run.gpu_id)}")
@@ -104,12 +132,12 @@ def _launch_script(config: WorkspaceConfig, work_item_id: str, spec: SpecRecord,
     if config.runtime.conda_env.strip():
         lines.append(f"conda activate {shlex.quote(config.runtime.conda_env)}")
     override_args = " ".join(shlex.quote(item) for item in runtime_overrides)
-    python_command = f"python {shlex.quote(config.runtime.train_entrypoint)} --config {shlex.quote(str(config_path))}"
+    python_command = f"python {shlex.quote(str(train_entrypoint))} --config {shlex.quote(str(config_path))}"
     if override_args:
         python_command = f"{python_command} {override_args}"
     lines.extend(
         [
-            f"cd {shlex.quote(config.runtime.train_workdir)}",
+            f"cd {shlex.quote(str(execution_root))}",
             *env_exports,
             python_command,
             "status=$?",
@@ -137,6 +165,17 @@ def start_run(
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = config.artifact_path("logs", f"{run_id}.log")
     gpu_id = choose_idle_gpu() or ""
+    execution_root, config_path, train_entrypoint = _resolve_execution_workspace(config, spec, RunRecord(
+        run_id=run_id,
+        experiment_id=experiment.id,
+        work_item_id=work_item.id,
+        spec_id=spec.spec_id,
+        status="running",
+        command="",
+        cwd="",
+        run_dir=str(run_dir),
+        log_path=str(log_path),
+    ))
     command = f"python {config.runtime.train_entrypoint} --config {spec.config_path}"
     run = RunRecord(
         run_id=run_id,
@@ -144,12 +183,13 @@ def start_run(
         work_item_id=work_item.id,
         spec_id=spec.spec_id,
         status="running",
-        command=command,
-        cwd=config.runtime.train_workdir,
+        command=f"python {train_entrypoint} --config {config_path}",
+        cwd=str(execution_root),
         run_dir=str(run_dir),
         log_path=str(log_path),
         started_at=now_utc_iso(),
         gpu_id=gpu_id,
+        code_state_ref=spec.code_state_ref,
     )
     launch_script = run_dir / "launch.sh"
     atomic_write_text(launch_script, _launch_script(config, work_item.id, spec, run))

@@ -47,6 +47,14 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "reason": f"plan_status={plan_status}",
             "generated_config_path": "",
             "run_bundle_path": "",
+            "patch_path": "",
+            "code_state_ref": "",
+            "worktree_path": "",
+            "base_commit": "",
+            "head_commit": "",
+            "changed_files": [],
+            "smoke_status": "skipped",
+            "smoke_summary": "Codegen did not run because the plan was not in planned state.",
         }
         markdown = stage_markdown(
             f"Codegen {run_id}",
@@ -76,9 +84,17 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     payload = {
         "stage": "codegen",
         "status": "generated",
+        "reason": "Deterministic fallback copied the planned config and produced an empty patch.",
         "generated_config_path": str(generated_copy),
         "run_bundle_path": str(run_bundle_path),
         "patch_path": str(patch_path),
+        "code_state_ref": "",
+        "worktree_path": "",
+        "base_commit": "",
+        "head_commit": "",
+        "changed_files": [],
+        "smoke_status": "skipped",
+        "smoke_summary": "Deterministic fallback does not produce an isolated code snapshot.",
     }
     markdown = stage_markdown(
         f"Codegen {run_id}",

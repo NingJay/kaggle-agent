@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,8 @@ def run_stage_adapter(
     output_dir: Path,
     prompt_path: Path | None = None,
     extra_env: dict[str, str] | None = None,
+    shell_init: str = "",
+    conda_env: str = "",
 ) -> dict[str, Path]:
     ensure_directory(output_dir)
     env = os.environ.copy()
@@ -41,9 +44,15 @@ def run_stage_adapter(
     if extra_env:
         env.update(extra_env)
 
+    bootstrap_lines = ["set -e"]
+    if shell_init.strip():
+        bootstrap_lines.append(shell_init.strip())
+    if conda_env.strip():
+        bootstrap_lines.append(f"conda activate {shlex.quote(conda_env)}")
+    bootstrap_lines.append(command)
+
     completed = subprocess.run(
-        command,
-        shell=True,
+        ["/usr/bin/bash", "-c", "\n".join(bootstrap_lines)],
         cwd=workspace_root,
         env=env,
         capture_output=True,

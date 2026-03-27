@@ -243,6 +243,8 @@ def run_configured_stage_adapter(
             output_dir=Path(stage_run.output_dir),
             prompt_path=Path(stage_run.prompt_path) if stage_run.prompt_path else None,
             extra_env=extra_env,
+            shell_init=config.runtime.shell_init,
+            conda_env=config.runtime.conda_env,
         )
         agent_run.status = "completed"
         agent_run.output_json_path = str(result["json_path"])

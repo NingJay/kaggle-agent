@@ -34,9 +34,10 @@ def _first_string(obj: Any, key: str) -> str:
 def run_codex_exec(
     *,
     prompt: str,
-    schema_path: Path,
+    schema_path: Path | None,
     workspace_root: Path,
     output_dir: Path,
+    mode: str = "structured",
 ) -> ProviderResponse:
     binary = shutil.which(CODEX_BINARY)
     if not binary:
@@ -49,22 +50,39 @@ def run_codex_exec(
     if not codex_api_key and openai_api_key:
         env["CODEX_API_KEY"] = openai_api_key
 
-    args = [
-        binary,
-        "exec",
-        "--skip-git-repo-check",
-        "--sandbox",
-        "read-only",
-        "--output-schema",
-        str(schema_path),
-        "--output-last-message",
-        str(response_path),
-        "--json",
-        "--ephemeral",
-        "-C",
-        str(workspace_root),
-        "-",
-    ]
+    if mode == "structured":
+        if schema_path is None:
+            raise RuntimeError("structured codex mode requires schema_path")
+        args = [
+            binary,
+            "exec",
+            "--skip-git-repo-check",
+            "--sandbox",
+            "read-only",
+            "--output-schema",
+            str(schema_path),
+            "--output-last-message",
+            str(response_path),
+            "--json",
+            "--ephemeral",
+            "-C",
+            str(workspace_root),
+            "-",
+        ]
+    elif mode == "agentic":
+        args = [
+            binary,
+            "exec",
+            "--skip-git-repo-check",
+            "--full-auto",
+            "--json",
+            "--ephemeral",
+            "-C",
+            str(workspace_root),
+            "-",
+        ]
+    else:
+        raise RuntimeError(f"Unsupported codex mode: {mode}")
     model = os.environ.get("KAGGLE_AGENT_CODEX_MODEL", "").strip()
     if model:
         args[2:2] = ["--model", model]
@@ -81,11 +99,14 @@ def run_codex_exec(
     if completed.returncode != 0:
         stderr = (completed.stderr or completed.stdout or "codex invocation failed").strip()
         raise RuntimeError(stderr)
-    if not response_path.exists():
-        raise RuntimeError("codex did not write provider_response.json")
-    payload = parse_json_payload(response_path)
-    if not isinstance(payload, dict):
-        raise RuntimeError("codex did not return a structured object")
+    if mode == "structured":
+        if not response_path.exists():
+            raise RuntimeError("codex did not write provider_response.json")
+        payload = parse_json_payload(response_path)
+        if not isinstance(payload, dict):
+            raise RuntimeError("codex did not return a structured object")
+    else:
+        payload = {}
 
     session_id = ""
     thread_id = ""
@@ -114,4 +135,5 @@ def run_codex_exec(
         raw_stderr=completed.stderr,
         event_log_text=completed.stdout,
         exit_code=completed.returncode,
+        extra_meta={"materialization_mode": mode},
     )
