@@ -8,6 +8,10 @@ import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
+
+from kaggle_agent.adapters.providers import ProviderResponse
+from kaggle_agent.adapters.stage_wrapper import StageContext, main as stage_wrapper_main
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +23,50 @@ def _skip_live() -> bool:
 
 def _skip_amp() -> bool:
     return os.environ.get("KAGGLE_AGENT_RUN_AMP_SMOKE") != "1"
+
+
+class StageWrapperCompatibilityTests(unittest.TestCase):
+    def test_stage_wrapper_accepts_legacy_bypass_flag(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "output"
+            output_dir.mkdir()
+            schema_path = root / "codegen.schema.json"
+            schema_path.write_text("{}", encoding="utf-8")
+            ctx = StageContext(
+                stage="codegen",
+                workspace_root=root,
+                input_manifest_path=root / "input_manifest.json",
+                output_dir=output_dir,
+                prompt_path=None,
+                schema_path=schema_path,
+                input_manifest={},
+            )
+            response = ProviderResponse(
+                provider="codex",
+                payload={
+                    "stage": "codegen",
+                    "status": "noop",
+                    "reason": "legacy flag accepted",
+                    "markdown": "# Codegen\n\n- noop",
+                },
+            )
+            with patch("kaggle_agent.adapters.stage_wrapper.StageContext.from_env", return_value=ctx), patch(
+                "kaggle_agent.adapters.stage_wrapper._build_prompt",
+                return_value="prompt",
+            ), patch(
+                "kaggle_agent.adapters.stage_wrapper._run_provider",
+                return_value=(response, None),
+            ), patch(
+                "kaggle_agent.adapters.stage_wrapper.validate_payload",
+                return_value=None,
+            ):
+                exit_code = stage_wrapper_main(["--provider", "codex", "--dangerously-bypass-approvals-and-sandbox"])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads((output_dir / "codegen.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload["status"], "noop")
+            self.assertEqual(payload["reason"], "legacy flag accepted")
 
 
 @unittest.skipIf(_skip_live(), "Set KAGGLE_AGENT_RUN_LIVE_PROVIDER_TESTS=1 to run live provider smoke tests.")

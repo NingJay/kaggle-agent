@@ -229,6 +229,11 @@ def _run_provider(provider: str, ctx: StageContext, prompt: str) -> tuple[Provid
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Headless stage wrapper for Claude/Codex/Amp adapters.")
     parser.add_argument("--provider", required=True, choices=["claude", "codex", "critic"])
+    parser.add_argument(
+        "--dangerously-bypass-approvals-and-sandbox",
+        action="store_true",
+        help="Accepted for backward compatibility with older workspace command templates.",
+    )
     args = parser.parse_args(argv)
 
     try:
