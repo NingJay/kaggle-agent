@@ -86,7 +86,23 @@ PROMPT_TEMPLATES = {
     "research.md": "# Research Program\nTurn the current failure or success mode into adopt-now, consider, and reject guidance.\n",
     "decision.md": "# Decision Program\nChoose the next action with priority on fixing the root cause first.\n",
     "plan.md": "# Plan Program\nProduce an executable experiment or submission plan with explicit config paths and dedupe keys.\n",
-    "codegen.md": "# Codegen Program\nGenerate config, bundle, or patch artifacts inside the allowed workspace boundary.\n",
+    "codegen.md": """# Codegen Program
+
+Operate only inside the isolated codegen workspace.
+
+Goals:
+- Leave a runnable config inside the isolated workspace.
+- Keep source edits inside the explicit allowlist.
+- Keep verify artifacts out of the source tree.
+- Let the harness own the final deterministic verify run and manifest export.
+
+Rules:
+- Edit only `train_sed.py`, `BirdCLEF-2026-Codebase/configs/**`, `BirdCLEF-2026-Codebase/src/**`, `BirdCLEF-2026-Codebase/train.py`, `BirdCLEF-2026-Codebase/inference.py`, and `BirdCLEF-2026-Codebase/scripts/**`.
+- Never edit `BirdCLEF-2026-Codebase/outputs/**`, `BirdCLEF-2026-Codebase/models/**`, `BirdCLEF-2026-Codebase/birdclef-2026/**`, `state/**`, or `artifacts/**`.
+- Never create notebooks or binary artifact files such as `.ipynb`, `.npz`, `.pkl`, `.pt`, or `.ckpt`.
+- Do not return patch text, YAML blobs, or JSON manifests in the final message.
+- Finish with a short plain-text summary of source edits only.
+""",
     "critic.md": "# Critic Program\nReview the proposed bundle for correctness, safety, and obvious regressions.\n",
     "submission.md": "# Submission Program\nPrepare CPU-first Kaggle submission bundles and reason about scarce submission slots.\n",
 }

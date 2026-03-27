@@ -105,9 +105,12 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
             config_file = config.root / config_file
         code_state_ref = str(codegen.get("code_state_ref", "") or "")
         code_state_path = Path(code_state_ref) if code_state_ref else None
-        run_bundle_path = Path(str(codegen.get("run_bundle_path", "") or ""))
+        verify_status = str(codegen.get("verify_status") or codegen.get("smoke_status") or "skipped")
+        verify_summary = str(codegen.get("verify_summary") or codegen.get("smoke_summary") or "")
+        run_bundle_value = str(codegen.get("run_bundle_path", "") or "")
+        run_bundle_path = Path(run_bundle_value) if run_bundle_value else None
         spec_config_path = str(plan.get("config_path") or "")
-        if run_bundle_path.exists():
+        if run_bundle_path is not None and run_bundle_path.exists():
             run_bundle = json.loads(run_bundle_path.read_text(encoding="utf-8"))
             spec_config_path = str(run_bundle.get("config_path") or spec_config_path)
         if critic.get("status") != "approved":
@@ -119,6 +122,9 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
         elif code_state_path is not None and not code_state_path.exists():
             status = "failed"
             summary = f"Missing code state for validation: {code_state_path}"
+        elif code_state_path is not None and verify_status != "passed":
+            status = "failed"
+            summary = f"Codegen verify failed: {verify_summary or verify_status}"
         else:
             status = "validated"
             summary = f"Validated follow-up config at {config_file}"

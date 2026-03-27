@@ -90,20 +90,27 @@ def _write_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _disable_output_mirror() -> bool:
+    return os.environ.get("KAGGLE_AGENT_DISABLE_OUTPUT_MIRROR", "").strip() == "1"
+
+
 def _prepare_output_dirs(config: dict[str, Any], runtime_root: Path) -> tuple[Path, Path]:
     run_dir_env = os.environ.get("KAGGLE_AGENT_RUN_DIR", "").strip()
     experiment_name = str(config["experiment"]["name"])
     output_root = (runtime_root / config["paths"]["output_root"]).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
-    mirrored_dir = output_root / experiment_name
-    mirrored_dir.mkdir(parents=True, exist_ok=True)
-    run_dir = Path(run_dir_env).resolve() if run_dir_env else mirrored_dir
+    default_dir = output_root / experiment_name
+    run_dir = Path(run_dir_env).resolve() if run_dir_env else default_dir
     run_dir.mkdir(parents=True, exist_ok=True)
+    if _disable_output_mirror():
+        return run_dir, run_dir
+    mirrored_dir = default_dir
+    mirrored_dir.mkdir(parents=True, exist_ok=True)
     return run_dir, mirrored_dir
 
 
 def _mirror_files(source_dir: Path, mirrored_dir: Path, filenames: list[str]) -> None:
-    if source_dir == mirrored_dir:
+    if _disable_output_mirror() or source_dir == mirrored_dir:
         return
     for filename in filenames:
         source = source_dir / filename

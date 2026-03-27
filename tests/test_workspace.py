@@ -5,6 +5,7 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import unittest
 from contextlib import redirect_stdout
@@ -14,7 +15,9 @@ from unittest.mock import patch
 
 from kaggle_agent.cli import main as cli_main
 from kaggle_agent.control.executor import start_run
+from kaggle_agent.control.monitor import _run_validate_stage
 from kaggle_agent.control.store import load_state
+from kaggle_agent.schema import RunRecord, RuntimeState, StageRun, WorkspaceState
 from kaggle_agent.service import (
     build_submission,
     doctor_checks,
@@ -397,6 +400,34 @@ print(json.dumps({
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_runtime_verify_mode_does_not_mirror_outputs_back_into_source_tree(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _build_debug_dataset(root)
+
+            verify_root = root / "verify-runtime"
+            env = os.environ.copy()
+            env.update(
+                {
+                    "KAGGLE_AGENT_RUN_DIR": str(verify_root),
+                    "KAGGLE_AGENT_DISABLE_OUTPUT_MIRROR": "1",
+                    "KAGGLE_AGENT_VERIFY_MODE": "1",
+                }
+            )
+            completed = subprocess.run(
+                [sys.executable, "train_sed.py", "--config", "configs/debug.yaml"],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(completed.returncode, 0, msg=completed.stderr or completed.stdout)
+            self.assertTrue((verify_root / "result.json").exists())
+            self.assertFalse((root / "BirdCLEF-2026-Codebase" / "outputs" / "perch_head_debug").exists())
+
     def test_force_init_reset_clears_stale_workspace_state_and_seeds_attempt(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -688,12 +719,30 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(Path(codegen_payload["patch_path"]).exists())
             self.assertTrue(codegen_payload["code_state_ref"])
             self.assertTrue(Path(codegen_payload["code_state_ref"]).exists())
+            self.assertEqual(codegen_payload["verify_status"], "passed")
+            self.assertTrue(codegen_payload["verify_command"])
+            self.assertTrue(codegen_payload["verify_artifacts_ref"])
+            self.assertTrue(Path(codegen_payload["verify_artifacts_ref"]).exists())
+            self.assertTrue((Path(codegen_payload["verify_artifacts_ref"]) / "result.json").exists())
+            self.assertFalse((Path(codegen_payload["code_state_ref"]) / "result.json").exists())
+            self.assertEqual(codegen_payload["smoke_status"], codegen_payload["verify_status"])
+            self.assertEqual(codegen_payload["smoke_summary"], codegen_payload["verify_summary"])
+            self.assertIn("train_sed.py", codegen_payload["allowed_edit_roots"])
+            self.assertIn("BirdCLEF-2026-Codebase/configs", codegen_payload["allowed_edit_roots"])
+            self.assertTrue(codegen_payload["provider_runtime"].startswith("codex/profile:kaggle-agent"))
             self.assertIn("train_sed.py", codegen_payload["changed_files"])
+            patch_text = Path(codegen_payload["patch_path"]).read_text(encoding="utf-8")
+            self.assertNotIn("GIT binary patch", patch_text)
+            self.assertNotIn("BirdCLEF-2026-Codebase/outputs", patch_text)
 
             critic_meta = json.loads(Path(agent_by_role["critic"].provider_meta_path).read_text(encoding="utf-8"))
             self.assertIn("amp_probe_path", critic_meta)
             self.assertTrue(Path(critic_meta["amp_probe_path"]).exists())
             self.assertEqual(critic_meta["amp_probe_summary"], "Amp sidecar: no additional critic blocks.")
+
+            codegen_meta = json.loads(Path(agent_by_role["codegen"].provider_meta_path).read_text(encoding="utf-8"))
+            self.assertEqual(codegen_meta["provider_runtime"], codegen_payload["provider_runtime"])
+            self.assertTrue(codegen_meta["isolated_home"].startswith(codegen_stage.output_dir))
 
             validation = state.validations[-1]
             self.assertEqual(validation.status, "validated")
@@ -706,6 +755,106 @@ class WorkspaceTests(unittest.TestCase):
             follow_up_run = start_run(config, state, derived_items[0].id, background=False)
             self.assertEqual(follow_up_run.status, "succeeded")
             self.assertTrue((Path(follow_up_run.run_dir) / "code_state_marker.txt").exists())
+
+    def test_validate_stage_requires_passed_verify_for_code_state_runs(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+
+            output_dir = root / "artifacts" / "validate-output"
+            output_dir.mkdir(parents=True)
+            code_state_root = root / "state" / "snapshots" / "codegen" / "code-state"
+            code_state_root.mkdir(parents=True)
+            generated_config = root / "BirdCLEF-2026-Codebase" / "configs" / "generated" / "verify-gate.yaml"
+            generated_config.parent.mkdir(parents=True, exist_ok=True)
+            generated_config.write_text((root / "BirdCLEF-2026-Codebase" / "configs" / "debug.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+
+            run = RunRecord(
+                run_id="run-validate-verify-gate",
+                experiment_id="exp-validate-verify-gate",
+                work_item_id="workitem-validate-verify-gate",
+                spec_id="",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-validate-verify-gate"),
+                log_path=str(root / "artifacts" / "runs" / "run-validate-verify-gate" / "train.log"),
+            )
+            state = WorkspaceState(
+                work_items=[],
+                experiments=[],
+                runs=[run],
+                stage_runs=[],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(initialized_at="2026-03-28T00:00:00Z", next_validation_number=1),
+            )
+            stage_run = StageRun(
+                stage_run_id="stage-validate-verify-gate",
+                run_id=run.run_id,
+                work_item_id=run.work_item_id,
+                stage_name="validate",
+                status="running",
+                input_ref=run.run_id,
+                output_dir=str(output_dir),
+                output_json_path=str(output_dir / "validate.json"),
+                output_md_path=str(output_dir / "validate.md"),
+            )
+            captured: dict[str, object] = {}
+
+            def _payload_for_stage(_state: WorkspaceState, _run_id: str, stage_name: str) -> dict[str, object]:
+                if stage_name == "plan":
+                    return {
+                        "stage": "plan",
+                        "plan_status": "planned",
+                        "title": "Verify gate candidate",
+                        "family": "perch_head_debug",
+                        "config_path": "BirdCLEF-2026-Codebase/configs/generated/verify-gate.yaml",
+                        "launch_mode": "background",
+                        "dedupe_key": "verify-gate:test",
+                    }
+                if stage_name == "codegen":
+                    return {
+                        "stage": "codegen",
+                        "status": "generated",
+                        "generated_config_path": str(generated_config),
+                        "run_bundle_path": str(output_dir / "missing-run-bundle.json"),
+                        "patch_path": str(output_dir / "patch.diff"),
+                        "code_state_ref": str(code_state_root),
+                        "verify_status": "failed",
+                        "verify_summary": "deterministic verify command failed",
+                    }
+                return {"stage": "critic", "status": "approved"}
+
+            with patch("kaggle_agent.control.monitor.latest_stage_payload", side_effect=_payload_for_stage), patch(
+                "kaggle_agent.control.monitor.begin_stage_run",
+                return_value=(stage_run, output_dir / "input_manifest.json"),
+            ), patch(
+                "kaggle_agent.control.monitor.write_input_manifest",
+                return_value=None,
+            ), patch(
+                "kaggle_agent.control.monitor.complete_stage_run",
+                side_effect=lambda _stage_run, **kwargs: captured.update(kwargs),
+            ), patch(
+                "kaggle_agent.control.monitor.register_work_item",
+            ) as register_mock:
+                _run_validate_stage(config, state, run.run_id)
+
+            self.assertEqual(captured["payload"]["status"], "failed")
+            self.assertIn("verify", captured["payload"]["summary"])
+            self.assertEqual(state.validations[-1].status, "failed")
+            register_mock.assert_not_called()
 
     def test_adapter_wrapper_fails_on_schema_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:

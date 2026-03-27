@@ -11,7 +11,8 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from kaggle_agent.adapters.providers import ProviderResponse
-from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, main as stage_wrapper_main
+from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
+from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, _allow_codegen_paths, main as stage_wrapper_main
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +50,7 @@ class StageWrapperCompatibilityTests(unittest.TestCase):
             codegen_workspace = CodegenWorkspace(
                 snapshot_root=root / "snapshot",
                 workspace_root=root / "snapshot" / "workspace",
+                verify_root=root / "snapshot" / "verify_runtime",
                 base_commit="abc123",
                 expected_config_relpath="BirdCLEF-2026-Codebase/configs/generated/test.yaml",
             )
@@ -71,10 +73,16 @@ class StageWrapperCompatibilityTests(unittest.TestCase):
                     "run_bundle_path": "",
                     "patch_path": "",
                     "code_state_ref": "",
+                    "verify_artifacts_ref": "",
+                    "verify_command": "",
+                    "verify_status": "skipped",
+                    "verify_summary": "legacy path",
                     "worktree_path": "",
                     "base_commit": "abc123",
                     "head_commit": "",
                     "changed_files": [],
+                    "provider_runtime": "codex/profile:kaggle-agent mode:agentic",
+                    "allowed_edit_roots": ["train_sed.py"],
                     "smoke_status": "skipped",
                     "smoke_summary": "legacy path",
                 },
@@ -88,6 +96,54 @@ class StageWrapperCompatibilityTests(unittest.TestCase):
             payload = json.loads((output_dir / "codegen.json").read_text(encoding="utf-8"))
             self.assertEqual(payload["status"], "noop")
             self.assertEqual(payload["reason"], "legacy flag accepted")
+
+
+class CodegenGuardrailTests(unittest.TestCase):
+    def test_codegen_path_allowlist_rejects_runtime_outputs_and_binary_artifacts(self) -> None:
+        _allow_codegen_paths(
+            [
+                "train_sed.py",
+                "BirdCLEF-2026-Codebase/configs/generated/adapter_codegen.yaml",
+                "BirdCLEF-2026-Codebase/src/birdclef_runtime/training.py",
+            ]
+        )
+        with self.assertRaisesRegex(RuntimeError, "outputs"):
+            _allow_codegen_paths(["BirdCLEF-2026-Codebase/outputs/oof_predictions.npz"])
+        with self.assertRaisesRegex(RuntimeError, "notebook"):
+            _allow_codegen_paths(["BirdCLEF-2026-Codebase/configs/generated/analysis.ipynb"])
+        with self.assertRaisesRegex(RuntimeError, "artifact"):
+            _allow_codegen_paths(["BirdCLEF-2026-Codebase/src/birdclef_runtime/probe_bundle.pkl"])
+
+    def test_codex_exec_uses_isolated_profile_home(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "output"
+            output_dir.mkdir()
+            completed = subprocess.CompletedProcess(
+                args=["codex", "exec"],
+                returncode=0,
+                stdout='{"event":"thread.started","thread_id":"agentic-thread"}\n',
+                stderr="",
+            )
+            with patch("kaggle_agent.adapters.providers.codex_exec.shutil.which", return_value="/usr/bin/codex"), patch(
+                "kaggle_agent.adapters.providers.codex_exec.subprocess.run",
+                return_value=completed,
+            ) as run_mock:
+                response = run_codex_exec(
+                    prompt="edit files",
+                    schema_path=None,
+                    workspace_root=root,
+                    output_dir=output_dir,
+                    mode="agentic",
+                )
+
+        called_args = run_mock.call_args.args[0]
+        called_env = run_mock.call_args.kwargs["env"]
+        self.assertIn("--profile", called_args)
+        self.assertIn("kaggle-agent", called_args)
+        self.assertNotEqual(called_env.get("HOME", ""), os.path.expanduser("~"))
+        self.assertTrue(called_env.get("CODEX_HOME", "").startswith(str(output_dir)))
+        self.assertTrue(response.extra_meta["provider_runtime"].startswith("codex/profile:kaggle-agent"))
 
 
 @unittest.skipIf(_skip_live(), "Set KAGGLE_AGENT_RUN_LIVE_PROVIDER_TESTS=1 to run live provider smoke tests.")

@@ -15,6 +15,16 @@ from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_text
 
 
+FALLBACK_ALLOWED_EDIT_ROOTS = [
+    "train_sed.py",
+    "BirdCLEF-2026-Codebase/configs",
+    "BirdCLEF-2026-Codebase/src",
+    "BirdCLEF-2026-Codebase/train.py",
+    "BirdCLEF-2026-Codebase/inference.py",
+    "BirdCLEF-2026-Codebase/scripts",
+]
+
+
 def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     run = next(item for item in state.runs if item.run_id == run_id)
     plan = latest_stage_payload(state, run_id, "plan")
@@ -49,10 +59,16 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "run_bundle_path": "",
             "patch_path": "",
             "code_state_ref": "",
+            "verify_artifacts_ref": "",
+            "verify_command": "",
+            "verify_status": "skipped",
+            "verify_summary": "Codegen did not run because the plan was not in planned state.",
             "worktree_path": "",
             "base_commit": "",
             "head_commit": "",
             "changed_files": [],
+            "provider_runtime": "deterministic-fallback",
+            "allowed_edit_roots": list(FALLBACK_ALLOWED_EDIT_ROOTS),
             "smoke_status": "skipped",
             "smoke_summary": "Codegen did not run because the plan was not in planned state.",
         }
@@ -77,6 +93,7 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         "launch_mode": plan.get("launch_mode", "background"),
         "dedupe_key": plan.get("dedupe_key", ""),
         "notes": ["deterministic codegen fallback"],
+        "verify_status": "skipped",
     }
     atomic_write_text(run_bundle_path, json.dumps(run_bundle, indent=2) + "\n")
     patch_path = output_dir / "patch.diff"
@@ -89,10 +106,16 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         "run_bundle_path": str(run_bundle_path),
         "patch_path": str(patch_path),
         "code_state_ref": "",
+        "verify_artifacts_ref": "",
+        "verify_command": "",
+        "verify_status": "skipped",
+        "verify_summary": "Deterministic fallback does not run an isolated verify command.",
         "worktree_path": "",
         "base_commit": "",
         "head_commit": "",
         "changed_files": [],
+        "provider_runtime": "deterministic-fallback",
+        "allowed_edit_roots": list(FALLBACK_ALLOWED_EDIT_ROOTS),
         "smoke_status": "skipped",
         "smoke_summary": "Deterministic fallback does not produce an isolated code snapshot.",
     }

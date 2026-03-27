@@ -12,6 +12,7 @@ from kaggle_agent.adapters.providers import ProviderResponse, ProviderUnavailabl
 
 
 CODEX_BINARY = "codex"
+CODEX_PROFILE = "kaggle-agent"
 
 
 def _first_string(obj: Any, key: str) -> str:
@@ -46,9 +47,18 @@ def run_codex_exec(
     codex_api_key = os.environ.get("CODEX_API_KEY", "").strip()
     openai_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     response_path = output_dir / "provider_response.json"
+    isolated_home = output_dir / "codex-home"
+    codex_home = isolated_home / ".codex"
+    codex_home.mkdir(parents=True, exist_ok=True)
+    config_path = codex_home / "config.toml"
+    if not config_path.exists():
+        config_path.write_text(f"[profiles.{CODEX_PROFILE}]\n", encoding="utf-8")
     env = os.environ.copy()
     if not codex_api_key and openai_api_key:
         env["CODEX_API_KEY"] = openai_api_key
+    env["HOME"] = str(isolated_home)
+    env["CODEX_HOME"] = str(codex_home)
+    env["XDG_CONFIG_HOME"] = str(isolated_home / ".config")
 
     if mode == "structured":
         if schema_path is None:
@@ -56,6 +66,8 @@ def run_codex_exec(
         args = [
             binary,
             "exec",
+            "--profile",
+            CODEX_PROFILE,
             "--skip-git-repo-check",
             "--sandbox",
             "read-only",
@@ -73,6 +85,8 @@ def run_codex_exec(
         args = [
             binary,
             "exec",
+            "--profile",
+            CODEX_PROFILE,
             "--skip-git-repo-check",
             "--full-auto",
             "--json",
@@ -135,5 +149,11 @@ def run_codex_exec(
         raw_stderr=completed.stderr,
         event_log_text=completed.stdout,
         exit_code=completed.returncode,
-        extra_meta={"materialization_mode": mode},
+        extra_meta={
+            "materialization_mode": mode,
+            "provider_runtime": f"codex/profile:{CODEX_PROFILE} mode:{mode}",
+            "codex_profile": CODEX_PROFILE,
+            "isolated_home": str(isolated_home),
+            "codex_home": str(codex_home),
+        },
     )
