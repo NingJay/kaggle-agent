@@ -5,18 +5,30 @@
     "stage",
     "status",
     "reason",
-    "generated_config_yaml",
-    "patch_diff",
-    "run_bundle",
-    "markdown"
+    "generated_config_path",
+    "run_bundle_path",
+    "patch_path",
+    "code_state_ref",
+    "worktree_path",
+    "base_commit",
+    "head_commit",
+    "changed_files",
+    "smoke_status",
+    "smoke_summary"
   ],
   "properties": {
     "stage": { "type": "string", "enum": ["codegen"] },
     "status": { "type": "string", "enum": ["generated", "noop"] },
     "reason": { "type": "string" },
-    "generated_config_yaml": { "type": "string" },
-    "patch_diff": { "type": "string" },
-    "run_bundle": { "type": "object" },
-    "markdown": { "type": "string" }
+    "generated_config_path": { "type": "string" },
+    "run_bundle_path": { "type": "string" },
+    "patch_path": { "type": "string" },
+    "code_state_ref": { "type": "string" },
+    "worktree_path": { "type": "string" },
+    "base_commit": { "type": "string" },
+    "head_commit": { "type": "string" },
+    "changed_files": { "type": "array", "items": { "type": "string" } },
+    "smoke_status": { "type": "string", "enum": ["passed", "skipped", "failed"] },
+    "smoke_summary": { "type": "string" }
   }
 }

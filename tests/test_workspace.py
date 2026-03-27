@@ -13,6 +13,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from kaggle_agent.cli import main as cli_main
+from kaggle_agent.control.executor import start_run
 from kaggle_agent.control.store import load_state
 from kaggle_agent.service import (
     build_submission,
@@ -277,19 +278,21 @@ if not args or args[0] != "exec":
     raise SystemExit(1)
 
 response_path = None
+workspace_arg = None
 for index, value in enumerate(args):
     if value in {"--output-last-message", "-o"} and index + 1 < len(args):
         response_path = Path(args[index + 1])
-        break
-if response_path is None:
-    raise SystemExit(2)
+    if value == "-C" and index + 1 < len(args):
+        workspace_arg = Path(args[index + 1])
 
 stage = os.environ.get("KAGGLE_AGENT_STAGE", "")
-workspace_root = Path(os.environ.get("KAGGLE_AGENT_WORKSPACE_ROOT", "."))
+workspace_root = workspace_arg or Path(os.environ.get("KAGGLE_AGENT_WORKSPACE_ROOT", "."))
 default_config = workspace_root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml"
 default_yaml = default_config.read_text(encoding="utf-8")
 
 if stage == "plan":
+    if response_path is None:
+        raise SystemExit(2)
     payload = {
         "stage": "plan",
         "plan_status": "planned",
@@ -307,7 +310,8 @@ if stage == "plan":
         "work_type": "experiment_iteration",
         "markdown": "# Adapter Plan\\n\\n- Queue cached probe baseline."
     }
-else:
+    response_path.write_text(json.dumps(payload), encoding="utf-8")
+elif response_path is not None:
     payload = {
         "stage": "codegen",
         "status": "generated",
@@ -322,8 +326,48 @@ else:
         },
         "markdown": "# Adapter Codegen\\n\\n- Materialized config and run bundle."
     }
+    response_path.write_text(json.dumps(payload), encoding="utf-8")
+else:
+    generated_config = workspace_root / "BirdCLEF-2026-Codebase" / "configs" / "generated" / "adapter_codegen.yaml"
+    generated_config.parent.mkdir(parents=True, exist_ok=True)
+    generated_config.write_text(default_yaml + "\\n# adapter agentic codegen\\n", encoding="utf-8")
+    train_path = workspace_root / "train_sed.py"
+    train_path.write_text(
+        '''from __future__ import annotations
 
-response_path.write_text(json.dumps(payload), encoding="utf-8")
+import json
+import os
+from pathlib import Path
+
+
+def main() -> int:
+    run_dir = Path(os.environ["KAGGLE_AGENT_RUN_DIR"])
+    (run_dir / "code_state_marker.txt").write_text("snapshot-active\\\\n", encoding="utf-8")
+    payload = {
+        "experiment_name": "agentic_codegen_snapshot",
+        "config_path": os.environ.get("KAGGLE_AGENT_SPEC_ID", ""),
+        "primary_metric_name": "soundscape_macro_roc_auc",
+        "primary_metric_value": 0.42,
+        "secondary_metrics": {"padded_cmap": 0.24},
+        "all_metrics": {
+            "soundscape_macro_roc_auc": 0.42,
+            "padded_cmap": 0.24,
+        },
+        "root_cause": "snapshot-applied",
+        "verdict": "snapshot-success",
+        "artifacts": {},
+        "dataset_summary": {},
+        "summary_markdown": "Snapshot code path executed successfully.",
+    }
+    (run_dir / "result.json").write_text(json.dumps(payload), encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+''',
+        encoding="utf-8",
+    )
 print(json.dumps({"event": "thread.started", "thread_id": f"codex-{stage}-thread"}))
 print(json.dumps({"event": "turn.completed"}))
 """,
@@ -642,6 +686,9 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(Path(codegen_payload["generated_config_path"]).exists())
             self.assertTrue(Path(codegen_payload["run_bundle_path"]).exists())
             self.assertTrue(Path(codegen_payload["patch_path"]).exists())
+            self.assertTrue(codegen_payload["code_state_ref"])
+            self.assertTrue(Path(codegen_payload["code_state_ref"]).exists())
+            self.assertIn("train_sed.py", codegen_payload["changed_files"])
 
             critic_meta = json.loads(Path(agent_by_role["critic"].provider_meta_path).read_text(encoding="utf-8"))
             self.assertIn("amp_probe_path", critic_meta)
@@ -650,9 +697,15 @@ class WorkspaceTests(unittest.TestCase):
 
             validation = state.validations[-1]
             self.assertEqual(validation.status, "validated")
+            validated_spec = next(item for item in state.specs if item.spec_id == validation.spec_id)
+            self.assertEqual(validated_spec.code_state_ref, codegen_payload["code_state_ref"])
             derived_items = [item for item in state.work_items if item.source_run_id == run_id]
             self.assertTrue(derived_items)
             self.assertTrue(all(item.latest_spec_id for item in derived_items))
+
+            follow_up_run = start_run(config, state, derived_items[0].id, background=False)
+            self.assertEqual(follow_up_run.status, "succeeded")
+            self.assertTrue((Path(follow_up_run.run_dir) / "code_state_marker.txt").exists())
 
     def test_adapter_wrapper_fails_on_schema_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:

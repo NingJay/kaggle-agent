@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
@@ -47,6 +48,7 @@ def _create_or_update_spec(
     if existing is not None:
         existing.config_path = str(payload["config_path"])
         existing.payload_path = stage_run.output_json_path
+        existing.code_state_ref = str(payload.get("code_state_ref", ""))
         existing.updated_at = now_utc_iso()
         return existing
     spec = SpecRecord(
@@ -59,6 +61,7 @@ def _create_or_update_spec(
         config_path=str(payload["config_path"]),
         payload_path=stage_run.output_json_path,
         launch_mode=str(payload.get("launch_mode", "background")),
+        code_state_ref=str(payload.get("code_state_ref", "")),
         status="validated",
         dedupe_key=str(payload.get("dedupe_key", "")),
         created_at=now_utc_iso(),
@@ -100,17 +103,30 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
         config_file = Path(config_path)
         if not config_file.is_absolute():
             config_file = config.root / config_file
+        code_state_ref = str(codegen.get("code_state_ref", "") or "")
+        code_state_path = Path(code_state_ref) if code_state_ref else None
+        run_bundle_path = Path(str(codegen.get("run_bundle_path", "") or ""))
+        spec_config_path = str(plan.get("config_path") or "")
+        if run_bundle_path.exists():
+            run_bundle = json.loads(run_bundle_path.read_text(encoding="utf-8"))
+            spec_config_path = str(run_bundle.get("config_path") or spec_config_path)
         if critic.get("status") != "approved":
             status = "failed"
             summary = "Critic rejected the generated bundle."
         elif not config_file.exists():
             status = "failed"
             summary = f"Missing config for validation: {config_file}"
+        elif code_state_path is not None and not code_state_path.exists():
+            status = "failed"
+            summary = f"Missing code state for validation: {code_state_path}"
         else:
             status = "validated"
             summary = f"Validated follow-up config at {config_file}"
             plan_payload = dict(plan)
-            plan_payload["config_path"] = str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
+            plan_payload["config_path"] = spec_config_path or (
+                str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
+            )
+            plan_payload["code_state_ref"] = code_state_ref
             spec = _create_or_update_spec(state, stage_run, plan_payload)
             spec_id = spec.spec_id
             if config.automation.auto_execute_plans:

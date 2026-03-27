@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from kaggle_agent.adapters.providers import ProviderResponse
-from kaggle_agent.adapters.stage_wrapper import StageContext, main as stage_wrapper_main
+from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, main as stage_wrapper_main
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -44,19 +44,40 @@ class StageWrapperCompatibilityTests(unittest.TestCase):
             )
             response = ProviderResponse(
                 provider="codex",
-                payload={
-                    "stage": "codegen",
-                    "status": "noop",
-                    "reason": "legacy flag accepted",
-                    "markdown": "# Codegen\n\n- noop",
-                },
+                payload={},
+            )
+            codegen_workspace = CodegenWorkspace(
+                snapshot_root=root / "snapshot",
+                workspace_root=root / "snapshot" / "workspace",
+                base_commit="abc123",
+                expected_config_relpath="BirdCLEF-2026-Codebase/configs/generated/test.yaml",
             )
             with patch("kaggle_agent.adapters.stage_wrapper.StageContext.from_env", return_value=ctx), patch(
+                "kaggle_agent.adapters.stage_wrapper._prepare_codegen_workspace",
+                return_value=codegen_workspace,
+            ), patch(
                 "kaggle_agent.adapters.stage_wrapper._build_prompt",
                 return_value="prompt",
             ), patch(
                 "kaggle_agent.adapters.stage_wrapper._run_provider",
                 return_value=(response, None),
+            ), patch(
+                "kaggle_agent.adapters.stage_wrapper._materialize_codegen",
+                return_value={
+                    "stage": "codegen",
+                    "status": "noop",
+                    "reason": "legacy flag accepted",
+                    "generated_config_path": "",
+                    "run_bundle_path": "",
+                    "patch_path": "",
+                    "code_state_ref": "",
+                    "worktree_path": "",
+                    "base_commit": "abc123",
+                    "head_commit": "",
+                    "changed_files": [],
+                    "smoke_status": "skipped",
+                    "smoke_summary": "legacy path",
+                },
             ), patch(
                 "kaggle_agent.adapters.stage_wrapper.validate_payload",
                 return_value=None,

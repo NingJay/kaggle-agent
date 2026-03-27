@@ -100,6 +100,7 @@ def register_experiment_for_work_item(state: WorkspaceState, work_item: WorkItem
         if spec is not None:
             existing.spec_id = spec.spec_id
             existing.config_path = spec.config_path
+            existing.code_state_ref = spec.code_state_ref
         return existing
     experiment = ExperimentSpec(
         id=f"exp-{work_item.id.replace('workitem-', '')}",
@@ -113,6 +114,7 @@ def register_experiment_for_work_item(state: WorkspaceState, work_item: WorkItem
         depends_on=[],
         tags=[work_item.work_type, "v2"],
         launch_mode="background",
+        code_state_ref=spec.code_state_ref if spec is not None else "",
         created_at=now_utc_iso(),
         updated_at=now_utc_iso(),
         dedupe_key=f"workitem:{work_item.id}:experiment",
@@ -137,6 +139,7 @@ def ensure_seed_spec(state: WorkspaceState, work_item: WorkItem) -> SpecRecord:
         config_path=work_item.config_path,
         payload_path=work_item.config_path,
         launch_mode="background",
+        code_state_ref="",
         status="validated",
         dedupe_key=f"seed:{work_item.id}:spec",
         created_at=now_utc_iso(),

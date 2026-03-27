@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -59,6 +61,14 @@ class StageContext:
         )
 
 
+@dataclass
+class CodegenWorkspace:
+    snapshot_root: Path
+    workspace_root: Path
+    base_commit: str
+    expected_config_relpath: str
+
+
 def _require_env(name: str) -> str:
     value = _optional_env(name)
     if not value:
@@ -90,11 +100,16 @@ def _doc_block(path: Path) -> str:
     return f"## {path.name}\n\n{text}"
 
 
-def _build_prompt(ctx: StageContext) -> str:
-    prompt_sections = [
-        f"# Stage\n\nYou are the `{ctx.stage}` stage adapter for Kaggle Agent.",
-        "Return a single JSON object that matches the supplied schema exactly. Put the human-readable stage narrative in the `markdown` field and do not wrap anything in code fences.",
-    ]
+def _build_prompt(ctx: StageContext, codegen_workspace: CodegenWorkspace | None = None) -> str:
+    prompt_sections = [f"# Stage\n\nYou are the `{ctx.stage}` stage adapter for Kaggle Agent."]
+    if codegen_workspace is None:
+        prompt_sections.append(
+            "Return a single JSON object that matches the supplied schema exactly. Put the human-readable stage narrative in the `markdown` field and do not wrap anything in code fences."
+        )
+    else:
+        prompt_sections.append(
+            "Edit files directly inside the isolated workspace and finish with a short plain-text summary. Do not return patch text, YAML blobs, or JSON artifacts in the final message."
+        )
     program = _read_optional(ctx.prompt_path)
     if program:
         prompt_sections.append(f"# Stage Program\n\n{program}")
@@ -107,11 +122,22 @@ def _build_prompt(ctx: StageContext) -> str:
         + json.dumps(ctx.input_manifest, indent=2, ensure_ascii=False)
         + "\n```"
     )
-    if ctx.stage == "codegen":
+    if codegen_workspace is not None:
         prompt_sections.append(
-            "# Codegen Rules\n\n"
-            "Do not assume write access. Emit `generated_config_yaml`, `patch_diff`, and `run_bundle` content inside JSON. The wrapper will materialize files."
+            "# Editable Workspace\n\n"
+            f"- Workspace root: `{codegen_workspace.workspace_root}`\n"
+            "- Allowed edits: `train_sed.py`, `BirdCLEF-2026-Codebase/**`\n"
+            "- Do not modify `state/`, `artifacts/`, or the original workspace.\n"
         )
+        if codegen_workspace.expected_config_relpath:
+            prompt_sections.append(
+                "# Codegen Rules\n\n"
+                f"Make sure the runnable config exists at `{codegen_workspace.expected_config_relpath}` inside the isolated workspace. Update that file in place or replace it with an improved generated config."
+            )
+        else:
+            prompt_sections.append(
+                "# Codegen Rules\n\nCreate or update a runnable YAML config under `BirdCLEF-2026-Codebase/configs/generated/` inside the isolated workspace."
+            )
     if ctx.stage == "plan":
         prompt_sections.append(
             "# Plan Rules\n\nKeep execution config-path-oriented for now. Use empty strings or empty arrays for fields that do not apply."
@@ -124,49 +150,195 @@ def _write_raw_capture(path: Path, text: str) -> str:
     return str(path)
 
 
-def _materialize_codegen(ctx: StageContext, payload: dict[str, Any]) -> dict[str, Any]:
-    status = str(payload.get("status", "noop"))
-    reason = str(payload.get("reason", ""))
+def _run_git(args: list[str], cwd: Path) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError as error:
+        raise ProviderUnavailable("git is required to prepare the isolated codegen workspace") from error
+    if completed.returncode != 0:
+        raise RuntimeError((completed.stderr or completed.stdout or "git command failed").strip())
+    return completed.stdout.strip()
+
+
+def _prepare_codegen_workspace(ctx: StageContext) -> CodegenWorkspace:
+    snapshot_root = ctx.workspace_root / "state" / "snapshots" / "codegen" / ctx.output_dir.name
+    if snapshot_root.exists():
+        shutil.rmtree(snapshot_root)
+    workspace_root = ensure_directory(snapshot_root / "workspace")
+
+    for name in [*ROOT_DOCS, "train_sed.py", "workspace.toml"]:
+        source = ctx.workspace_root / name
+        if source.exists():
+            shutil.copy2(source, workspace_root / name)
+    runtime_source = ctx.workspace_root / "BirdCLEF-2026-Codebase"
+    if runtime_source.exists():
+        shutil.copytree(runtime_source, workspace_root / runtime_source.name)
+
+    _run_git(["init", "-q"], workspace_root)
+    _run_git(["config", "user.email", "kaggle-agent@local"], workspace_root)
+    _run_git(["config", "user.name", "kaggle-agent"], workspace_root)
+    _run_git(["add", "."], workspace_root)
+    _run_git(["commit", "-q", "-m", "Baseline codegen snapshot"], workspace_root)
+    expected_config_relpath = str(ctx.input_manifest.get("plan", {}).get("config_path", "") or "")
+    return CodegenWorkspace(
+        snapshot_root=snapshot_root,
+        workspace_root=workspace_root,
+        base_commit=_run_git(["rev-parse", "HEAD"], workspace_root),
+        expected_config_relpath=expected_config_relpath,
+    )
+
+
+def _resolve_generated_config_source(codegen_workspace: CodegenWorkspace) -> Path | None:
+    if codegen_workspace.expected_config_relpath:
+        expected = codegen_workspace.workspace_root / codegen_workspace.expected_config_relpath
+        if expected.exists():
+            return expected
+    generated_root = codegen_workspace.workspace_root / "BirdCLEF-2026-Codebase" / "configs" / "generated"
+    candidates = sorted(
+        generated_root.glob("*.yaml"),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    ) if generated_root.exists() else []
+    return candidates[0] if candidates else None
+
+
+def _allow_codegen_paths(changed_files: list[str]) -> None:
+    for relpath in changed_files:
+        if relpath == "train_sed.py":
+            continue
+        if relpath.startswith("BirdCLEF-2026-Codebase/"):
+            continue
+        raise RuntimeError(f"codegen modified a disallowed path: {relpath}")
+
+
+def _smoke_check(codegen_workspace: CodegenWorkspace) -> tuple[str, str]:
+    train_entrypoint = codegen_workspace.workspace_root / "train_sed.py"
+    if not train_entrypoint.exists():
+        return "skipped", "train_sed.py not present in snapshot workspace."
+    completed = subprocess.run(
+        [sys.executable, "-m", "py_compile", str(train_entrypoint)],
+        cwd=codegen_workspace.workspace_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode == 0:
+        return "passed", "py_compile succeeded for train_sed.py."
+    return "failed", (completed.stderr or completed.stdout or "py_compile failed").strip()
+
+
+def _codegen_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# Codegen",
+        "",
+        f"- Status: `{payload['status']}`",
+        f"- Reason: {payload['reason']}",
+        f"- Generated config: `{payload['generated_config_path'] or 'n/a'}`",
+        f"- Patch: `{payload['patch_path'] or 'n/a'}`",
+        f"- Code state: `{payload['code_state_ref'] or 'n/a'}`",
+        f"- Smoke: `{payload['smoke_status']}` {payload['smoke_summary']}",
+    ]
+    if payload["changed_files"]:
+        lines.append(f"- Changed files: {', '.join(payload['changed_files'])}")
+    return "\n".join(lines) + "\n"
+
+
+def _materialize_codegen(
+    ctx: StageContext,
+    codegen_workspace: CodegenWorkspace,
+) -> dict[str, Any]:
+    status_lines = [line for line in _run_git(["status", "--porcelain"], codegen_workspace.workspace_root).splitlines() if line.strip()]
+    changed_files: list[str] = []
+    for line in status_lines:
+        relpath = line[3:] if len(line) > 3 and line[2] == " " else line[2:]
+        relpath = relpath.strip()
+        if " -> " in relpath:
+            relpath = relpath.split(" -> ", maxsplit=1)[1].strip()
+        changed_files.append(relpath)
     canonical = {
         "stage": "codegen",
-        "status": status,
-        "reason": reason,
+        "status": "noop",
+        "reason": "Codex completed without modifying the isolated workspace.",
         "generated_config_path": "",
         "run_bundle_path": "",
         "patch_path": "",
+        "code_state_ref": "",
+        "worktree_path": "",
+        "base_commit": codegen_workspace.base_commit,
+        "head_commit": "",
+        "changed_files": [],
+        "smoke_status": "skipped",
+        "smoke_summary": "No code changes were materialized.",
     }
-    if status != "generated":
+    if not changed_files:
         return canonical
 
-    generated_config = str(payload.get("generated_config_yaml", ""))
-    patch_diff = str(payload.get("patch_diff", ""))
-    run_bundle = payload.get("run_bundle", {})
-    if not generated_config.strip():
-        raise RuntimeError("codegen returned status=generated without generated_config_yaml")
-    if not isinstance(run_bundle, dict):
-        raise RuntimeError("codegen run_bundle must be a JSON object")
+    _allow_codegen_paths(changed_files)
+    config_source = _resolve_generated_config_source(codegen_workspace)
+    if config_source is None:
+        raise RuntimeError("codegen did not leave a runnable config in the isolated workspace")
+
+    smoke_status, smoke_summary = _smoke_check(codegen_workspace)
+    _run_git(["add", "."], codegen_workspace.workspace_root)
+    _run_git(["commit", "-q", "-m", "Materialized codegen edits"], codegen_workspace.workspace_root)
+    head_commit = _run_git(["rev-parse", "HEAD"], codegen_workspace.workspace_root)
+    patch_text = _run_git(["diff", "--binary", f"{codegen_workspace.base_commit}..{head_commit}"], codegen_workspace.workspace_root)
 
     generated_config_path = ctx.output_dir / "generated_config.yaml"
     patch_path = ctx.output_dir / "patch.diff"
     run_bundle_path = ctx.output_dir / "run_bundle.json"
-    atomic_write_text(generated_config_path, generated_config.rstrip() + "\n")
-    atomic_write_text(patch_path, patch_diff)
+    atomic_write_text(generated_config_path, config_source.read_text(encoding="utf-8").rstrip() + "\n")
+    atomic_write_text(patch_path, patch_text.rstrip() + ("\n" if patch_text else ""))
+    run_bundle = {
+        "spec_type": "experiment",
+        "title": str(ctx.input_manifest.get("plan", {}).get("title", "")),
+        "family": str(ctx.input_manifest.get("plan", {}).get("family", "")),
+        "config_path": str(config_source.relative_to(codegen_workspace.workspace_root)),
+        "launch_mode": str(ctx.input_manifest.get("plan", {}).get("launch_mode", "background")),
+        "dedupe_key": str(ctx.input_manifest.get("plan", {}).get("dedupe_key", "")),
+        "code_state_ref": str(codegen_workspace.workspace_root),
+        "changed_files": changed_files,
+        "smoke_status": smoke_status,
+    }
     atomic_write_json(run_bundle_path, run_bundle)
-    canonical["generated_config_path"] = str(generated_config_path)
-    canonical["run_bundle_path"] = str(run_bundle_path)
-    canonical["patch_path"] = str(patch_path)
+    canonical.update(
+        {
+            "status": "generated",
+            "reason": "Materialized Codex edits from the isolated snapshot workspace.",
+            "generated_config_path": str(generated_config_path),
+            "run_bundle_path": str(run_bundle_path),
+            "patch_path": str(patch_path),
+            "code_state_ref": str(codegen_workspace.workspace_root),
+            "worktree_path": str(codegen_workspace.workspace_root),
+            "head_commit": head_commit,
+            "changed_files": changed_files,
+            "smoke_status": smoke_status,
+            "smoke_summary": smoke_summary,
+        }
+    )
     return canonical
 
 
-def _materialize_stage_payload(ctx: StageContext, payload: dict[str, Any]) -> tuple[dict[str, Any], str, str]:
+def _materialize_stage_payload(
+    ctx: StageContext,
+    payload: dict[str, Any],
+    codegen_workspace: CodegenWorkspace | None = None,
+) -> tuple[dict[str, Any], str, str]:
     markdown = str(payload.get("markdown", "")).strip()
+    if codegen_workspace is not None:
+        canonical = _materialize_codegen(ctx, codegen_workspace)
+        return canonical, _codegen_markdown(canonical), ""
     if not markdown:
         raise RuntimeError("provider output did not include markdown")
     payload = dict(payload)
     payload.pop("markdown", None)
     spec_path = ""
-    if ctx.stage == "codegen":
-        return _materialize_codegen(ctx, payload), markdown + "\n", spec_path
     if ctx.stage == "plan" and str(payload.get("plan_status", "")) == "planned":
         spec_file = ctx.output_dir / "spec.yaml"
         atomic_write_text(spec_file, yaml.safe_dump(payload, sort_keys=False))
@@ -184,6 +356,7 @@ def _provider_meta(
     amp_probe_path: str = "",
     amp_probe_summary: str = "",
     amp_thread_id: str = "",
+    codegen_workspace: CodegenWorkspace | None = None,
 ) -> dict[str, Any]:
     meta = {
         "provider": response.provider,
@@ -197,7 +370,11 @@ def _provider_meta(
         "exit_code": response.exit_code,
         "started_at": response.extra_meta.get("started_at", ""),
         "completed_at": response.extra_meta.get("completed_at", ""),
+        "materialization_mode": response.extra_meta.get("materialization_mode", "structured"),
     }
+    if codegen_workspace is not None:
+        meta["workspace_root_used"] = str(codegen_workspace.workspace_root)
+        meta["snapshot_root"] = str(codegen_workspace.snapshot_root)
     if amp_probe_path:
         meta["amp_probe_path"] = amp_probe_path
         meta["amp_probe_summary"] = amp_probe_summary
@@ -205,15 +382,21 @@ def _provider_meta(
     return meta
 
 
-def _run_provider(provider: str, ctx: StageContext, prompt: str) -> tuple[ProviderResponse, AmpProbeResult | None]:
+def _run_provider(
+    provider: str,
+    ctx: StageContext,
+    prompt: str,
+    codegen_workspace: CodegenWorkspace | None = None,
+) -> tuple[ProviderResponse, AmpProbeResult | None]:
     if provider == "claude":
         return run_claude_headless(prompt=prompt, schema=_schema(ctx), workspace_root=ctx.workspace_root), None
     if provider == "codex":
         return run_codex_exec(
             prompt=prompt,
-            schema_path=ctx.schema_path,
-            workspace_root=ctx.workspace_root,
+            schema_path=ctx.schema_path if codegen_workspace is None else None,
+            workspace_root=ctx.workspace_root if codegen_workspace is None else codegen_workspace.workspace_root,
             output_dir=ctx.output_dir,
+            mode="structured" if codegen_workspace is None else "agentic",
         ), None
     if provider == "critic":
         response = run_claude_headless(prompt=prompt, schema=_schema(ctx), workspace_root=ctx.workspace_root)
@@ -238,13 +421,17 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         ctx = StageContext.from_env()
-        prompt = _build_prompt(ctx)
+        codegen_workspace = _prepare_codegen_workspace(ctx) if ctx.stage == "codegen" else None
+        prompt = _build_prompt(ctx, codegen_workspace)
         started_at = now_utc_iso()
-        response, amp_probe = _run_provider(args.provider, ctx, prompt)
+        response, amp_probe = _run_provider(args.provider, ctx, prompt, codegen_workspace)
         response.extra_meta.setdefault("started_at", started_at)
         response.extra_meta.setdefault("completed_at", now_utc_iso())
-        validate_payload(_schema(ctx), response.payload)
-        payload, markdown, spec_path = _materialize_stage_payload(ctx, response.payload)
+        if ctx.stage != "codegen":
+            validate_payload(_schema(ctx), response.payload)
+        payload, markdown, spec_path = _materialize_stage_payload(ctx, response.payload, codegen_workspace)
+        if ctx.stage == "codegen":
+            validate_payload(_schema(ctx), payload)
 
         json_path = ctx.output_dir / f"{ctx.stage}.json"
         md_path = ctx.output_dir / f"{ctx.stage}.md"
@@ -270,6 +457,7 @@ def main(argv: list[str] | None = None) -> int:
             amp_probe_path=amp_probe_path,
             amp_probe_summary=amp_probe.summary if amp_probe is not None else "",
             amp_thread_id=amp_probe.thread_id if amp_probe is not None else "",
+            codegen_workspace=codegen_workspace,
         )
         if spec_path:
             meta["spec_path"] = spec_path
