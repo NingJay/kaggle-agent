@@ -193,7 +193,10 @@ def _build_prompt(
             )
     if ctx.stage == "plan":
         prompt_sections.append(
-            "# Plan Rules\n\nKeep execution config-path-oriented for now. Use empty strings or empty arrays for fields that do not apply."
+            "# Plan Rules\n\n"
+            "Keep execution config-path-oriented for now. Use empty strings or empty arrays for fields that do not apply.\n"
+            "For ordinary experiment iteration, debug reruns, and code-fix follow-ups, return `plan_status` as `planned`.\n"
+            "Use `submission_candidate` only for explicit submission-packaging or leaderboard-promotion plans."
         )
     return "\n\n".join(section.strip() for section in prompt_sections if section.strip()) + "\n"
 
