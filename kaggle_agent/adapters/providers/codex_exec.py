@@ -39,6 +39,7 @@ def run_codex_exec(
     workspace_root: Path,
     output_dir: Path,
     mode: str = "structured",
+    extra_env: dict[str, str] | None = None,
 ) -> ProviderResponse:
     binary = shutil.which(CODEX_BINARY)
     if not binary:
@@ -51,6 +52,8 @@ def run_codex_exec(
     env = os.environ.copy()
     if not codex_api_key and openai_api_key:
         env["CODEX_API_KEY"] = openai_api_key
+    if extra_env:
+        env.update(extra_env)
 
     if mode == "structured":
         if schema_path is None:

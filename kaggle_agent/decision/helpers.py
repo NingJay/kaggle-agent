@@ -175,6 +175,8 @@ def _relocate_stage_output(
         validation.output_md_path = _rebase_stage_path(validation.output_md_path, old_dir, new_dir)
     for json_path in new_dir.rglob("*.json"):
         _rewrite_json_file_paths(json_path, old_dir, new_dir)
+    for markdown_path in new_dir.rglob("*.md"):
+        _rewrite_text_file_paths(markdown_path, old_dir, new_dir)
     return old_dir, new_dir
 
 
@@ -196,6 +198,18 @@ def _rewrite_json_file_paths(path: Path, old_dir: Path, new_dir: Path) -> None:
     except json.JSONDecodeError:
         return
     atomic_write_json(path, _rebase_payload_paths(payload, old_dir, new_dir))
+
+
+def _rewrite_text_file_paths(path: Path, old_dir: Path, new_dir: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return
+    rebased = text.replace(str(old_dir), str(new_dir))
+    if rebased != text:
+        atomic_write_text(path, rebased)
 
 
 def register_agent_run(

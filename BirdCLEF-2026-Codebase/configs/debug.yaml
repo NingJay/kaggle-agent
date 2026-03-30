@@ -34,7 +34,8 @@ training:
   dropout: 0.0
 
 metrics:
-  primary: soundscape_macro_roc_auc
+  primary: val_soundscape_macro_roc_auc
   secondary:
+    - soundscape_macro_roc_auc
     - padded_cmap
   submission_candidate_threshold: 0.85

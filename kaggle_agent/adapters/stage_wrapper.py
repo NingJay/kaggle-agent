@@ -23,6 +23,15 @@ from kaggle_agent.utils import atomic_write_json, atomic_write_text, ensure_dire
 
 
 ROOT_DOCS = ["AGENTS.md", "COMPETITION.md", "PLAYBOOK.md"]
+KNOWLEDGE_FILES_IN_PROMPT_ORDER = [
+    "00_experiment_rules.md",
+    "01_validated_findings.md",
+    "03_next_experiment_priors.md",
+    "04_submission_bar.md",
+    "experiment_conclusions.md",
+]
+KNOWLEDGE_PROMPT_STAGES = {"research", "decision", "plan", "codegen", "critic"}
+KNOWLEDGE_PROMPT_CHAR_BUDGET = 16000
 STAGE_WORKSPACE_TOP_LEVEL_EXCLUDES = {
     ".git",
     ".venv",
@@ -52,6 +61,7 @@ CODEGEN_DENIED_SUFFIX_REASONS = {
     ".ckpt": "artifact",
     ".ipynb": "notebook",
 }
+CODEGEN_NOISE_SUFFIXES = {".pyc", ".pyo"}
 
 
 @dataclass
@@ -139,6 +149,48 @@ def _doc_block(path: Path) -> str:
     return f"## {path.name}\n\n{text}"
 
 
+def _knowledge_blocks(root: Path, manifest: dict[str, Any], *, limit: int = KNOWLEDGE_PROMPT_CHAR_BUDGET) -> str:
+    knowledge_root = root / "knowledge"
+    if not knowledge_root.exists():
+        return ""
+
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+    run_id = str(manifest.get("run", {}).get("run_id", "") or "")
+    ordered_relpaths = list(KNOWLEDGE_FILES_IN_PROMPT_ORDER)
+    if run_id:
+        ordered_relpaths.insert(4, f"research/{run_id}.md")
+    for relative in ordered_relpaths:
+        path = knowledge_root / relative
+        if path.exists() and path.is_file():
+            candidates.append(path)
+            seen.add(path.resolve())
+
+    for path in sorted(knowledge_root.glob("research/*.md"), reverse=True):
+        resolved = path.resolve()
+        if resolved not in seen:
+            candidates.append(path)
+            seen.add(resolved)
+        if len(candidates) >= 8:
+            break
+
+    sections: list[str] = []
+    total = 0
+    for path in candidates:
+        text = path.read_text(encoding="utf-8").strip()
+        if not text:
+            continue
+        section = f"## knowledge/{path.relative_to(knowledge_root).as_posix()}\n\n{text}"
+        remaining = limit - total
+        if remaining <= 0:
+            break
+        if len(section) > remaining:
+            section = truncate(section, limit=remaining)
+        sections.append(section)
+        total += len(section) + 2
+    return "\n\n".join(section for section in sections if section)
+
+
 def _build_prompt(
     ctx: StageContext,
     codegen_workspace: CodegenWorkspace | None = None,
@@ -150,6 +202,22 @@ def _build_prompt(
         prompt_sections.append(
             "Return a single JSON object that matches the supplied schema exactly. Put the human-readable stage narrative in the `markdown` field and do not wrap anything in code fences."
         )
+        schema = _schema(ctx)
+        required = [str(item) for item in schema.get("required", [])]
+        properties = schema.get("properties", {})
+        if required:
+            lines = ["# Output Contract", "", "Required fields:"]
+            for key in required:
+                prop = properties.get(key, {})
+                field_type = prop.get("type")
+                if isinstance(field_type, list):
+                    rendered_type = " | ".join(str(item) for item in field_type)
+                elif field_type is None:
+                    rendered_type = "any"
+                else:
+                    rendered_type = str(field_type)
+                lines.append(f"- `{key}`: {rendered_type}")
+            prompt_sections.append("\n".join(lines))
     else:
         prompt_sections.append(
             "Edit files directly inside the isolated workspace and finish with a short plain-text summary. Do not return patch text, YAML blobs, or JSON artifacts in the final message."
@@ -162,6 +230,10 @@ def _build_prompt(
     docs = "\n\n".join(section for section in doc_sections if section)
     if docs:
         prompt_sections.append(f"# Operating Contract\n\n{docs}")
+    if ctx.stage in KNOWLEDGE_PROMPT_STAGES:
+        knowledge = _knowledge_blocks(docs_root, ctx.input_manifest)
+        if knowledge:
+            prompt_sections.append(f"# Knowledge Context\n\n{knowledge}")
     prompt_sections.append(
         "# Input Manifest\n\n```json\n"
         + json.dumps(ctx.input_manifest, indent=2, ensure_ascii=False)
@@ -196,7 +268,9 @@ def _build_prompt(
             "# Plan Rules\n\n"
             "Keep execution config-path-oriented for now. Use empty strings or empty arrays for fields that do not apply.\n"
             "For ordinary experiment iteration, debug reruns, and code-fix follow-ups, return `plan_status` as `planned`.\n"
-            "Use `submission_candidate` only for explicit submission-packaging or leaderboard-promotion plans."
+            "Use `submission_candidate` only for explicit submission-packaging or leaderboard-promotion plans.\n"
+            "Use the knowledge context explicitly. When validation metrics are available, treat `val_soundscape_macro_roc_auc` as the keep/discard metric and treat resubstitution `soundscape_macro_roc_auc` as diagnostic only.\n"
+            "If the blocking issue is class imbalance or class coverage, propose a plan that addresses coverage before calibration-only tuning."
         )
     return "\n\n".join(section.strip() for section in prompt_sections if section.strip()) + "\n"
 
@@ -239,12 +313,19 @@ def _copy_stage_source_tree(source_root: Path, destination_root: Path) -> None:
             shutil.copy2(item, destination)
 
 
+def _sanitize_stage_workspace(workspace_root: Path) -> None:
+    runtime_outputs = workspace_root / "BirdCLEF-2026-Codebase" / "outputs"
+    if runtime_outputs.exists():
+        shutil.rmtree(runtime_outputs, ignore_errors=True)
+
+
 def _prepare_stage_workspace(ctx: StageContext) -> StageWorkspace:
     stage_root = ctx.workspace_root / "state" / "worktrees" / ctx.stage / ctx.output_dir.name
     if stage_root.exists():
         shutil.rmtree(stage_root)
     workspace_root = ensure_directory(stage_root / "workspace")
     _copy_stage_source_tree(ctx.workspace_root, workspace_root)
+    _sanitize_stage_workspace(workspace_root)
     return StageWorkspace(stage_root=stage_root, workspace_root=workspace_root)
 
 
@@ -312,7 +393,7 @@ def _allow_codegen_paths(changed_files: list[str]) -> None:
             continue
         raise RuntimeError(f"codegen modified a disallowed path: {normalized}")
 
-def _collect_changed_files(codegen_workspace: CodegenWorkspace) -> list[str]:
+def _collect_worktree_changed_files(codegen_workspace: CodegenWorkspace) -> list[str]:
     status_lines = [line for line in _run_git(["status", "--porcelain"], codegen_workspace.workspace_root).splitlines() if line.strip()]
     changed_files: list[str] = []
     for line in status_lines:
@@ -322,6 +403,42 @@ def _collect_changed_files(codegen_workspace: CodegenWorkspace) -> list[str]:
             relpath = relpath.split(" -> ", maxsplit=1)[1].strip()
         changed_files.append(relpath)
     return sorted(dict.fromkeys(changed_files))
+
+
+def _head_commit(codegen_workspace: CodegenWorkspace) -> str:
+    return _run_git(["rev-parse", "HEAD"], codegen_workspace.workspace_root)
+
+
+def _collect_committed_changed_files(codegen_workspace: CodegenWorkspace, *, head_commit: str) -> list[str]:
+    if head_commit == codegen_workspace.base_commit:
+        return []
+    output = _run_git(
+        ["diff", "--name-only", f"{codegen_workspace.base_commit}..{head_commit}"],
+        codegen_workspace.workspace_root,
+    )
+    changed_files = [line.strip() for line in output.splitlines() if line.strip()]
+    return sorted(dict.fromkeys(changed_files))
+
+
+def _collect_materialized_files(codegen_workspace: CodegenWorkspace) -> tuple[str, list[str], list[str]]:
+    head_commit = _head_commit(codegen_workspace)
+    committed_files = _collect_committed_changed_files(codegen_workspace, head_commit=head_commit)
+    worktree_files = _collect_worktree_changed_files(codegen_workspace)
+    changed_files = sorted(dict.fromkeys([*committed_files, *worktree_files]))
+    return head_commit, changed_files, worktree_files
+
+
+def _prune_codegen_noise(codegen_workspace: CodegenWorkspace) -> None:
+    outputs_root = _runtime_root(codegen_workspace) / "outputs"
+    if outputs_root.exists():
+        shutil.rmtree(outputs_root, ignore_errors=True)
+    for path in codegen_workspace.workspace_root.rglob("__pycache__"):
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+    for suffix in CODEGEN_NOISE_SUFFIXES:
+        for path in codegen_workspace.workspace_root.rglob(f"*{suffix}"):
+            if path.is_file():
+                path.unlink(missing_ok=True)
 
 
 def _runtime_root(codegen_workspace: CodegenWorkspace) -> Path:
@@ -403,7 +520,8 @@ def _materialize_codegen(
     *,
     provider_runtime: str,
 ) -> dict[str, Any]:
-    changed_files = _collect_changed_files(codegen_workspace)
+    _prune_codegen_noise(codegen_workspace)
+    head_commit_before_verify, changed_files, worktree_files = _collect_materialized_files(codegen_workspace)
     canonical = {
         "stage": "codegen",
         "status": "noop",
@@ -418,7 +536,7 @@ def _materialize_codegen(
         "verify_summary": "No code changes were materialized.",
         "worktree_path": "",
         "base_commit": codegen_workspace.base_commit,
-        "head_commit": "",
+        "head_commit": head_commit_before_verify if head_commit_before_verify != codegen_workspace.base_commit else "",
         "changed_files": [],
         "provider_runtime": provider_runtime,
         "allowed_edit_roots": list(CODEGEN_ALLOWED_EDIT_ROOTS),
@@ -434,18 +552,30 @@ def _materialize_codegen(
         raise RuntimeError("codegen did not leave a runnable config in the isolated workspace")
 
     verify_status, verify_command, verify_summary = _verify_codegen_workspace(codegen_workspace, config_source)
-    post_verify_changes = _collect_changed_files(codegen_workspace)
-    _allow_codegen_paths(post_verify_changes)
+    _prune_codegen_noise(codegen_workspace)
+    head_commit_after_verify, _post_verify_changes, worktree_files = _collect_materialized_files(codegen_workspace)
+    head_commit = head_commit_after_verify
+    if worktree_files:
+        _run_git(["add", "-A", "--", "."], codegen_workspace.workspace_root)
+        _run_git(["commit", "-q", "-m", "Materialized codegen edits"], codegen_workspace.workspace_root)
+        head_commit = _head_commit(codegen_workspace)
+    final_changed_files = _collect_committed_changed_files(codegen_workspace, head_commit=head_commit)
+    if not final_changed_files:
+        canonical.update(
+            {
+                "reason": "Claude Code completed without leaving net source changes after transient codegen noise was pruned.",
+                "head_commit": head_commit if head_commit != codegen_workspace.base_commit else "",
+            }
+        )
+        return canonical
 
+    _allow_codegen_paths(final_changed_files)
     staging_roots = [
         item
         for item in CODEGEN_ALLOWED_EDIT_ROOTS
         if (codegen_workspace.workspace_root / item).exists()
-        or any(path == item or path.startswith(f"{item}/") for path in post_verify_changes)
+        or any(path == item or path.startswith(f"{item}/") for path in final_changed_files)
     ]
-    _run_git(["add", "-A", "--", *staging_roots], codegen_workspace.workspace_root)
-    _run_git(["commit", "-q", "-m", "Materialized codegen edits"], codegen_workspace.workspace_root)
-    head_commit = _run_git(["rev-parse", "HEAD"], codegen_workspace.workspace_root)
     patch_text = _run_git(
         ["diff", "--binary", f"{codegen_workspace.base_commit}..{head_commit}", "--", *staging_roots],
         codegen_workspace.workspace_root,
@@ -468,7 +598,7 @@ def _materialize_codegen(
         "verify_command": verify_command,
         "verify_status": verify_status,
         "verify_summary": verify_summary,
-        "changed_files": changed_files,
+        "changed_files": final_changed_files,
         "provider_runtime": provider_runtime,
     }
     atomic_write_json(run_bundle_path, run_bundle)
@@ -486,7 +616,7 @@ def _materialize_codegen(
             "verify_summary": verify_summary,
             "worktree_path": str(codegen_workspace.workspace_root),
             "head_commit": head_commit,
-            "changed_files": changed_files,
+            "changed_files": final_changed_files,
             "smoke_status": verify_status,
             "smoke_summary": verify_summary,
         }
@@ -565,6 +695,72 @@ def _provider_meta(
     return meta
 
 
+def _build_repair_prompt(ctx: StageContext, validation_error: SchemaValidationError, payload: dict[str, Any]) -> str:
+    schema = _schema(ctx)
+    return (
+        f"# Structured Output Repair\n\n"
+        f"Your previous `{ctx.stage}` JSON did not match the schema.\n"
+        f"Validation error: `{validation_error}`\n\n"
+        "Return a single corrected JSON object that matches the schema exactly. "
+        "Do not omit required fields, do not add extra fields, and keep the human-readable narrative in `markdown`.\n\n"
+        "## Required Fields\n\n"
+        + "\n".join(f"- `{item}`" for item in schema.get("required", []))
+        + "\n\n"
+        "## Previous Payload\n\n```json\n"
+        f"{json.dumps(payload, indent=2, ensure_ascii=False)}\n"
+        "```\n"
+    )
+
+
+def _merge_provider_attempts(
+    original: ProviderResponse,
+    repaired: ProviderResponse,
+    *,
+    validation_error: SchemaValidationError,
+) -> ProviderResponse:
+    merged = repaired
+    stdout_parts = [part.strip() for part in [original.raw_stdout, repaired.raw_stdout] if part.strip()]
+    stderr_parts = [part.strip() for part in [original.raw_stderr, repaired.raw_stderr] if part.strip()]
+    event_parts = [part.strip() for part in [original.event_log_text, repaired.event_log_text] if part.strip()]
+    merged.raw_stdout = "\n\n".join(stdout_parts)
+    merged.raw_stderr = "\n\n".join(stderr_parts)
+    merged.event_log_text = "\n\n".join(event_parts)
+    merged.extra_meta.setdefault("validation_repair", str(validation_error))
+    merged.extra_meta.setdefault("repair_attempted", "1")
+    return merged
+
+
+def _validate_or_repair_response(
+    provider: str,
+    ctx: StageContext,
+    prompt: str,
+    response: ProviderResponse,
+    amp_probe: AmpProbeResult | None,
+    *,
+    provider_workspace_root: Path,
+    codegen_workspace: CodegenWorkspace | None = None,
+) -> tuple[ProviderResponse, AmpProbeResult | None]:
+    if ctx.stage == "codegen":
+        return response, amp_probe
+
+    schema = _schema(ctx)
+    try:
+        validate_payload(schema, response.payload)
+        return response, amp_probe
+    except SchemaValidationError as error:
+        repair_prompt = _build_repair_prompt(ctx, error, response.payload)
+        repaired_response, repaired_amp_probe = _run_provider(
+            provider,
+            ctx,
+            repair_prompt,
+            provider_workspace_root=provider_workspace_root,
+            codegen_workspace=codegen_workspace,
+        )
+        repaired_response = _merge_provider_attempts(response, repaired_response, validation_error=error)
+        validate_payload(schema, repaired_response.payload)
+        return repaired_response, repaired_amp_probe if repaired_amp_probe is not None else amp_probe
+
+
 def _run_provider(
     provider: str,
     ctx: StageContext,
@@ -573,6 +769,16 @@ def _run_provider(
     provider_workspace_root: Path,
     codegen_workspace: CodegenWorkspace | None = None,
 ) -> tuple[ProviderResponse, AmpProbeResult | None]:
+    codegen_env = (
+        {
+            "KAGGLE_AGENT_RUN_DIR": str(codegen_workspace.verify_root),
+            "KAGGLE_AGENT_DISABLE_OUTPUT_MIRROR": "1",
+            "KAGGLE_AGENT_VERIFY_MODE": "1",
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+        if codegen_workspace is not None
+        else None
+    )
     if provider == "claude":
         return run_claude_headless(prompt=prompt, schema=_schema(ctx), workspace_root=provider_workspace_root), None
     if provider == "codex":
@@ -582,6 +788,7 @@ def _run_provider(
             workspace_root=provider_workspace_root,
             output_dir=ctx.output_dir,
             mode="structured" if codegen_workspace is None else "agentic",
+            extra_env=codegen_env,
         ), None
     if provider == "claude_code":
         return run_claude_code_exec(
@@ -589,6 +796,7 @@ def _run_provider(
             schema_path=ctx.schema_path if codegen_workspace is None else None,
             workspace_root=provider_workspace_root,
             mode="structured" if codegen_workspace is None else "agentic",
+            extra_env=codegen_env,
         ), None
     if provider == "critic":
         response = run_claude_headless(prompt=prompt, schema=_schema(ctx), workspace_root=provider_workspace_root)
@@ -611,6 +819,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    ctx: StageContext | None = None
+    response: ProviderResponse | None = None
+    amp_probe: AmpProbeResult | None = None
     try:
         ctx = StageContext.from_env()
         stage_workspace = _prepare_stage_workspace(ctx) if ctx.stage in {"plan", "codegen"} and args.provider in {"claude_code", "codex"} else None
@@ -633,8 +844,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         response.extra_meta.setdefault("started_at", started_at)
         response.extra_meta.setdefault("completed_at", now_utc_iso())
-        if ctx.stage != "codegen":
-            validate_payload(_schema(ctx), response.payload)
+        response, amp_probe = _validate_or_repair_response(
+            args.provider,
+            ctx,
+            prompt,
+            response,
+            amp_probe,
+            provider_workspace_root=provider_workspace_root,
+            codegen_workspace=codegen_workspace,
+        )
         payload, markdown, spec_path = _materialize_stage_payload(
             ctx,
             response.payload,
@@ -679,9 +897,19 @@ def main(argv: list[str] | None = None) -> int:
         print(str(error), file=sys.stderr)
         return ADAPTER_UNAVAILABLE_EXIT_CODE
     except SchemaValidationError as error:
+        if ctx is not None and response is not None:
+            _write_raw_capture(ctx.output_dir / "raw_stdout.txt", response.raw_stdout)
+            _write_raw_capture(ctx.output_dir / "raw_stderr.txt", response.raw_stderr)
+            if response.event_log_text:
+                _write_raw_capture(ctx.output_dir / "events.jsonl", response.event_log_text)
         print(f"schema validation failed: {error}", file=sys.stderr)
         return 2
     except Exception as error:  # noqa: BLE001
+        if ctx is not None and response is not None:
+            _write_raw_capture(ctx.output_dir / "raw_stdout.txt", response.raw_stdout)
+            _write_raw_capture(ctx.output_dir / "raw_stderr.txt", response.raw_stderr)
+            if response.event_log_text:
+                _write_raw_capture(ctx.output_dir / "events.jsonl", response.event_log_text)
         print(str(error), file=sys.stderr)
         return 1
 

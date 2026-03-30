@@ -44,9 +44,9 @@ training:
   max_iter: 400
 
 metrics:
-  primary: soundscape_macro_roc_auc
+  primary: val_soundscape_macro_roc_auc
   secondary:
-    - val_soundscape_macro_roc_auc
+    - soundscape_macro_roc_auc
     - padded_cmap
     - prior_fusion_macro_roc_auc
     - val_prior_fusion_macro_roc_auc

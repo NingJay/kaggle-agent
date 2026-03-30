@@ -14,6 +14,8 @@ if str(SRC_ROOT) not in sys.path:
 from birdclef_runtime.config import apply_overrides, load_config
 from birdclef_runtime.training import run_training
 
+DEFAULT_PRIMARY_METRIC = "val_soundscape_macro_roc_auc"
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="BirdCLEF 2026 Perch-head runtime.")
@@ -33,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
         error_payload = {
             "experiment_name": config.get("experiment", {}).get("name", "unknown"),
             "config_path": config.get("_config_path", str(Path(args.config).resolve())),
-            "primary_metric_name": config.get("metrics", {}).get("primary", "soundscape_macro_roc_auc"),
+            "primary_metric_name": config.get("metrics", {}).get("primary", DEFAULT_PRIMARY_METRIC),
             "primary_metric_value": 0.0,
             "secondary_metrics": {},
             "all_metrics": {},

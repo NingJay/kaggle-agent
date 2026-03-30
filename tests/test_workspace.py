@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -14,7 +15,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from kaggle_agent.cli import main as cli_main
-from kaggle_agent.control.executor import start_run
+from kaggle_agent.control.executor import collect_finished_runs, start_run
 from kaggle_agent.control.monitor import _run_validate_stage
 from kaggle_agent.control.store import load_state
 from kaggle_agent.schema import RunRecord, RuntimeState, StageRun, WorkspaceState
@@ -78,8 +79,8 @@ description = "Test workspace"
 contract = "birdclef_2026"
 
 [metrics]
-primary = "soundscape_macro_roc_auc"
-secondary = ["padded_cmap"]
+primary = "val_soundscape_macro_roc_auc"
+secondary = ["soundscape_macro_roc_auc", "padded_cmap"]
 
 [data]
 root = "{root / 'BirdCLEF-2026-Codebase' / 'birdclef-2026'}"
@@ -303,9 +304,10 @@ def main() -> int:
         "config_path": os.environ.get("KAGGLE_AGENT_SPEC_ID", ""),
         "primary_metric_name": "soundscape_macro_roc_auc",
         "primary_metric_value": 0.42,
-        "secondary_metrics": {"padded_cmap": 0.24},
+        "secondary_metrics": {"soundscape_macro_roc_auc": 0.42, "padded_cmap": 0.24},
         "all_metrics": {
             "soundscape_macro_roc_auc": 0.42,
+            "val_soundscape_macro_roc_auc": 0.42,
             "padded_cmap": 0.24,
         },
         "root_cause": "worktree-applied",
@@ -419,9 +421,10 @@ def main() -> int:
         "config_path": os.environ.get("KAGGLE_AGENT_SPEC_ID", ""),
         "primary_metric_name": "soundscape_macro_roc_auc",
         "primary_metric_value": 0.42,
-        "secondary_metrics": {"padded_cmap": 0.24},
+        "secondary_metrics": {"soundscape_macro_roc_auc": 0.42, "padded_cmap": 0.24},
         "all_metrics": {
             "soundscape_macro_roc_auc": 0.42,
+            "val_soundscape_macro_roc_auc": 0.42,
             "padded_cmap": 0.24,
         },
         "root_cause": "snapshot-applied",
@@ -581,6 +584,7 @@ class WorkspaceTests(unittest.TestCase):
             run = state.runs[0]
             self.assertEqual(run.work_item_id, "workitem-perch-baseline")
             self.assertEqual(run.stage_cursor, "complete")
+            self.assertEqual(run.primary_metric_name, "val_soundscape_macro_roc_auc")
 
             stage_names = [item.stage_name for item in state.stage_runs if item.run_id == run_id]
             self.assertEqual(stage_names, ["evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"])
@@ -590,6 +594,43 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue((root / "reports" / "master_report.html").exists())
             self.assertTrue((root / "knowledge" / "experiment_conclusions.md").exists())
             self.assertTrue((root / "FINDINGS.md").exists())
+
+    def test_collect_finished_runs_uses_terminal_artifacts_even_if_pid_still_exists(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            cli_main(["--root", str(root), "enqueue-preflight", "--allow-debug"])
+            state = load_state(config)
+            preflight_item = next(item for item in state.work_items if item.work_type == "preflight_check")
+            run = start_run(config, state, preflight_item.id, background=True)
+
+            run_root = Path(run.run_dir)
+            deadline = time.time() + 30
+            while time.time() < deadline:
+                result_path = run_root / "result.json"
+                if (run_root / "exit_code.txt").exists() and result_path.exists():
+                    try:
+                        payload = json.loads(result_path.read_text(encoding="utf-8"))
+                    except json.JSONDecodeError:
+                        payload = None
+                    if isinstance(payload, dict) and payload:
+                        break
+                time.sleep(0.2)
+            else:
+                self.fail("background baseline run did not finish within 30 seconds")
+
+            run.pid = os.getpid()
+            finished = collect_finished_runs(config, state)
+
+            self.assertEqual([item.run_id for item in finished], [run.run_id])
+            self.assertEqual(run.status, "succeeded")
+            self.assertEqual(run.stage_cursor, "evidence")
+            self.assertIsNone(run.pid)
 
     def test_artifact_layout_uses_attempt_centric_readable_paths(self) -> None:
         with TemporaryDirectory() as tmp:

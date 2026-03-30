@@ -235,6 +235,14 @@ def start_run(
 
 
 def _process_exists(pid: int) -> bool:
+    proc_stat = Path(f"/proc/{pid}/stat")
+    if proc_stat.exists():
+        try:
+            state = proc_stat.read_text(encoding="utf-8").split()[2]
+        except (IndexError, OSError):
+            state = ""
+        if state == "Z":
+            return False
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -244,12 +252,44 @@ def _process_exists(pid: int) -> bool:
     return True
 
 
+def _run_has_terminal_artifacts(run: RunRecord) -> bool:
+    run_root = Path(run.run_dir)
+    exit_code_path = run_root / "exit_code.txt"
+    result_path = run_root / "result.json"
+    if not exit_code_path.exists() or not result_path.exists():
+        return False
+    try:
+        payload = json.loads(result_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return isinstance(payload, dict) and bool(payload)
+
+
+def _resolve_primary_metric(result_payload: dict[str, object], default_metric: str) -> tuple[str, float | None]:
+    all_metrics = result_payload.get("all_metrics", {})
+    if isinstance(all_metrics, dict) and "val_soundscape_macro_roc_auc" in all_metrics:
+        return "val_soundscape_macro_roc_auc", float(all_metrics["val_soundscape_macro_roc_auc"])
+
+    primary_name = str(result_payload.get("primary_metric_name", default_metric) or default_metric)
+    primary_value = result_payload.get("primary_metric_value")
+    if primary_value is not None:
+        return primary_name, float(primary_value)
+
+    if isinstance(all_metrics, dict):
+        if primary_name in all_metrics:
+            return primary_name, float(all_metrics[primary_name])
+        if "soundscape_macro_roc_auc" in all_metrics:
+            return "soundscape_macro_roc_auc", float(all_metrics["soundscape_macro_roc_auc"])
+    return primary_name, None
+
+
 def collect_finished_runs(config: WorkspaceConfig, state: WorkspaceState) -> list[RunRecord]:
     finished: list[RunRecord] = []
     for run in state.runs:
         if run.status != "running":
             continue
-        if run.pid is not None and _process_exists(run.pid):
+        terminal_artifacts_ready = _run_has_terminal_artifacts(run)
+        if not terminal_artifacts_ready and run.pid is not None and _process_exists(run.pid):
             continue
         finalize_run(config, state, run.run_id)
         finished.append(run)
@@ -276,15 +316,18 @@ def finalize_run(config: WorkspaceConfig, state: WorkspaceState, run_id: str) ->
         "metrics": str(metrics_path) if metrics_path.exists() else "",
         "artifacts": str(artifacts_path) if artifacts_path.exists() else "",
     }
-    run.primary_metric_name = str(result_payload.get("primary_metric_name", config.metrics.primary))
-    if result_payload.get("primary_metric_value") is not None:
-        run.primary_metric_value = float(result_payload["primary_metric_value"])
+    run.primary_metric_name, run.primary_metric_value = _resolve_primary_metric(result_payload, config.metrics.primary)
     secondary = result_payload.get("secondary_metrics", {})
     if isinstance(secondary, dict):
-        run.secondary_metrics = {str(key): float(value) for key, value in secondary.items()}
+        run.secondary_metrics = {
+            str(key): float(value)
+            for key, value in secondary.items()
+            if str(key) != run.primary_metric_name
+        }
     run.root_cause = str(result_payload.get("root_cause", run.error or "unknown"))
     run.verdict = str(result_payload.get("verdict", "unknown"))
     run.status = "succeeded" if exit_code == 0 and result_payload else "failed"
+    run.pid = None
     if run.status == "failed" and not run.error:
         if not exit_code_path.exists() and not result_path.exists():
             run.error = "launch process exited before writing exit_code.txt or result.json"

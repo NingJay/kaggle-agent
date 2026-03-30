@@ -12,6 +12,8 @@ from birdclef_runtime.backends import build_backbone
 from birdclef_runtime.data import Sample, build_dataset
 from birdclef_runtime.metrics import macro_roc_auc, padded_cmap, sigmoid
 
+DEFAULT_PRIMARY_METRIC = "val_soundscape_macro_roc_auc"
+
 
 def _dot(lhs: list[float], rhs: list[float]) -> float:
     return sum(left * right for left, right in zip(lhs, rhs))
@@ -118,6 +120,24 @@ def _mirror_files(source_dir: Path, mirrored_dir: Path, filenames: list[str]) ->
             shutil.copy2(source, mirrored_dir / filename)
 
 
+def _select_primary_metric(config: dict[str, Any], metrics: dict[str, float]) -> tuple[str, float]:
+    configured = str(
+        config.get("metrics", {}).get(
+            "primary",
+            os.environ.get("KAGGLE_AGENT_PRIMARY_METRIC", DEFAULT_PRIMARY_METRIC),
+        )
+    )
+    if "val_soundscape_macro_roc_auc" in metrics:
+        primary_name = "val_soundscape_macro_roc_auc"
+    elif configured in metrics:
+        primary_name = configured
+    elif "soundscape_macro_roc_auc" in metrics:
+        primary_name = "soundscape_macro_roc_auc"
+    else:
+        primary_name = next(iter(metrics))
+    return primary_name, float(metrics[primary_name])
+
+
 def run_training(config: dict[str, Any], runtime_root: Path) -> dict[str, Any]:
     training_cfg = config.get("training", {})
     backend = training_cfg.get("backend", "python_debug")
@@ -128,13 +148,7 @@ def run_training(config: dict[str, Any], runtime_root: Path) -> dict[str, Any]:
 
         cached_probe = run_cached_probe_experiment(config, runtime_root, run_dir)
         metrics = cached_probe["metrics"]
-        primary_metric = str(
-            config.get("metrics", {}).get(
-                "primary",
-                os.environ.get("KAGGLE_AGENT_PRIMARY_METRIC", "soundscape_macro_roc_auc"),
-            )
-        )
-        primary_value = float(metrics.get(primary_metric, metrics["soundscape_macro_roc_auc"]))
+        primary_metric, primary_value = _select_primary_metric(config, metrics)
         secondary_names = list(config.get("metrics", {}).get("secondary", []))
         secondary_metrics = {
             name: float(metrics[name])
@@ -209,10 +223,10 @@ def run_training(config: dict[str, Any], runtime_root: Path) -> dict[str, Any]:
 
     metrics = {
         "soundscape_macro_roc_auc": macro_roc_auc(val_targets, predictions),
+        "val_soundscape_macro_roc_auc": macro_roc_auc(val_targets, predictions),
         "padded_cmap": padded_cmap(val_targets, predictions),
     }
-    primary_metric = str(config.get("metrics", {}).get("primary", os.environ.get("KAGGLE_AGENT_PRIMARY_METRIC", "soundscape_macro_roc_auc")))
-    primary_value = float(metrics.get(primary_metric, metrics["soundscape_macro_roc_auc"]))
+    primary_metric, primary_value = _select_primary_metric(config, metrics)
     secondary_names = list(config.get("metrics", {}).get("secondary", []))
     secondary_metrics = {name: float(metrics[name]) for name in secondary_names if name in metrics and name != primary_metric}
     summary_markdown = "\n".join(

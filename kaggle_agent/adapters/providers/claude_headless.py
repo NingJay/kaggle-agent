@@ -10,6 +10,7 @@ from typing import Any
 
 from kaggle_agent.adapters.command import parse_json_payload
 from kaggle_agent.adapters.providers import ProviderResponse, ProviderUnavailable
+from kaggle_agent.adapters.providers.claude_runtime import claude_subprocess_env
 
 
 CLAUDE_BINARY = "claude"
@@ -31,6 +32,21 @@ def _help_text() -> str:
 
 def _supports_flag(flag: str) -> bool:
     return flag in _help_text()
+
+
+def _structured_payload(envelope: dict[str, Any]) -> dict[str, Any]:
+    payload = envelope.get("structured_output")
+    if isinstance(payload, dict):
+        return payload
+    result = envelope.get("result")
+    if isinstance(result, str) and result.strip():
+        try:
+            parsed = parse_json_payload(result)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            return parsed
+    return envelope
 
 
 def run_claude_headless(
@@ -59,6 +75,8 @@ def run_claude_headless(
         args.append("--no-session-persistence")
     if _supports_flag("--disable-slash-commands"):
         args.append("--disable-slash-commands")
+    if _supports_flag("--no-chrome"):
+        args.append("--no-chrome")
     if _supports_flag("--bare"):
         args.append("--bare")
     model = os.environ.get("KAGGLE_AGENT_CLAUDE_MODEL", "").strip()
@@ -68,19 +86,25 @@ def run_claude_headless(
     if effort:
         args.extend(["--effort", effort])
 
-    completed = subprocess.run(
-        args,
-        input=prompt,
-        capture_output=True,
-        text=True,
-        cwd=workspace_root,
-        check=False,
-    )
+    with claude_subprocess_env(isolate_home_env_var="KAGGLE_AGENT_CLAUDE_ISOLATE_HOME") as env:
+        completed = subprocess.run(
+            args,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            cwd=workspace_root,
+            env=env,
+            check=False,
+        )
     if completed.returncode != 0:
         stderr = (completed.stderr or completed.stdout or "claude invocation failed").strip()
         raise RuntimeError(stderr)
-    envelope = parse_json_payload(completed.stdout)
-    payload = envelope.get("structured_output", envelope)
+    try:
+        envelope = parse_json_payload(completed.stdout)
+    except json.JSONDecodeError as error:
+        snippet = (completed.stdout or completed.stderr or "").strip()[:400] or "<empty>"
+        raise RuntimeError(f"claude returned non-JSON output: {snippet}") from error
+    payload = _structured_payload(envelope)
     if not isinstance(payload, dict):
         raise RuntimeError("claude did not return a structured object")
     return ProviderResponse(
@@ -91,4 +115,5 @@ def run_claude_headless(
         raw_stdout=completed.stdout,
         raw_stderr=completed.stderr,
         exit_code=completed.returncode,
+        extra_meta={"isolated_home": os.environ.get("KAGGLE_AGENT_CLAUDE_ISOLATE_HOME", "1")},
     )
