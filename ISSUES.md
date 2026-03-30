@@ -3,5 +3,5 @@
 Track persistent blockers, leakage risks, and validation drift here.
 
 <!-- AUTO-GENERATED:START -->
-- No issues yet.
+- Current attempt: `simplerun-perch-v2embedprobe-bayesian-0-912`
 <!-- AUTO-GENERATED:END -->

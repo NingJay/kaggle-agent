@@ -4,6 +4,7 @@ from pathlib import Path
 
 from kaggle_agent.decision.helpers import latest_stage_payload
 from kaggle_agent.decision.helpers import load_run_result
+from kaggle_agent.layout import visible_runs
 from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_text, ensure_directory
 
@@ -27,7 +28,7 @@ def read_knowledge_context(config: WorkspaceConfig) -> str:
 
 def write_experiment_conclusions(config: WorkspaceConfig, state: WorkspaceState) -> Path:
     ensure_knowledge_layout(config)
-    completed_runs = [run for run in state.runs if run.status in {"succeeded", "failed"}]
+    completed_runs = [run for run in visible_runs(state) if run.status in {"succeeded", "failed"}]
     completed_runs.sort(key=lambda item: (item.completed_at, item.run_id))
 
     lines = ["# Experiment Conclusions", ""]

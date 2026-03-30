@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from kaggle_agent.layout import DEFAULT_ATTEMPT_SLUG
+from kaggle_agent.layout import DEFAULT_ATTEMPT_SLUG, derive_attempt_slug
 
 
 class _Serializable:
@@ -88,6 +88,8 @@ class RuntimeConfig:
     train_workdir: str
     train_entrypoint: str
     generated_config_dir: str
+    seed_notebook_path: str = ""
+    allow_debug_preflight: bool = False
 
 
 @dataclass(frozen=True)
@@ -146,10 +148,13 @@ class WorkspaceConfig:
     def attempts_root(self) -> Path:
         return self.artifact_root() / "attempts"
 
-    def attempt_root(self, attempt_slug: str = DEFAULT_ATTEMPT_SLUG) -> Path:
-        return self.attempts_root() / attempt_slug
+    def default_attempt_slug(self) -> str:
+        return derive_attempt_slug(self.runtime.seed_notebook_path)
 
-    def runs_root(self, attempt_slug: str = DEFAULT_ATTEMPT_SLUG) -> Path:
+    def attempt_root(self, attempt_slug: str = "") -> Path:
+        return self.attempts_root() / (attempt_slug or self.default_attempt_slug())
+
+    def runs_root(self, attempt_slug: str = "") -> Path:
         return self.attempt_root(attempt_slug) / "runs"
 
     def run_root(self, attempt_slug: str, run_label: str) -> Path:

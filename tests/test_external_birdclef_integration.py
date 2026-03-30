@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kaggle_agent.control.store import load_state, save_state
+from kaggle_agent.control.store import load_state
 from kaggle_agent.service import build_submission, init_workspace, load_config, start_next
 from tests.test_workspace import _copy_runtime, _write_workspace
 
@@ -43,10 +43,6 @@ class ExternalBirdCLEFIntegrationTests(unittest.TestCase):
 
             config = load_config(root)
             init_workspace(config, archive_legacy=False, force=True)
-            state = load_state(config)
-            debug_item = next(item for item in state.work_items if item.id == "workitem-perch-debug-smoke")
-            debug_item.status = "complete"
-            save_state(config, state)
 
             run_id = start_next(config, background=False)
             self.assertTrue(run_id)

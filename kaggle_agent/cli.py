@@ -18,7 +18,15 @@ from kaggle_agent.service import (
     tick,
     watch,
 )
-from kaggle_agent.layout import artifact_relative_path, current_attempt_slug, run_label_from_path, stage_label_from_path
+from kaggle_agent.layout import (
+    artifact_relative_path,
+    current_attempt_slug,
+    run_label_from_path,
+    stage_label_from_path,
+    visible_runs,
+    visible_stage_runs,
+    visible_work_items,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,8 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--force", action="store_true")
 
     subparsers.add_parser("doctor", help="Run workspace readiness checks.")
-    subparsers.add_parser("status", help="Print work-item, run, and submission status.")
-    subparsers.add_parser("list-ready", help="List runnable work items.")
+    status_parser = subparsers.add_parser("status", help="Print work-item, run, and submission status.")
+    status_parser.add_argument("--include-debug", action="store_true", help="Include explicit debug/preflight work items and runs.")
+
+    ready_parser = subparsers.add_parser("list-ready", help="List runnable work items.")
+    ready_parser.add_argument("--include-debug", action="store_true", help="Include explicit debug/preflight work items.")
 
     enqueue_parser = subparsers.add_parser("enqueue-config", help="Queue a config as a new experiment work item.")
     enqueue_parser.add_argument("config_path")
@@ -42,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     preflight_parser = subparsers.add_parser("enqueue-preflight", help="Queue an explicit debug preflight work item.")
     preflight_parser.add_argument("--priority", type=int, default=5)
+    preflight_parser.add_argument("--allow-debug", action="store_true", help="Acknowledge that this queues a debug-only check.")
 
     start_parser = subparsers.add_parser("start-next", help="Start the next runnable work item.")
     start_parser.add_argument("--sync", action="store_true", help="Run synchronously instead of in background.")
@@ -64,13 +76,16 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_status(root: Path) -> int:
+def _print_status(root: Path, *, include_debug: bool = False) -> int:
     config = load_config(root)
     state = get_status_state(config)
+    work_items = visible_work_items(state, include_debug=include_debug)
+    runs = visible_runs(state, include_debug=include_debug)
+    stage_runs = visible_stage_runs(state, include_debug=include_debug)
     print(f"Current attempt: {current_attempt_slug(state.runtime)}")
     print(f"Active runs: {', '.join(state.runtime.active_run_ids) if state.runtime.active_run_ids else 'none'}")
     print("Work Items:")
-    for work_item in sorted(state.work_items, key=lambda item: (item.priority, item.created_at, item.id)):
+    for work_item in sorted(work_items, key=lambda item: (item.priority, item.created_at, item.id)):
         latest_stage = next((item for item in state.stage_runs if item.stage_run_id == work_item.latest_stage_run_id), None)
         stage_label = stage_label_from_path(
             latest_stage.output_dir if latest_stage is not None else "",
@@ -78,20 +93,20 @@ def _print_status(root: Path) -> int:
             stage_status=latest_stage.status if latest_stage is not None else "",
             validator_status=latest_stage.validator_status if latest_stage is not None else "",
         )
-        run_label = next((run_label_from_path(item.run_dir) for item in state.runs if item.run_id == work_item.latest_run_id), "")
+        run_label = next((run_label_from_path(item.run_dir) for item in runs if item.run_id == work_item.latest_run_id), "")
         print(
             f"  {work_item.id}\t{work_item.status}\tp{work_item.priority}\t{work_item.family}\t{work_item.title}"
             f"\trun={run_label or 'n/a'}\tstage={stage_label if latest_stage is not None else 'n/a'}"
         )
     print("Runs:")
-    for run in state.runs[-10:]:
+    for run in runs[-10:]:
         metric = "-" if run.primary_metric_value is None else f"{run.primary_metric_name}={run.primary_metric_value:.6f}"
         print(
             f"  {run_label_from_path(run.run_dir) or run.run_id}\t{run.status}\t{run.stage_cursor or 'complete'}"
             f"\t{run.experiment_id}\t{metric}\truntime={artifact_relative_path(run.run_dir, config.root)}"
         )
     print("Stage Runs:")
-    for stage_run in state.stage_runs[-10:]:
+    for stage_run in stage_runs[-10:]:
         print(
             f"  {stage_label_from_path(stage_run.output_dir, stage_run.stage_name, stage_status=stage_run.status, validator_status=stage_run.validator_status)}"
             f"\t{stage_run.status}\t{run_label_from_path(next((run.run_dir for run in state.runs if run.run_id == stage_run.run_id), '')) or stage_run.run_id}"
@@ -124,11 +139,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if has_failure else 0
 
     if args.command == "status":
-        return _print_status(root)
+        return _print_status(root, include_debug=args.include_debug)
 
     if args.command == "list-ready":
         config = load_config(root)
         ready = list_ready_work_items(config)
+        if not args.include_debug:
+            state = get_status_state(config)
+            visible_work_item_ids = {item.id for item in visible_work_items(state)}
+            ready = [item_id for item_id in ready if item_id in visible_work_item_ids]
         if not ready:
             print("No runnable work items.")
             return 0
@@ -144,7 +163,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "enqueue-preflight":
         config = load_config(root)
-        state = enqueue_preflight(config, priority=args.priority)
+        try:
+            state = enqueue_preflight(config, priority=args.priority, allow_debug=args.allow_debug)
+        except ValueError as exc:
+            print(str(exc))
+            return 2
         preflight_items = [item for item in state.work_items if item.work_type == "preflight_check"]
         print(preflight_items[-1].id if preflight_items else "No preflight queued.")
         return 0

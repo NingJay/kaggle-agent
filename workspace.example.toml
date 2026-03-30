@@ -68,6 +68,8 @@ shell_init = "source /home/staff/jiayining/miniconda3/etc/profile.d/conda.sh"
 train_workdir = "/abs/path/to/kaggle_agent"
 train_entrypoint = "train_sed.py"
 generated_config_dir = "BirdCLEF-2026-Codebase/configs/generated"
+seed_notebook_path = "/absolute/path/to/ref_notebook/your-real-anchor-notebook.ipynb"
+allow_debug_preflight = false
 
 [kaggle]
 username = "your-kaggle-username"

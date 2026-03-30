@@ -10,7 +10,7 @@ from kaggle_agent.control.reporting import ensure_surface_files, write_reports
 from kaggle_agent.control.scheduler import queue_config_experiment, register_work_item, runnable_work_items
 from kaggle_agent.control.store import initialize_workspace, load_state, save_state
 from kaggle_agent.control.submission import build_submission_candidate, dry_run_submission_candidate, plan_submission_slots
-from kaggle_agent.layout import current_attempt_slug
+from kaggle_agent.layout import current_attempt_slug, visible_runs
 from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import workspace_lock
 
@@ -54,6 +54,9 @@ def doctor_checks(config: WorkspaceConfig) -> list[tuple[bool, str, str]]:
     checks.append(((config.root / config.runtime.train_entrypoint).exists(), "train_entrypoint", str(config.root / config.runtime.train_entrypoint)))
     checks.append((default_config.exists(), "default_config", str(default_config)))
     checks.append((debug_config.exists(), "debug_config", str(debug_config)))
+    checks.append((bool(config.runtime.seed_notebook_path.strip()), "seed_notebook_path", config.runtime.seed_notebook_path or "(unset)"))
+    if config.runtime.seed_notebook_path.strip():
+        checks.append((Path(config.runtime.seed_notebook_path).expanduser().exists(), "seed_notebook_exists", config.runtime.seed_notebook_path))
     checks.append((Path(config.data.root).exists(), "data_root", config.data.root))
     checks.append((_load_runtime_yaml(default_config) != {}, "runtime_yaml_parse", "default runtime yaml"))
     checks.append((config.ledger_path().exists(), "ledger_db", str(config.ledger_path())))
@@ -115,7 +118,9 @@ def enqueue_config(
         return state
 
 
-def enqueue_preflight(config: WorkspaceConfig, *, priority: int = 5) -> WorkspaceState:
+def enqueue_preflight(config: WorkspaceConfig, *, priority: int = 5, allow_debug: bool = False) -> WorkspaceState:
+    if not allow_debug and not config.runtime.allow_debug_preflight:
+        raise ValueError("enqueue-preflight is disabled by default; rerun with --allow-debug for an explicit debug-only check.")
     with workspace_lock(config.lock_path()):
         state = load_state(config)
         attempt_slug = current_attempt_slug(state.runtime)
@@ -129,7 +134,7 @@ def enqueue_preflight(config: WorkspaceConfig, *, priority: int = 5) -> Workspac
             priority=priority,
             pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
             dedupe_key=f"manual:preflight:{attempt_slug}",
-            notes=["Explicit preflight work item. Does not gate the baseline queue."],
+            notes=["Explicit debug-only preflight work item."],
         )
         write_reports(config, state)
         save_state(config, state)
@@ -163,7 +168,7 @@ def build_submission(config: WorkspaceConfig, run_id: str | None = None) -> str:
             candidate_run = next(
                 (
                     item
-                    for item in sorted(state.runs, key=lambda value: (value.primary_metric_value or -1.0, value.completed_at), reverse=True)
+                    for item in sorted(visible_runs(state), key=lambda value: (value.primary_metric_value or -1.0, value.completed_at), reverse=True)
                     if item.status == "succeeded"
                 ),
                 None,

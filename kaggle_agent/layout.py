@@ -6,7 +6,9 @@ from typing import Any, Mapping
 from kaggle_agent.utils import slugify
 
 
-DEFAULT_ATTEMPT_SLUG = "simplerun-perch-v2embedprobe-bayesian-0-912"
+LEGACY_DEFAULT_ATTEMPT_SLUG = "simplerun-perch-v2embedprobe-bayesian-0-912"
+DEFAULT_ATTEMPT_SLUG = "birdclef-2026-attempt"
+DEBUG_WORK_TYPES = frozenset({"preflight_check"})
 ROOT_SURFACE_DOC_NAMES = (
     "CHECKLIST.md",
     "JOURNAL.md",
@@ -28,8 +30,52 @@ STAGE_SEQUENCE = [
 STAGE_ORDER = {name: index + 1 for index, name in enumerate(STAGE_SEQUENCE)}
 
 
-def current_attempt_slug(runtime) -> str:
-    return getattr(runtime, "current_attempt_slug", "") or DEFAULT_ATTEMPT_SLUG
+def derive_attempt_slug(seed_notebook_path: str = "") -> str:
+    candidate = seed_notebook_path.strip()
+    if candidate:
+        slug = slugify(Path(candidate).stem)
+        if slug:
+            return slug
+    return DEFAULT_ATTEMPT_SLUG
+
+
+def current_attempt_slug(runtime, *, fallback: str = DEFAULT_ATTEMPT_SLUG) -> str:
+    return getattr(runtime, "current_attempt_slug", "") or fallback
+
+
+def is_debug_work_item(work_item: Any) -> bool:
+    return getattr(work_item, "work_type", "") in DEBUG_WORK_TYPES
+
+
+def debug_work_item_ids(state: Any) -> set[str]:
+    return {getattr(item, "id", "") for item in getattr(state, "work_items", []) if is_debug_work_item(item)}
+
+
+def visible_work_items(state: Any, *, include_debug: bool = False) -> list[Any]:
+    work_items = list(getattr(state, "work_items", []))
+    if include_debug:
+        return work_items
+    return [item for item in work_items if not is_debug_work_item(item)]
+
+
+def visible_run_ids(state: Any, *, include_debug: bool = False) -> set[str]:
+    return {getattr(item, "run_id", "") for item in visible_runs(state, include_debug=include_debug)}
+
+
+def visible_runs(state: Any, *, include_debug: bool = False) -> list[Any]:
+    runs = list(getattr(state, "runs", []))
+    if include_debug:
+        return runs
+    hidden_work_item_ids = debug_work_item_ids(state)
+    return [item for item in runs if getattr(item, "work_item_id", "") not in hidden_work_item_ids]
+
+
+def visible_stage_runs(state: Any, *, include_debug: bool = False) -> list[Any]:
+    stage_runs = list(getattr(state, "stage_runs", []))
+    if include_debug:
+        return stage_runs
+    allowed_run_ids = visible_run_ids(state)
+    return [item for item in stage_runs if getattr(item, "run_id", "") in allowed_run_ids]
 
 
 def run_label(run_id: str, title: str) -> str:

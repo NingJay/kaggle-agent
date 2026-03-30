@@ -70,7 +70,16 @@ def load_workspace_config(root: Path | None = None) -> WorkspaceConfig:
         critic_command=str(adapters_raw.get("critic_command", "")),
         submission_command=str(adapters_raw.get("submission_command", "")),
     )
-    runtime = RuntimeConfig(**raw["runtime"])
+    runtime_raw = dict(raw["runtime"])
+    runtime = RuntimeConfig(
+        conda_env=str(runtime_raw["conda_env"]),
+        shell_init=str(runtime_raw["shell_init"]),
+        train_workdir=str(runtime_raw["train_workdir"]),
+        train_entrypoint=str(runtime_raw["train_entrypoint"]),
+        generated_config_dir=str(runtime_raw["generated_config_dir"]),
+        seed_notebook_path=str(runtime_raw.get("seed_notebook_path", "")),
+        allow_debug_preflight=bool(runtime_raw.get("allow_debug_preflight", False)),
+    )
     kaggle_raw = dict(raw["kaggle"])
     dataset_sources = list(kaggle_raw.get("dataset_sources", []))
     if kaggle_raw.get("model_dataset_id") and not dataset_sources:

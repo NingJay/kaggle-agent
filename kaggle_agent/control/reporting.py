@@ -6,7 +6,16 @@ from pathlib import Path
 
 from kaggle_agent.control.submission import plan_submission_slots
 from kaggle_agent.knowledge import write_experiment_conclusions
-from kaggle_agent.layout import artifact_relative_path, current_attempt_slug, run_label_from_path, stage_label_from_path
+from kaggle_agent.layout import (
+    artifact_relative_path,
+    current_attempt_slug,
+    run_label_from_path,
+    stage_label_from_path,
+    visible_run_ids,
+    visible_runs,
+    visible_stage_runs,
+    visible_work_items,
+)
 from kaggle_agent.schema import RunRecord, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_text, ensure_directory, replace_between_markers
 
@@ -109,7 +118,7 @@ Rules:
 
 
 def best_run(state: WorkspaceState) -> RunRecord | None:
-    candidates = [run for run in state.runs if run.status == "succeeded" and run.primary_metric_value is not None]
+    candidates = [run for run in visible_runs(state) if run.status == "succeeded" and run.primary_metric_value is not None]
     if not candidates:
         return None
     return max(candidates, key=lambda item: (item.primary_metric_value or float("-inf"), item.completed_at, item.run_id))
@@ -157,16 +166,19 @@ def _latest_stage_label(state: WorkspaceState, stage_run_id: str) -> str:
 
 def _surface_updates(config: WorkspaceConfig, state: WorkspaceState) -> None:
     attempt_slug = current_attempt_slug(state.runtime)
+    work_items = visible_work_items(state)
+    runs = visible_runs(state)
+    run_ids = visible_run_ids(state)
     checklist = [f"- Current attempt: `{attempt_slug}`", ""]
-    for work_item in sorted(state.work_items, key=lambda item: (item.priority, item.created_at, item.id)):
-        run_display = next((run_label_from_path(run.run_dir) for run in state.runs if run.run_id == work_item.latest_run_id), "") or "n/a"
+    for work_item in sorted(work_items, key=lambda item: (item.priority, item.created_at, item.id)):
+        run_display = next((run_label_from_path(run.run_dir) for run in runs if run.run_id == work_item.latest_run_id), "") or "n/a"
         checklist.append(
             f"- [{'x' if work_item.status in {'complete', 'submitted'} else ' '}] `{work_item.id}` | {work_item.status} | p{work_item.priority} | {work_item.title} | run={run_display} | stage={_latest_stage_label(state, work_item.latest_stage_run_id)}"
         )
     _replace_auto_block(config, "CHECKLIST.md", "\n".join(checklist) or "- No queued work items.")
 
     journal = [f"- Current attempt: `{attempt_slug}`", ""]
-    for run in state.runs[-12:]:
+    for run in runs[-12:]:
         latest_stage_label = _latest_stage_label(state, run.latest_stage_run_id)
         journal.append(
             f"- `{run_label_from_path(run.run_dir) or run.run_id}` | {run.status} | cursor={run.stage_cursor or 'n/a'} | latest_stage={latest_stage_label} | metric={run.primary_metric_name}={run.primary_metric_value}"
@@ -174,11 +186,11 @@ def _surface_updates(config: WorkspaceConfig, state: WorkspaceState) -> None:
     _replace_auto_block(config, "JOURNAL.md", "\n".join(journal) or "- No runs yet.")
 
     findings = [f"- Current attempt: `{attempt_slug}`", ""]
-    findings.extend(f"- `{item.run_id}` | {item.title} | {item.summary}" for item in state.findings[-20:])
+    findings.extend(f"- `{item.run_id}` | {item.title} | {item.summary}" for item in state.findings[-20:] if item.run_id in run_ids)
     _replace_auto_block(config, "FINDINGS.md", "\n".join(findings) or "- No findings yet.")
 
     issues = [f"- Current attempt: `{attempt_slug}`", ""]
-    issues.extend(f"- `{item.run_id}` | {item.title} | {item.summary}" for item in state.issues[-20:])
+    issues.extend(f"- `{item.run_id}` | {item.title} | {item.summary}" for item in state.issues[-20:] if item.run_id in run_ids)
     _replace_auto_block(config, "ISSUES.md", "\n".join(issues) or "- No issues yet.")
 
     slot_plan = plan_submission_slots(config, state)
@@ -203,14 +215,16 @@ def _overview_markdown(config: WorkspaceConfig, state: WorkspaceState) -> str:
     leader = best_run(state)
     slot_plan = plan_submission_slots(config, state)
     attempt_slug = current_attempt_slug(state.runtime)
+    work_items = visible_work_items(state)
+    stage_runs = visible_stage_runs(state)
     lines = [
         f"# {config.competition.name} Research OS",
         "",
         f"- Current attempt: `{attempt_slug}`",
         f"- Competition: {config.competition.url}",
         f"- Active runs: {', '.join(state.runtime.active_run_ids) if state.runtime.active_run_ids else 'none'}",
-        f"- Work items: {len(state.work_items)}",
-        f"- Stage runs: {len(state.stage_runs)}",
+        f"- Work items: {len(work_items)}",
+        f"- Stage runs: {len(stage_runs)}",
         f"- Last tick: {state.runtime.last_tick_at or 'n/a'}",
         f"- Last report: {state.runtime.last_report_at or 'n/a'}",
         f"- Remaining daily submission slots: {slot_plan['remaining_daily_slots']}",
@@ -279,6 +293,10 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
 
     leader = best_run(state)
     slot_plan = plan_submission_slots(config, state)
+    work_items = visible_work_items(state)
+    runs = visible_runs(state)
+    run_ids = visible_run_ids(state)
+    research_notes = [item for item in state.research_notes if item.run_id in run_ids]
     atomic_write_text(config.report_path("overview.md"), _overview_markdown(config, state))
 
     master_sections = [
@@ -287,8 +305,8 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
             "<ul>"
             f"<li>Current attempt: {html.escape(current_attempt_slug(state.runtime))}</li>"
             f"<li>Active runs: {html.escape(', '.join(state.runtime.active_run_ids) if state.runtime.active_run_ids else 'none')}</li>"
-            f"<li>Queued work items: {len([item for item in state.work_items if item.status == 'queued'])}</li>"
-            f"<li>Completed work items: {len([item for item in state.work_items if item.status in {'complete', 'submitted'}])}</li>"
+            f"<li>Queued work items: {len([item for item in work_items if item.status == 'queued'])}</li>"
+            f"<li>Completed work items: {len([item for item in work_items if item.status in {'complete', 'submitted'}])}</li>"
             f"<li>Remaining daily slots: {slot_plan['remaining_daily_slots']}</li>"
             "</ul>",
         ),
@@ -305,7 +323,7 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
             "Next Priorities",
             "<ul>" + "".join(
                 f"<li>{html.escape(item.title)} ({item.status}, p{item.priority})</li>"
-                for item in sorted(state.work_items, key=lambda value: (value.priority, value.created_at, value.id))[:8]
+                for item in sorted(work_items, key=lambda value: (value.priority, value.created_at, value.id))[:8]
             ) + "</ul>",
         ),
     ]
@@ -329,7 +347,7 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
         f"<td>{html.escape(item.primary_metric_name)}</td>"
         f"<td>{'' if item.primary_metric_value is None else f'{item.primary_metric_value:.6f}'}</td>"
         "</tr>"
-        for item in state.runs[-20:]
+        for item in runs[-20:]
     ) or "<tr><td colspan='5'>No runs</td></tr>"
     atomic_write_text(
         config.report_path("experiment_report.html"),
@@ -342,11 +360,11 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
         ),
     )
 
-    finding_items = "".join(f"<li>{html.escape(item.title)}: {html.escape(item.summary)}</li>" for item in state.findings[-15:]) or "<li>No findings yet.</li>"
-    issue_items = "".join(f"<li>{html.escape(item.title)}: {html.escape(item.summary)}</li>" for item in state.issues[-15:]) or "<li>No issues yet.</li>"
+    finding_items = "".join(f"<li>{html.escape(item.title)}: {html.escape(item.summary)}</li>" for item in state.findings[-15:] if item.run_id in run_ids) or "<li>No findings yet.</li>"
+    issue_items = "".join(f"<li>{html.escape(item.title)}: {html.escape(item.summary)}</li>" for item in state.issues[-15:] if item.run_id in run_ids) or "<li>No issues yet.</li>"
     queued_items = "".join(
         f"<li>{html.escape(item.title)} ({html.escape(item.status)})</li>"
-        for item in sorted(state.work_items, key=lambda value: (value.priority, value.created_at, value.id))[:10]
+        for item in sorted(work_items, key=lambda value: (value.priority, value.created_at, value.id))[:10]
     ) or "<li>No work items.</li>"
     atomic_write_text(
         config.report_path("discovery_report.html"),
@@ -379,7 +397,7 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
 
     research_items = "".join(
         f"<li>{html.escape(item.title)} | {html.escape(item.stance)} | {html.escape(item.summary)}</li>"
-        for item in state.research_notes[-15:]
+        for item in research_notes[-15:]
     ) or "<li>No research notes yet.</li>"
     atomic_write_text(
         config.report_path("research_report.html"),
@@ -389,7 +407,7 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
     _write_csv(
         config.report_path("work_items.csv"),
         ["id", "title", "status", "priority", "family", "latest_run_id"],
-        [[item.id, item.title, item.status, str(item.priority), item.family, item.latest_run_id] for item in state.work_items],
+        [[item.id, item.title, item.status, str(item.priority), item.family, item.latest_run_id] for item in work_items],
     )
     _write_csv(
         config.report_path("runs.csv"),
@@ -404,7 +422,7 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
                 item.primary_metric_name,
                 "" if item.primary_metric_value is None else f"{item.primary_metric_value:.6f}",
             ]
-            for item in state.runs
+            for item in runs
         ],
     )
     _write_csv(
@@ -421,6 +439,7 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
                 str(item.is_primary),
             ]
             for item in state.metrics
+            if item.run_id in run_ids
         ],
     )
     _write_csv(

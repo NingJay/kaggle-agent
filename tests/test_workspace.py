@@ -128,6 +128,8 @@ shell_init = ""
 train_workdir = "{root}"
 train_entrypoint = "train_sed.py"
 generated_config_dir = "BirdCLEF-2026-Codebase/configs/generated"
+seed_notebook_path = "/tmp/ref_notebook/simplerun-perch-v2embedprobe-bayesian-0-912.ipynb"
+allow_debug_preflight = false
 
 [kaggle]
 username = "tester"
@@ -264,7 +266,7 @@ payloads = {
         "hypothesis": "Use the stable cached probe baseline as the next validated branch.",
         "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
         "priority": 70,
-        "depends_on": ["workitem-perch-debug-smoke"],
+        "depends_on": ["workitem-perch-baseline"],
         "tags": ["adapter", "planned"],
         "launch_mode": "background",
         "dedupe_key": "adapter:perch-cached-probe",
@@ -372,7 +374,7 @@ if stage == "plan":
         "hypothesis": "Use the stable cached probe baseline as the next validated branch.",
         "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
         "priority": 70,
-        "depends_on": ["workitem-perch-debug-smoke"],
+        "depends_on": ["workitem-perch-baseline"],
         "tags": ["adapter", "planned"],
         "launch_mode": "background",
         "dedupe_key": "adapter:perch-cached-probe",
@@ -526,7 +528,7 @@ class WorkspaceTests(unittest.TestCase):
             self.assertNotIn("stale CHECKLIST.md", (root / "CHECKLIST.md").read_text(encoding="utf-8"))
             self.assertNotIn("stale JOURNAL.md", (root / "JOURNAL.md").read_text(encoding="utf-8"))
 
-    def test_init_seeds_baseline_only_and_enqueue_preflight_explicitly(self) -> None:
+    def test_init_seeds_baseline_only_and_enqueue_preflight_requires_explicit_opt_in(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             _copy_runtime(root)
@@ -545,6 +547,14 @@ class WorkspaceTests(unittest.TestCase):
             stdout = io.StringIO()
             with redirect_stdout(stdout):
                 exit_code = cli_main(["--root", str(root), "enqueue-preflight"])
+            self.assertEqual(exit_code, 2)
+
+            state = load_state(config)
+            self.assertFalse(any(item.work_type == "preflight_check" for item in state.work_items))
+
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                exit_code = cli_main(["--root", str(root), "enqueue-preflight", "--allow-debug"])
             self.assertEqual(exit_code, 0)
 
             state = load_state(config)
@@ -590,7 +600,7 @@ class WorkspaceTests(unittest.TestCase):
 
             config = load_config(root)
             init_workspace(config, archive_legacy=False, force=True)
-            cli_main(["--root", str(root), "enqueue-preflight"])
+            cli_main(["--root", str(root), "enqueue-preflight", "--allow-debug"])
             run_id = start_next(config, background=False)
 
             state = load_state(config)
@@ -607,6 +617,42 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(relative_stage.parts[2], "06-codegen__generated")
             self.assertNotIn("/artifacts/codegen/", codegen_stage.output_dir)
 
+    def test_status_hides_debug_runs_by_default_and_can_include_them(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            cli_main(["--root", str(root), "enqueue-preflight", "--allow-debug"])
+            run_id = start_next(config, background=False)
+
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                exit_code = cli_main(["--root", str(root), "status"])
+            self.assertEqual(exit_code, 0)
+            status_text = stdout.getvalue()
+            self.assertIn("Current attempt: simplerun-perch-v2embedprobe-bayesian-0-912", status_text)
+            self.assertNotIn(f"{run_id}__", status_text)
+            self.assertNotIn("06-codegen__generated", status_text)
+
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                exit_code = cli_main(["--root", str(root), "status", "--include-debug"])
+            self.assertEqual(exit_code, 0)
+            debug_status_text = stdout.getvalue()
+            self.assertIn(f"{run_id}__", debug_status_text)
+            self.assertIn("06-codegen__generated", debug_status_text)
+
+            checklist = (root / "CHECKLIST.md").read_text(encoding="utf-8")
+            journal = (root / "JOURNAL.md").read_text(encoding="utf-8")
+            self.assertIn("simplerun-perch-v2embedprobe-bayesian-0-912", checklist)
+            self.assertIn("simplerun-perch-v2embedprobe-bayesian-0-912", journal)
+            self.assertNotIn(f"{run_id}__", journal)
+            self.assertNotIn("09-submission__skipped", journal)
+
     def test_status_and_journal_surfaces_show_attempt_and_readable_stage_labels(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -616,7 +662,6 @@ class WorkspaceTests(unittest.TestCase):
 
             config = load_config(root)
             init_workspace(config, archive_legacy=False, force=True)
-            cli_main(["--root", str(root), "enqueue-preflight"])
             run_id = start_next(config, background=False)
 
             stdout = io.StringIO()

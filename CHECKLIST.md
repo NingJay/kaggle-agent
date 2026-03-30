@@ -3,6 +3,7 @@
 Use this file for durable task framing. The auto-generated queue view stays below.
 
 <!-- AUTO-GENERATED:START -->
-- [ ] `workitem-perch-debug-smoke` | queued | p10 | Perch-head debug smoke
-- [ ] `workitem-perch-baseline` | queued | p20 | Perch cached-probe baseline
+- Current attempt: `simplerun-perch-v2embedprobe-bayesian-0-912`
+
+- [x] `workitem-perch-baseline` | submitted | p20 | Perch cached-probe baseline | run=run-0001-perch-baseline__perch-cached-probe-baseline | stage=09-submission__candidate-created
 <!-- AUTO-GENERATED:END -->

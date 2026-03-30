@@ -4,7 +4,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from kaggle_agent.layout import DEFAULT_ATTEMPT_SLUG, ROOT_SURFACE_DOC_NAMES
+from kaggle_agent.layout import DEFAULT_ATTEMPT_SLUG, LEGACY_DEFAULT_ATTEMPT_SLUG, ROOT_SURFACE_DOC_NAMES
 from kaggle_agent.schema import (
     AgentRun,
     ExperimentSpec,
@@ -43,14 +43,21 @@ TABLE_TO_MODEL = {
 STATE_TABLES = list(TABLE_TO_MODEL.keys())
 
 
-def _default_runtime_state() -> RuntimeState:
+def _default_runtime_state(config: WorkspaceConfig) -> RuntimeState:
     timestamp = now_utc_iso()
     return RuntimeState(
         initialized_at=timestamp,
         last_tick_at=timestamp,
         last_report_at=timestamp,
-        current_attempt_slug=DEFAULT_ATTEMPT_SLUG,
+        current_attempt_slug=config.default_attempt_slug(),
     )
+
+
+def _normalize_runtime_state(config: WorkspaceConfig, runtime: RuntimeState) -> RuntimeState:
+    current_slug = runtime.current_attempt_slug.strip()
+    if not current_slug or current_slug in {DEFAULT_ATTEMPT_SLUG, LEGACY_DEFAULT_ATTEMPT_SLUG}:
+        runtime.current_attempt_slug = config.default_attempt_slug()
+    return runtime
 
 
 def _open_ledger(config: WorkspaceConfig) -> sqlite3.Connection:
@@ -194,7 +201,7 @@ def _empty_state(config: WorkspaceConfig) -> WorkspaceState:
         research_notes=[],
         submissions=[],
         submission_results=[],
-        runtime=_default_runtime_state(),
+        runtime=_default_runtime_state(config),
     )
 
 
@@ -218,7 +225,8 @@ def load_state(config: WorkspaceConfig) -> WorkspaceState:
     tables = {table: _table_rows(config, table, model) for table, model in TABLE_TO_MODEL.items()}
     with _open_ledger(config) as conn:
         row = conn.execute("SELECT payload FROM runtime_state WHERE id = 'singleton'").fetchone()
-    runtime = RuntimeState.from_dict(__import__("json").loads(row["payload"])) if row else _default_runtime_state()
+    runtime = RuntimeState.from_dict(__import__("json").loads(row["payload"])) if row else _default_runtime_state(config)
+    runtime = _normalize_runtime_state(config, runtime)
     if not any(tables.values()) and row is None:
         state = _empty_state(config)
         save_state(config, state)
