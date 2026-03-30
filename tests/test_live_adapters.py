@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from kaggle_agent.adapters.providers import ProviderResponse
+from kaggle_agent.adapters.providers.claude_code_exec import run_claude_code_exec
 from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
 from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, _allow_codegen_paths, main as stage_wrapper_main
 
@@ -81,7 +82,7 @@ class StageWrapperCompatibilityTests(unittest.TestCase):
                     "base_commit": "abc123",
                     "head_commit": "",
                     "changed_files": [],
-                    "provider_runtime": "codex/profile:kaggle-agent mode:agentic",
+                    "provider_runtime": "codex mode:agentic env:inherit",
                     "allowed_edit_roots": ["train_sed.py"],
                     "smoke_status": "skipped",
                     "smoke_summary": "legacy path",
@@ -114,7 +115,7 @@ class CodegenGuardrailTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "artifact"):
             _allow_codegen_paths(["BirdCLEF-2026-Codebase/src/birdclef_runtime/probe_bundle.pkl"])
 
-    def test_codex_exec_uses_isolated_profile_home(self) -> None:
+    def test_codex_exec_inherits_user_environment_by_default(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             output_dir = root / "output"
@@ -125,7 +126,10 @@ class CodegenGuardrailTests(unittest.TestCase):
                 stdout='{"event":"thread.started","thread_id":"agentic-thread"}\n',
                 stderr="",
             )
-            with patch("kaggle_agent.adapters.providers.codex_exec.shutil.which", return_value="/usr/bin/codex"), patch(
+            with patch.dict(os.environ, {"HOME": "/tmp/codex-home"}, clear=True), patch(
+                "kaggle_agent.adapters.providers.codex_exec.shutil.which",
+                return_value="/usr/bin/codex",
+            ), patch(
                 "kaggle_agent.adapters.providers.codex_exec.subprocess.run",
                 return_value=completed,
             ) as run_mock:
@@ -139,11 +143,46 @@ class CodegenGuardrailTests(unittest.TestCase):
 
         called_args = run_mock.call_args.args[0]
         called_env = run_mock.call_args.kwargs["env"]
-        self.assertIn("--profile", called_args)
-        self.assertIn("kaggle-agent", called_args)
-        self.assertNotEqual(called_env.get("HOME", ""), os.path.expanduser("~"))
-        self.assertTrue(called_env.get("CODEX_HOME", "").startswith(str(output_dir)))
-        self.assertTrue(response.extra_meta["provider_runtime"].startswith("codex/profile:kaggle-agent"))
+        self.assertNotIn("--profile", called_args)
+        self.assertIn("--dangerously-bypass-approvals-and-sandbox", called_args)
+        self.assertNotIn("--full-auto", called_args)
+        self.assertEqual(called_env["HOME"], "/tmp/codex-home")
+        self.assertNotIn("CODEX_HOME", called_env)
+        self.assertNotIn("XDG_CONFIG_HOME", called_env)
+        self.assertEqual(response.provider, "codex")
+        self.assertEqual(response.extra_meta["provider_runtime"], "codex mode:agentic env:inherit")
+
+    def test_claude_code_exec_uses_claude_cli_for_agentic(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            completed = subprocess.CompletedProcess(
+                args=["claude", "-p"],
+                returncode=0,
+                stdout='{"session_id":"claude-code-agentic","result":"edited files"}\n',
+                stderr="",
+            )
+            with patch(
+                "kaggle_agent.adapters.providers.claude_code_exec.shutil.which",
+                return_value="/usr/bin/claude",
+            ), patch(
+                "kaggle_agent.adapters.providers.claude_code_exec.subprocess.run",
+                return_value=completed,
+            ) as run_mock:
+                response = run_claude_code_exec(
+                    prompt="edit files",
+                    schema_path=None,
+                    workspace_root=root,
+                    mode="agentic",
+                )
+
+        called_args = run_mock.call_args.args[0]
+        self.assertEqual(run_mock.call_args.kwargs["cwd"], root)
+        self.assertIn("--dangerously-skip-permissions", called_args)
+        self.assertIn("--output-format", called_args)
+        self.assertIn("json", called_args)
+        self.assertEqual(response.provider, "claude_code")
+        self.assertEqual(response.session_id, "claude-code-agentic")
+        self.assertEqual(response.extra_meta["provider_runtime"], "claude_code mode:agentic")
 
 
 @unittest.skipIf(_skip_live(), "Set KAGGLE_AGENT_RUN_LIVE_PROVIDER_TESTS=1 to run live provider smoke tests.")
@@ -176,7 +215,8 @@ class LiveAdapterSmokeTests(unittest.TestCase):
             )
         payload = json.loads((output_dir / f"{stage}.json").read_text(encoding="utf-8"))
         meta = json.loads((output_dir / "provider_meta.json").read_text(encoding="utf-8"))
-        self.assertEqual(meta["provider"], "claude" if provider == "critic" else provider)
+        expected_provider = "claude" if provider == "critic" else provider
+        self.assertEqual(meta["provider"], expected_provider)
         self.assertEqual(payload["stage"], stage)
         return completed, output_dir
 

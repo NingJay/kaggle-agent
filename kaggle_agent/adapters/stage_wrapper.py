@@ -15,6 +15,7 @@ import yaml
 from kaggle_agent.adapters.command import ADAPTER_UNAVAILABLE_EXIT_CODE
 from kaggle_agent.adapters.providers import ProviderResponse, ProviderUnavailable
 from kaggle_agent.adapters.providers.amp_probe import AmpProbeResult, run_amp_probe
+from kaggle_agent.adapters.providers.claude_code_exec import run_claude_code_exec
 from kaggle_agent.adapters.providers.claude_headless import run_claude_headless
 from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
 from kaggle_agent.adapters.schema_validation import SchemaValidationError, validate_payload
@@ -22,6 +23,13 @@ from kaggle_agent.utils import atomic_write_json, atomic_write_text, ensure_dire
 
 
 ROOT_DOCS = ["AGENTS.md", "COMPETITION.md", "PLAYBOOK.md"]
+STAGE_WORKSPACE_TOP_LEVEL_EXCLUDES = {
+    ".git",
+    ".venv",
+    "artifacts",
+    "state",
+    "__pycache__",
+}
 CODEGEN_ALLOWED_EDIT_ROOTS = [
     "train_sed.py",
     "BirdCLEF-2026-Codebase/configs",
@@ -90,6 +98,14 @@ class CodegenWorkspace:
     verify_root: Path
     base_commit: str
     expected_config_relpath: str
+    workspace_mode: str = "snapshot-repo"
+
+
+@dataclass
+class StageWorkspace:
+    stage_root: Path
+    workspace_root: Path
+    workspace_mode: str = "snapshot-repo"
 
 
 def _require_env(name: str) -> str:
@@ -123,7 +139,12 @@ def _doc_block(path: Path) -> str:
     return f"## {path.name}\n\n{text}"
 
 
-def _build_prompt(ctx: StageContext, codegen_workspace: CodegenWorkspace | None = None) -> str:
+def _build_prompt(
+    ctx: StageContext,
+    codegen_workspace: CodegenWorkspace | None = None,
+    *,
+    provider_workspace_root: Path | None = None,
+) -> str:
     prompt_sections = [f"# Stage\n\nYou are the `{ctx.stage}` stage adapter for Kaggle Agent."]
     if codegen_workspace is None:
         prompt_sections.append(
@@ -136,7 +157,8 @@ def _build_prompt(ctx: StageContext, codegen_workspace: CodegenWorkspace | None 
     program = _read_optional(ctx.prompt_path)
     if program:
         prompt_sections.append(f"# Stage Program\n\n{program}")
-    doc_sections = [_doc_block(ctx.workspace_root / name) for name in ROOT_DOCS]
+    docs_root = provider_workspace_root or ctx.workspace_root
+    doc_sections = [_doc_block(docs_root / name) for name in ROOT_DOCS]
     docs = "\n\n".join(section for section in doc_sections if section)
     if docs:
         prompt_sections.append(f"# Operating Contract\n\n{docs}")
@@ -197,20 +219,39 @@ def _run_git(args: list[str], cwd: Path) -> str:
     return completed.stdout.strip()
 
 
-def _prepare_codegen_workspace(ctx: StageContext) -> CodegenWorkspace:
-    snapshot_root = ctx.workspace_root / "state" / "snapshots" / "codegen" / ctx.output_dir.name
+def _copy_stage_source_tree(source_root: Path, destination_root: Path) -> None:
+    for item in source_root.iterdir():
+        if item.name in STAGE_WORKSPACE_TOP_LEVEL_EXCLUDES:
+            continue
+        if item.name.startswith(".git"):
+            continue
+        destination = destination_root / item.name
+        if item.is_dir():
+            shutil.copytree(
+                item,
+                destination,
+                ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache", ".mypy_cache"),
+            )
+        else:
+            shutil.copy2(item, destination)
+
+
+def _prepare_stage_workspace(ctx: StageContext) -> StageWorkspace:
+    stage_root = ctx.workspace_root / "state" / "worktrees" / ctx.stage / ctx.output_dir.name
+    if stage_root.exists():
+        shutil.rmtree(stage_root)
+    workspace_root = ensure_directory(stage_root / "workspace")
+    _copy_stage_source_tree(ctx.workspace_root, workspace_root)
+    return StageWorkspace(stage_root=stage_root, workspace_root=workspace_root)
+
+
+def _prepare_codegen_workspace(ctx: StageContext, stage_workspace: StageWorkspace | None = None) -> CodegenWorkspace:
+    base_workspace = stage_workspace or _prepare_stage_workspace(ctx)
+    snapshot_root = base_workspace.stage_root
     if snapshot_root.exists():
-        shutil.rmtree(snapshot_root)
+        ensure_directory(snapshot_root)
     workspace_root = ensure_directory(snapshot_root / "workspace")
     verify_root = ensure_directory(snapshot_root / "verify_runtime")
-
-    for name in [*ROOT_DOCS, "train_sed.py", "workspace.toml"]:
-        source = ctx.workspace_root / name
-        if source.exists():
-            shutil.copy2(source, workspace_root / name)
-    runtime_source = ctx.workspace_root / "BirdCLEF-2026-Codebase"
-    if runtime_source.exists():
-        shutil.copytree(runtime_source, workspace_root / runtime_source.name)
 
     _run_git(["init", "-q"], workspace_root)
     _run_git(["config", "user.email", "kaggle-agent@local"], workspace_root)
@@ -224,6 +265,7 @@ def _prepare_codegen_workspace(ctx: StageContext) -> CodegenWorkspace:
         verify_root=verify_root,
         base_commit=_run_git(["rev-parse", "HEAD"], workspace_root),
         expected_config_relpath=expected_config_relpath,
+        workspace_mode=base_workspace.workspace_mode,
     )
 
 
@@ -362,7 +404,7 @@ def _materialize_codegen(
     canonical = {
         "stage": "codegen",
         "status": "noop",
-        "reason": "Codex completed without modifying the isolated workspace.",
+        "reason": "Claude Code completed without modifying the isolated stage workspace.",
         "generated_config_path": "",
         "run_bundle_path": "",
         "patch_path": "",
@@ -430,7 +472,7 @@ def _materialize_codegen(
     canonical.update(
         {
             "status": "generated",
-            "reason": "Materialized Codex edits from the isolated snapshot workspace and recorded the deterministic verify result.",
+            "reason": "Materialized Claude Code edits from the isolated stage workspace and recorded the deterministic verify result.",
             "generated_config_path": str(generated_config_path),
             "run_bundle_path": str(run_bundle_path),
             "patch_path": str(patch_path),
@@ -482,6 +524,7 @@ def _provider_meta(
     amp_probe_path: str = "",
     amp_probe_summary: str = "",
     amp_thread_id: str = "",
+    stage_workspace: StageWorkspace | None = None,
     codegen_workspace: CodegenWorkspace | None = None,
 ) -> dict[str, Any]:
     meta = {
@@ -499,11 +542,16 @@ def _provider_meta(
         "materialization_mode": response.extra_meta.get("materialization_mode", "structured"),
         "provider_runtime": response.extra_meta.get("provider_runtime", ""),
     }
+    if stage_workspace is not None:
+        meta["stage_workspace_root"] = str(stage_workspace.workspace_root)
+        meta["stage_workspace_storage_root"] = str(stage_workspace.stage_root)
+        meta["stage_workspace_mode"] = stage_workspace.workspace_mode
     if codegen_workspace is not None:
         meta["workspace_root_used"] = str(codegen_workspace.workspace_root)
-        meta["snapshot_root"] = str(codegen_workspace.snapshot_root)
+        meta["stage_workspace_storage_root"] = str(codegen_workspace.snapshot_root)
+        meta["stage_workspace_mode"] = codegen_workspace.workspace_mode
         meta["verify_root"] = str(codegen_workspace.verify_root)
-    for key in ["isolated_home", "codex_home", "codex_profile"]:
+    for key in ["codex_profile", "adapter_alias"]:
         value = response.extra_meta.get(key, "")
         if value:
             meta[key] = value
@@ -518,20 +566,29 @@ def _run_provider(
     provider: str,
     ctx: StageContext,
     prompt: str,
+    *,
+    provider_workspace_root: Path,
     codegen_workspace: CodegenWorkspace | None = None,
 ) -> tuple[ProviderResponse, AmpProbeResult | None]:
     if provider == "claude":
-        return run_claude_headless(prompt=prompt, schema=_schema(ctx), workspace_root=ctx.workspace_root), None
+        return run_claude_headless(prompt=prompt, schema=_schema(ctx), workspace_root=provider_workspace_root), None
     if provider == "codex":
         return run_codex_exec(
             prompt=prompt,
             schema_path=ctx.schema_path if codegen_workspace is None else None,
-            workspace_root=ctx.workspace_root if codegen_workspace is None else codegen_workspace.workspace_root,
+            workspace_root=provider_workspace_root,
             output_dir=ctx.output_dir,
             mode="structured" if codegen_workspace is None else "agentic",
         ), None
+    if provider == "claude_code":
+        return run_claude_code_exec(
+            prompt=prompt,
+            schema_path=ctx.schema_path if codegen_workspace is None else None,
+            workspace_root=provider_workspace_root,
+            mode="structured" if codegen_workspace is None else "agentic",
+        ), None
     if provider == "critic":
-        response = run_claude_headless(prompt=prompt, schema=_schema(ctx), workspace_root=ctx.workspace_root)
+        response = run_claude_headless(prompt=prompt, schema=_schema(ctx), workspace_root=provider_workspace_root)
         amp_prompt = (
             "Review the following critic context and return a concise diagnostic summary. "
             "Do not modify files.\n\n"
@@ -543,7 +600,7 @@ def _run_provider(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Headless stage wrapper for Claude/Codex/Amp adapters.")
-    parser.add_argument("--provider", required=True, choices=["claude", "codex", "critic"])
+    parser.add_argument("--provider", required=True, choices=["claude", "claude_code", "codex", "critic"])
     parser.add_argument(
         "--dangerously-bypass-approvals-and-sandbox",
         action="store_true",
@@ -553,10 +610,24 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         ctx = StageContext.from_env()
-        codegen_workspace = _prepare_codegen_workspace(ctx) if ctx.stage == "codegen" else None
-        prompt = _build_prompt(ctx, codegen_workspace)
+        stage_workspace = _prepare_stage_workspace(ctx) if ctx.stage in {"plan", "codegen"} and args.provider in {"claude_code", "codex"} else None
+        codegen_workspace = _prepare_codegen_workspace(ctx, stage_workspace) if ctx.stage == "codegen" else None
+        provider_workspace_root = (
+            codegen_workspace.workspace_root
+            if codegen_workspace is not None
+            else stage_workspace.workspace_root
+            if stage_workspace is not None
+            else ctx.workspace_root
+        )
+        prompt = _build_prompt(ctx, codegen_workspace, provider_workspace_root=provider_workspace_root)
         started_at = now_utc_iso()
-        response, amp_probe = _run_provider(args.provider, ctx, prompt, codegen_workspace)
+        response, amp_probe = _run_provider(
+            args.provider,
+            ctx,
+            prompt,
+            provider_workspace_root=provider_workspace_root,
+            codegen_workspace=codegen_workspace,
+        )
         response.extra_meta.setdefault("started_at", started_at)
         response.extra_meta.setdefault("completed_at", now_utc_iso())
         if ctx.stage != "codegen":
@@ -594,6 +665,7 @@ def main(argv: list[str] | None = None) -> int:
             amp_probe_path=amp_probe_path,
             amp_probe_summary=amp_probe.summary if amp_probe is not None else "",
             amp_thread_id=amp_probe.thread_id if amp_probe is not None else "",
+            stage_workspace=stage_workspace,
             codegen_workspace=codegen_workspace,
         )
         if spec_path:

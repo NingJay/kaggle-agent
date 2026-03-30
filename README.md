@@ -32,7 +32,8 @@ The runtime stays BirdCLEF-specific by default through `train_sed.py` and `BirdC
 The default adapter routing is now:
 
 - `report`, `research`, `decision` -> Claude Code headless
-- `plan`, `codegen` -> Codex `exec`
+- `plan`, `codegen` -> Claude Code on isolated stage worktrees by default
+- `plan`, `codegen` can also be switched back to Codex `exec`
 - `critic` -> Claude Code headless with optional Amp sidecar
 - `evidence`, `validate`, and scored submission bundling stay deterministic
 
@@ -60,6 +61,14 @@ Optional environment variables when you are not already logged into the local CL
 - `AMP_API_KEY` for the optional Amp critic sidecar
 
 If a provider binary is missing, the wrapper exits with a soft-skip code and the existing deterministic fallback takes over. Claude/Codex can also run off local CLI login state without explicit env vars. If the provider returns malformed JSON or violates the stage schema, the stage fails hard.
+
+## Isolated Stage Worktrees
+
+`plan` and `codegen` no longer run directly against the main repo root. The wrapper now prepares an isolated source workspace under `state/worktrees/<stage>/<stage-run>/workspace` before invoking the provider.
+
+- `plan` gets an isolated source snapshot so repo context stays stable across runs.
+- `codegen` edits only its isolated workspace and writes deterministic verify artifacts under `state/worktrees/codegen/<stage-run>/verify_runtime`.
+- The control plane still records canonical artifacts into the normal stage output directory, but the AI-facing code context is no longer the live main workspace.
 
 ## Core Surface
 

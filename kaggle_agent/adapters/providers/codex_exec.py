@@ -12,7 +12,7 @@ from kaggle_agent.adapters.providers import ProviderResponse, ProviderUnavailabl
 
 
 CODEX_BINARY = "codex"
-CODEX_PROFILE = "kaggle-agent"
+CODEX_PROFILE_ENV = "KAGGLE_AGENT_CODEX_PROFILE"
 
 
 def _first_string(obj: Any, key: str) -> str:
@@ -46,19 +46,11 @@ def run_codex_exec(
 
     codex_api_key = os.environ.get("CODEX_API_KEY", "").strip()
     openai_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    profile = os.environ.get(CODEX_PROFILE_ENV, "").strip()
     response_path = output_dir / "provider_response.json"
-    isolated_home = output_dir / "codex-home"
-    codex_home = isolated_home / ".codex"
-    codex_home.mkdir(parents=True, exist_ok=True)
-    config_path = codex_home / "config.toml"
-    if not config_path.exists():
-        config_path.write_text(f"[profiles.{CODEX_PROFILE}]\n", encoding="utf-8")
     env = os.environ.copy()
     if not codex_api_key and openai_api_key:
         env["CODEX_API_KEY"] = openai_api_key
-    env["HOME"] = str(isolated_home)
-    env["CODEX_HOME"] = str(codex_home)
-    env["XDG_CONFIG_HOME"] = str(isolated_home / ".config")
 
     if mode == "structured":
         if schema_path is None:
@@ -66,8 +58,6 @@ def run_codex_exec(
         args = [
             binary,
             "exec",
-            "--profile",
-            CODEX_PROFILE,
             "--skip-git-repo-check",
             "--sandbox",
             "read-only",
@@ -85,10 +75,8 @@ def run_codex_exec(
         args = [
             binary,
             "exec",
-            "--profile",
-            CODEX_PROFILE,
             "--skip-git-repo-check",
-            "--full-auto",
+            "--dangerously-bypass-approvals-and-sandbox",
             "--json",
             "--ephemeral",
             "-C",
@@ -100,6 +88,8 @@ def run_codex_exec(
     model = os.environ.get("KAGGLE_AGENT_CODEX_MODEL", "").strip()
     if model:
         args[2:2] = ["--model", model]
+    if profile:
+        args[2:2] = ["--profile", profile]
 
     completed = subprocess.run(
         args,
@@ -139,6 +129,10 @@ def run_codex_exec(
     if not session_id and thread_id:
         session_id = thread_id
 
+    runtime_bits = ["codex", f"mode:{mode}", "env:inherit"]
+    if profile:
+        runtime_bits.append(f"profile:{profile}")
+
     return ProviderResponse(
         provider="codex",
         model=model,
@@ -151,9 +145,7 @@ def run_codex_exec(
         exit_code=completed.returncode,
         extra_meta={
             "materialization_mode": mode,
-            "provider_runtime": f"codex/profile:{CODEX_PROFILE} mode:{mode}",
-            "codex_profile": CODEX_PROFILE,
-            "isolated_home": str(isolated_home),
-            "codex_home": str(codex_home),
+            "provider_runtime": " ".join(runtime_bits),
+            "codex_profile": profile,
         },
     )

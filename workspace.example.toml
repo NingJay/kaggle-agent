@@ -52,9 +52,12 @@ evidence_command = ""
 report_command = "python -m kaggle_agent.adapters.stage_wrapper --provider claude"
 research_command = "python -m kaggle_agent.adapters.stage_wrapper --provider claude"
 decision_command = "python -m kaggle_agent.adapters.stage_wrapper --provider claude"
-# Codex exec: `codex exec --output-schema ... --json -o ...`
-planner_command = "python -m kaggle_agent.adapters.stage_wrapper --provider codex"
-codegen_command = "python -m kaggle_agent.adapters.stage_wrapper --provider codex"
+# Claude Code agentic path for isolated plan/codegen worktrees
+planner_command = "python -m kaggle_agent.adapters.stage_wrapper --provider claude_code"
+codegen_command = "python -m kaggle_agent.adapters.stage_wrapper --provider claude_code"
+# Optional Codex alternative:
+# planner_command = "python -m kaggle_agent.adapters.stage_wrapper --provider codex"
+# codegen_command = "python -m kaggle_agent.adapters.stage_wrapper --provider codex"
 # Claude primary review + optional Amp JSON-stream sidecar
 critic_command = "python -m kaggle_agent.adapters.stage_wrapper --provider critic"
 submission_command = ""

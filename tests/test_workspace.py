@@ -199,16 +199,21 @@ def _install_fake_providers(bin_dir: Path) -> None:
 import json
 import os
 import sys
+from pathlib import Path
 
 args = sys.argv[1:]
 if "--help" in args:
-    print("Usage: claude [options]\\n  --output-format\\n  --json-schema\\n  --tools\\n  --no-session-persistence\\n  --append-system-prompt\\n")
+    print("Usage: claude [options]\\n  --output-format\\n  --json-schema\\n  --tools\\n  --no-session-persistence\\n  --append-system-prompt\\n  --dangerously-skip-permissions\\n")
     raise SystemExit(0)
 
 stage = os.environ.get("KAGGLE_AGENT_STAGE", "")
 if os.environ.get("FAKE_CLAUDE_INVALID_STAGE") == stage:
     print(json.dumps({"session_id": "claude-invalid", "structured_output": {"stage": stage}}))
     raise SystemExit(0)
+
+workspace_root = Path.cwd()
+default_config = workspace_root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml"
+default_yaml = default_config.read_text(encoding="utf-8") if default_config.exists() else ""
 
 payloads = {
     "report": {
@@ -249,6 +254,23 @@ payloads = {
         "requires_human": False,
         "markdown": "# Adapter Decision\\n\\n- Promote baseline."
     },
+    "plan": {
+        "stage": "plan",
+        "plan_status": "planned",
+        "source_run_id": os.environ.get("KAGGLE_AGENT_RUN_ID", "run-unknown"),
+        "reason": "Claude Code planned the next cached probe run.",
+        "title": "Claude planned cached probe",
+        "family": "perch_cached_probe",
+        "hypothesis": "Use the stable cached probe baseline as the next validated branch.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "priority": 70,
+        "depends_on": ["workitem-perch-debug-smoke"],
+        "tags": ["adapter", "planned"],
+        "launch_mode": "background",
+        "dedupe_key": "adapter:perch-cached-probe",
+        "work_type": "experiment_iteration",
+        "markdown": "# Adapter Plan\\n\\n- Queue cached probe baseline."
+    },
     "critic": {
         "stage": "critic",
         "status": "approved",
@@ -258,6 +280,50 @@ payloads = {
         "markdown": "# Adapter Critic\\n\\n- Approved."
     },
 }
+if stage == "codegen" and "--json-schema" not in args:
+    generated_config = workspace_root / "BirdCLEF-2026-Codebase" / "configs" / "generated" / "adapter_codegen.yaml"
+    generated_config.parent.mkdir(parents=True, exist_ok=True)
+    generated_config.write_text(default_yaml + "\\n# claude-code agentic codegen\\n", encoding="utf-8")
+    train_path = workspace_root / "train_sed.py"
+    train_path.write_text(
+        '''from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+
+def main() -> int:
+    run_dir = Path(os.environ["KAGGLE_AGENT_RUN_DIR"])
+    (run_dir / "code_state_marker.txt").write_text("claude-worktree-active\\\\n", encoding="utf-8")
+    payload = {
+        "experiment_name": "claude_codegen_worktree",
+        "config_path": os.environ.get("KAGGLE_AGENT_SPEC_ID", ""),
+        "primary_metric_name": "soundscape_macro_roc_auc",
+        "primary_metric_value": 0.42,
+        "secondary_metrics": {"padded_cmap": 0.24},
+        "all_metrics": {
+            "soundscape_macro_roc_auc": 0.42,
+            "padded_cmap": 0.24,
+        },
+        "root_cause": "worktree-applied",
+        "verdict": "worktree-success",
+        "artifacts": {},
+        "dataset_summary": {},
+        "summary_markdown": "Claude Code worktree path executed successfully.",
+    }
+    (run_dir / "result.json").write_text(json.dumps(payload), encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+''',
+        encoding="utf-8",
+    )
+    print(json.dumps({"session_id": "claude-code-codegen-session", "model": "claude-code-fake", "result": "edited isolated stage workspace"}))
+    raise SystemExit(0)
+
 payload = payloads[stage]
 print(json.dumps({"session_id": f"claude-{stage}-session", "model": "claude-fake", "structured_output": payload}))
 """,
@@ -729,7 +795,7 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(codegen_payload["smoke_summary"], codegen_payload["verify_summary"])
             self.assertIn("train_sed.py", codegen_payload["allowed_edit_roots"])
             self.assertIn("BirdCLEF-2026-Codebase/configs", codegen_payload["allowed_edit_roots"])
-            self.assertTrue(codegen_payload["provider_runtime"].startswith("codex/profile:kaggle-agent"))
+            self.assertEqual(codegen_payload["provider_runtime"], "codex mode:agentic env:inherit")
             self.assertIn("train_sed.py", codegen_payload["changed_files"])
             patch_text = Path(codegen_payload["patch_path"]).read_text(encoding="utf-8")
             self.assertNotIn("GIT binary patch", patch_text)
@@ -742,7 +808,10 @@ class WorkspaceTests(unittest.TestCase):
 
             codegen_meta = json.loads(Path(agent_by_role["codegen"].provider_meta_path).read_text(encoding="utf-8"))
             self.assertEqual(codegen_meta["provider_runtime"], codegen_payload["provider_runtime"])
-            self.assertTrue(codegen_meta["isolated_home"].startswith(codegen_stage.output_dir))
+            self.assertNotIn("isolated_home", codegen_meta)
+            self.assertNotIn("codex_home", codegen_meta)
+            self.assertTrue(Path(codegen_meta["stage_workspace_root"]).exists())
+            self.assertEqual(codegen_meta["stage_workspace_mode"], "snapshot-repo")
 
             validation = state.validations[-1]
             self.assertEqual(validation.status, "validated")
