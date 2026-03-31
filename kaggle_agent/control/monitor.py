@@ -7,7 +7,7 @@ from pathlib import Path
 from kaggle_agent.adapters.command import CommandAdapterError
 from kaggle_agent.control.executor import collect_finished_runs, reconcile_active_run_ids, start_run
 from kaggle_agent.control.reporting import write_reports
-from kaggle_agent.control.scheduler import choose_next_work_item, mark_work_item_status, register_work_item
+from kaggle_agent.control.scheduler import choose_next_work_item, choose_next_work_items, mark_work_item_status, register_work_item
 from kaggle_agent.control.store import find_work_item, load_state, save_state
 from kaggle_agent.control.submission import build_submission_candidate, plan_submission_slots
 from kaggle_agent.decision.codegen import build_codegen
@@ -89,17 +89,25 @@ def _create_or_update_spec(
     state: WorkspaceState,
     stage_run,
     payload: dict[str, object],
+    *,
+    work_item_id: str,
 ) -> SpecRecord:
     existing = _validated_spec_for_dedupe(state, str(payload.get("dedupe_key", "")))
     if existing is not None:
+        existing.work_item_id = work_item_id
         existing.config_path = str(payload["config_path"])
         existing.payload_path = stage_run.output_json_path
         existing.code_state_ref = str(payload.get("code_state_ref", ""))
+        existing.portfolio_id = str(payload.get("portfolio_id", "") or existing.portfolio_id)
+        existing.idea_class = str(payload.get("idea_class", "") or existing.idea_class)
+        existing.branch_role = str(payload.get("branch_role", "") or existing.branch_role)
+        existing.branch_rank = int(payload.get("branch_rank", existing.branch_rank))
+        existing.knowledge_card_ids = [str(item) for item in payload.get("knowledge_card_ids", [])] or existing.knowledge_card_ids
         existing.updated_at = now_utc_iso()
         return existing
     spec = SpecRecord(
         spec_id=f"spec-{state.runtime.next_spec_number:04d}",
-        work_item_id=f"derived:{stage_run.run_id}",
+        work_item_id=work_item_id,
         source_stage_run_id=stage_run.stage_run_id,
         spec_type="experiment",
         title=str(payload["title"]),
@@ -110,12 +118,47 @@ def _create_or_update_spec(
         code_state_ref=str(payload.get("code_state_ref", "")),
         status="validated",
         dedupe_key=str(payload.get("dedupe_key", "")),
+        portfolio_id=str(payload.get("portfolio_id", "")),
+        idea_class=str(payload.get("idea_class", "")),
+        branch_role=str(payload.get("branch_role", "")),
+        branch_rank=int(payload.get("branch_rank", 0) or 0),
+        knowledge_card_ids=[str(item) for item in payload.get("knowledge_card_ids", [])],
         created_at=now_utc_iso(),
         updated_at=now_utc_iso(),
     )
     state.runtime.next_spec_number += 1
     state.specs.append(spec)
     return spec
+
+
+def _plan_branches(plan: dict[str, object], run) -> list[dict[str, object]]:
+    branches = plan.get("branch_plans")
+    if isinstance(branches, list):
+        normalized = [dict(item) for item in branches if isinstance(item, dict)]
+        if normalized:
+            return normalized
+    if str(plan.get("plan_status", "")) != "planned":
+        return []
+    return [
+        {
+            "title": str(plan.get("title", "")),
+            "family": str(plan.get("family", "")),
+            "hypothesis": str(plan.get("hypothesis", "")),
+            "reason": str(plan.get("reason", "")),
+            "config_path": str(plan.get("config_path", "")),
+            "priority": int(plan.get("priority", 50) or 50),
+            "depends_on": [str(item) for item in plan.get("depends_on", [run.work_item_id])],
+            "tags": [str(item) for item in plan.get("tags", [])],
+            "launch_mode": str(plan.get("launch_mode", "background")),
+            "dedupe_key": str(plan.get("dedupe_key", "")),
+            "work_type": str(plan.get("work_type", "experiment_iteration")),
+            "portfolio_id": str(plan.get("portfolio_id", "")),
+            "idea_class": str(plan.get("idea_class", "")),
+            "branch_role": str(plan.get("branch_role", "primary")),
+            "branch_rank": int(plan.get("branch_rank", 0) or 0),
+            "knowledge_card_ids": [str(item) for item in plan.get("knowledge_card_ids", [])],
+        }
+    ]
 
 
 def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
@@ -145,60 +188,96 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
     status = "not_required"
     summary = "No follow-up experiment required."
     if plan_status == "planned":
-        config_path = str(codegen.get("generated_config_path") or plan.get("config_path") or "")
-        config_file = Path(config_path)
-        if not config_file.is_absolute():
-            config_file = config.root / config_file
+        branches = _plan_branches(plan, run)
         code_state_ref = str(codegen.get("code_state_ref", "") or "")
         code_state_path = Path(code_state_ref) if code_state_ref else None
         verify_status = str(codegen.get("verify_status") or codegen.get("smoke_status") or "skipped")
         verify_summary = str(codegen.get("verify_summary") or codegen.get("smoke_summary") or "")
         run_bundle_value = str(codegen.get("run_bundle_path", "") or "")
         run_bundle_path = Path(run_bundle_value) if run_bundle_value else None
-        spec_config_path = str(plan.get("config_path") or "")
         if run_bundle_path is not None and run_bundle_path.exists():
             run_bundle = json.loads(run_bundle_path.read_text(encoding="utf-8"))
-            spec_config_path = str(run_bundle.get("config_path") or spec_config_path)
+            run_bundle_config_path = str(run_bundle.get("config_path") or "")
+            if run_bundle_config_path:
+                for branch in branches[:1]:
+                    branch["config_path"] = run_bundle_config_path
         if critic.get("status") != "approved":
             status = "failed"
             summary = "Critic rejected the generated bundle."
-        elif not config_file.exists():
-            status = "failed"
-            summary = f"Missing config for validation: {config_file}"
         elif code_state_path is not None and not code_state_path.exists():
             status = "failed"
             summary = f"Missing code state for validation: {code_state_path}"
         elif code_state_path is not None and verify_status != "passed":
             status = "failed"
             summary = f"Codegen verify failed: {verify_summary or verify_status}"
+        elif not branches:
+            status = "failed"
+            summary = "Plan did not materialize any executable follow-up branches."
         else:
-            status = "validated"
-            summary = f"Validated follow-up config at {config_file}"
-            plan_payload = dict(plan)
-            plan_payload["config_path"] = spec_config_path or (
-                str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
-            )
-            plan_payload["code_state_ref"] = code_state_ref
-            spec = _create_or_update_spec(state, stage_run, plan_payload)
-            spec_id = spec.spec_id
-            if config.automation.auto_execute_plans:
-                queued = register_work_item(
-                    state,
-                    title=str(plan["title"]),
-                    work_type=str(plan.get("work_type", "experiment_iteration")),
-                    family=str(plan["family"]),
-                    config_path=str(plan_payload["config_path"]),
-                    priority=int(plan.get("priority", 50)),
-                    pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
-                    depends_on=[str(item) for item in plan.get("depends_on", [run.work_item_id])],
-                    dedupe_key=str(plan.get("dedupe_key", "")),
-                    source_run_id=run.run_id,
-                    source_stage_run_id=stage_run.stage_run_id,
-                    notes=[str(plan.get("hypothesis", ""))],
+            resolved_branches: list[dict[str, object]] = []
+            missing_config: Path | None = None
+            for branch in branches:
+                config_path_value = str(branch.get("config_path", "") or "")
+                config_file = Path(config_path_value)
+                if not config_file.is_absolute():
+                    config_file = config.root / config_file
+                if not config_file.exists():
+                    missing_config = config_file
+                    break
+                branch_payload = dict(branch)
+                branch_payload["config_path"] = (
+                    str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
                 )
-                queued.latest_spec_id = spec.spec_id
-                queued.updated_at = now_utc_iso()
-                queued_work_item_id = queued.id
+                branch_payload["code_state_ref"] = code_state_ref
+                resolved_branches.append(branch_payload)
+            if missing_config is not None:
+                status = "failed"
+                summary = f"Missing config for validation: {missing_config}"
+            else:
+                status = "validated"
+                spec_ids: list[str] = []
+                queued_work_item_ids: list[str] = []
+                for index, branch_payload in enumerate(resolved_branches):
+                    if config.automation.auto_execute_plans:
+                        queued = register_work_item(
+                            state,
+                            title=str(branch_payload["title"]),
+                            work_type=str(branch_payload.get("work_type", "experiment_iteration")),
+                            family=str(branch_payload["family"]),
+                            config_path=str(branch_payload["config_path"]),
+                            priority=int(branch_payload.get("priority", 50) or 50),
+                            pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
+                            depends_on=[str(item) for item in branch_payload.get("depends_on", [run.work_item_id])],
+                            dedupe_key=str(branch_payload.get("dedupe_key", "")),
+                            source_run_id=run.run_id,
+                            source_stage_run_id=stage_run.stage_run_id,
+                            portfolio_id=str(branch_payload.get("portfolio_id", "") or plan.get("portfolio_id", "")),
+                            parent_work_item_id=run.work_item_id,
+                            idea_class=str(branch_payload.get("idea_class", "")),
+                            branch_role=str(branch_payload.get("branch_role", "primary")),
+                            branch_rank=int(branch_payload.get("branch_rank", index) or index),
+                            knowledge_card_ids=[str(item) for item in branch_payload.get("knowledge_card_ids", [])],
+                            notes=[str(branch_payload.get("hypothesis", "")), str(branch_payload.get("reason", ""))],
+                        )
+                        queued.updated_at = now_utc_iso()
+                        work_item_id = queued.id
+                    else:
+                        queued = None
+                        work_item_id = f"derived:{stage_run.stage_run_id}:{index:02d}"
+                    spec = _create_or_update_spec(state, stage_run, branch_payload, work_item_id=work_item_id)
+                    spec_ids.append(spec.spec_id)
+                    if queued is not None:
+                        queued.latest_spec_id = spec.spec_id
+                        queued.updated_at = now_utc_iso()
+                        queued_work_item_ids.append(queued.id)
+                    if index == 0:
+                        spec_id = spec.spec_id
+                        queued_work_item_id = queued.id if queued is not None else ""
+                summary = (
+                    f"Validated {len(resolved_branches)} follow-up branches and queued {len(queued_work_item_ids)} work items."
+                    if config.automation.auto_execute_plans
+                    else f"Validated {len(resolved_branches)} follow-up branches."
+                )
     payload = {
         "stage": "validate",
         "status": status,
@@ -206,6 +285,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
         "plan_status": plan_status,
         "spec_id": spec_id,
         "queued_work_item_id": queued_work_item_id,
+        "branch_count": len(_plan_branches(plan, run)) if plan_status == "planned" else 0,
     }
     markdown = stage_markdown(
         f"Validation {run_id}",
@@ -214,6 +294,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
             f"- Summary: {summary}",
             f"- Spec id: `{spec_id or 'n/a'}`",
             f"- Queued work item: `{queued_work_item_id or 'n/a'}`",
+            f"- Branch count: {payload['branch_count']}",
         ],
     )
     complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown, validator_status=status)
@@ -387,16 +468,22 @@ def maybe_start_next_run(
     return run, run_in_background
 
 
+def _auto_start_ready_runs(config: WorkspaceConfig, state: WorkspaceState) -> list[str]:
+    started: list[str] = []
+    for work_item in choose_next_work_items(config, state):
+        run = start_run(config, state, work_item.id, background=True)
+        started.append(run.run_id)
+    return started
+
+
 def _tick_workspace_once(config: WorkspaceConfig, *, auto_start: bool = True) -> WorkspaceState:
     state = load_state(config)
     reconcile_active_run_ids(state)
     state.runtime.last_tick_at = now_utc_iso()
     process_completed_runs(config, state)
     reconcile_active_run_ids(state)
-    if auto_start and not state.runtime.active_run_ids:
-        run, run_in_background = maybe_start_next_run(config, state)
-        if run is not None and not run_in_background:
-            process_completed_runs(config, state)
+    if auto_start and config.automation.auto_start_planned_runs:
+        _auto_start_ready_runs(config, state)
     write_reports(config, state)
     save_state(config, state)
     return state

@@ -19,6 +19,11 @@
     "consider": { "type": "array", "items": { "type": "string" } },
     "reject": { "type": "array", "items": { "type": "string" } },
     "knowledge_files_seen": { "type": "integer" },
+    "problem_frame": { "type": "object" },
+    "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
+    "positive_priors": { "type": "array", "items": { "type": "string" } },
+    "negative_priors": { "type": "array", "items": { "type": "string" } },
+    "conditional_priors": { "type": "array", "items": { "type": "string" } },
     "markdown": { "type": "string" }
   }
 }

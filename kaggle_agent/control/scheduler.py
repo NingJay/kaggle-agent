@@ -35,10 +35,20 @@ def runnable_work_items(config: WorkspaceConfig, state: WorkspaceState) -> list[
 
 
 def choose_next_work_item(config: WorkspaceConfig, state: WorkspaceState) -> WorkItem | None:
-    if len(active_runs(state)) >= config.automation.max_active_runs:
-        return None
-    ready = runnable_work_items(config, state)
+    ready = choose_next_work_items(config, state, limit=1)
     return ready[0] if ready else None
+
+
+def choose_next_work_items(config: WorkspaceConfig, state: WorkspaceState, *, limit: int | None = None) -> list[WorkItem]:
+    remaining_capacity = max(0, config.automation.max_active_runs - len(active_runs(state)))
+    if remaining_capacity <= 0:
+        return []
+    ready = runnable_work_items(config, state)
+    if not ready:
+        return []
+    if limit is None:
+        limit = remaining_capacity
+    return ready[: min(limit, remaining_capacity)]
 
 
 def _next_work_item_id(state: WorkspaceState, title: str) -> str:
@@ -62,6 +72,12 @@ def register_work_item(
     source_run_id: str = "",
     source_stage_run_id: str = "",
     source_decision_id: str = "",
+    portfolio_id: str = "",
+    parent_work_item_id: str = "",
+    idea_class: str = "",
+    branch_role: str = "",
+    branch_rank: int = 0,
+    knowledge_card_ids: list[str] | None = None,
     notes: list[str] | None = None,
 ) -> WorkItem:
     existing = next((item for item in state.work_items if dedupe_key and item.dedupe_key == dedupe_key), None)
@@ -70,6 +86,12 @@ def register_work_item(
         existing.priority = priority
         existing.pipeline = list(pipeline)
         existing.depends_on = list(depends_on or existing.depends_on)
+        existing.portfolio_id = portfolio_id or existing.portfolio_id
+        existing.parent_work_item_id = parent_work_item_id or existing.parent_work_item_id
+        existing.idea_class = idea_class or existing.idea_class
+        existing.branch_role = branch_role or existing.branch_role
+        existing.branch_rank = branch_rank
+        existing.knowledge_card_ids = list(knowledge_card_ids or existing.knowledge_card_ids)
         existing.updated_at = now_utc_iso()
         return existing
     work_item = WorkItem(
@@ -86,6 +108,12 @@ def register_work_item(
         source_stage_run_id=source_stage_run_id,
         source_decision_id=source_decision_id,
         dedupe_key=dedupe_key or f"work_item:{slugify(title)}:{slugify(config_path)}",
+        portfolio_id=portfolio_id,
+        parent_work_item_id=parent_work_item_id,
+        idea_class=idea_class,
+        branch_role=branch_role,
+        branch_rank=branch_rank,
+        knowledge_card_ids=list(knowledge_card_ids or []),
         notes=list(notes or []),
         created_at=now_utc_iso(),
         updated_at=now_utc_iso(),
@@ -101,6 +129,11 @@ def register_experiment_for_work_item(state: WorkspaceState, work_item: WorkItem
             existing.spec_id = spec.spec_id
             existing.config_path = spec.config_path
             existing.code_state_ref = spec.code_state_ref
+            existing.portfolio_id = spec.portfolio_id or existing.portfolio_id
+            existing.idea_class = spec.idea_class or existing.idea_class
+            existing.branch_role = spec.branch_role or existing.branch_role
+            existing.branch_rank = spec.branch_rank or existing.branch_rank
+            existing.knowledge_card_ids = list(spec.knowledge_card_ids or existing.knowledge_card_ids)
         return existing
     experiment = ExperimentSpec(
         id=f"exp-{work_item.id.replace('workitem-', '')}",
@@ -118,6 +151,11 @@ def register_experiment_for_work_item(state: WorkspaceState, work_item: WorkItem
         created_at=now_utc_iso(),
         updated_at=now_utc_iso(),
         dedupe_key=f"workitem:{work_item.id}:experiment",
+        portfolio_id=(spec.portfolio_id if spec is not None else work_item.portfolio_id),
+        idea_class=(spec.idea_class if spec is not None else work_item.idea_class),
+        branch_role=(spec.branch_role if spec is not None else work_item.branch_role),
+        branch_rank=(spec.branch_rank if spec is not None else work_item.branch_rank),
+        knowledge_card_ids=list(spec.knowledge_card_ids if spec is not None else work_item.knowledge_card_ids),
     )
     state.experiments.append(experiment)
     work_item.updated_at = now_utc_iso()
@@ -142,6 +180,11 @@ def ensure_seed_spec(state: WorkspaceState, work_item: WorkItem) -> SpecRecord:
         code_state_ref="",
         status="validated",
         dedupe_key=f"seed:{work_item.id}:spec",
+        portfolio_id=work_item.portfolio_id,
+        idea_class=work_item.idea_class,
+        branch_role=work_item.branch_role,
+        branch_rank=work_item.branch_rank,
+        knowledge_card_ids=list(work_item.knowledge_card_ids),
         created_at=now_utc_iso(),
         updated_at=now_utc_iso(),
     )

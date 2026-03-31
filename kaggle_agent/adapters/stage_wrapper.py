@@ -19,6 +19,7 @@ from kaggle_agent.adapters.providers.claude_code_exec import run_claude_code_exe
 from kaggle_agent.adapters.providers.claude_headless import run_claude_headless
 from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
 from kaggle_agent.adapters.schema_validation import SchemaValidationError, validate_payload
+from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle_from_root
 from kaggle_agent.utils import atomic_write_json, atomic_write_text, ensure_directory, now_utc_iso, truncate
 
 
@@ -160,46 +161,10 @@ def _doc_block(path: Path) -> str:
     return f"## {path.name}\n\n{text}"
 
 
-def _knowledge_blocks(root: Path, manifest: dict[str, Any], *, limit: int = KNOWLEDGE_PROMPT_CHAR_BUDGET) -> str:
-    knowledge_root = root / "knowledge"
-    if not knowledge_root.exists():
-        return ""
-
-    candidates: list[Path] = []
-    seen: set[Path] = set()
-    run_id = str(manifest.get("run", {}).get("run_id", "") or "")
-    ordered_relpaths = list(KNOWLEDGE_FILES_IN_PROMPT_ORDER)
-    if run_id:
-        ordered_relpaths.insert(4, f"research/{run_id}.md")
-    for relative in ordered_relpaths:
-        path = knowledge_root / relative
-        if path.exists() and path.is_file():
-            candidates.append(path)
-            seen.add(path.resolve())
-
-    for path in sorted(knowledge_root.glob("research/*.md"), reverse=True):
-        resolved = path.resolve()
-        if resolved not in seen:
-            candidates.append(path)
-            seen.add(resolved)
-        if len(candidates) >= 8:
-            break
-
-    sections: list[str] = []
-    total = 0
-    for path in candidates:
-        text = path.read_text(encoding="utf-8").strip()
-        if not text:
-            continue
-        section = f"## knowledge/{path.relative_to(knowledge_root).as_posix()}\n\n{text}"
-        remaining = limit - total
-        if remaining <= 0:
-            break
-        if len(section) > remaining:
-            section = truncate(section, limit=remaining)
-        sections.append(section)
-        total += len(section) + 2
-    return "\n\n".join(section for section in sections if section)
+def _knowledge_blocks(root: Path, manifest: dict[str, Any], *, stage: str, limit: int = KNOWLEDGE_PROMPT_CHAR_BUDGET) -> str:
+    bundle = retrieve_knowledge_bundle_from_root(root, manifest, stage=stage, limit=8)
+    rendered = render_retrieved_knowledge(bundle, limit=limit)
+    return rendered if rendered.strip() else ""
 
 
 def _build_prompt(
@@ -242,7 +207,7 @@ def _build_prompt(
     if docs:
         prompt_sections.append(f"# Operating Contract\n\n{docs}")
     if ctx.stage in KNOWLEDGE_PROMPT_STAGES:
-        knowledge = _knowledge_blocks(docs_root, ctx.input_manifest)
+        knowledge = _knowledge_blocks(docs_root, ctx.input_manifest, stage=ctx.stage)
         if knowledge:
             prompt_sections.append(f"# Knowledge Context\n\n{knowledge}")
     prompt_sections.append(
@@ -316,7 +281,23 @@ def _build_prompt(
             "For ordinary experiment iteration, debug reruns, and code-fix follow-ups, return `plan_status` as `planned`.\n"
             "Use `submission_candidate` only for explicit submission-packaging or leaderboard-promotion plans.\n"
             "Use the knowledge context explicitly. When validation metrics are available, treat `val_soundscape_macro_roc_auc` as the keep/discard metric and treat resubstitution `soundscape_macro_roc_auc` as diagnostic only.\n"
-            "If the blocking issue is class imbalance or class coverage, propose a plan that addresses coverage before calibration-only tuning."
+            "If the blocking issue is class imbalance or class coverage, propose a plan that addresses coverage before calibration-only tuning.\n"
+            "When `plan_status` is `planned`, return a `branch_plans` array with 2-3 sibling branches whenever you can justify parallel search.\n"
+            "Each branch may include `config_overrides` as typed operations like `{path, value}`; prefer that over inventing nonexistent config files.\n"
+            "Set the top-level plan fields to the primary branch, and keep sibling branches in `branch_plans` with explicit `branch_role`, `idea_class`, and `knowledge_card_ids`."
+        )
+    if ctx.stage == "research":
+        prompt_sections.append(
+            "# Research Rules\n\n"
+            "Turn retrieved knowledge into structured priors, not generic prose.\n"
+            "Use `positive_priors` for things that should be exploited, `negative_priors` for vetoes, and `conditional_priors` for guarded branches.\n"
+            "If the knowledge context includes card ids, cite those ids inside the prior strings so downstream planning can reuse them."
+        )
+    if ctx.stage == "decision":
+        prompt_sections.append(
+            "# Decision Rules\n\n"
+            "Prefer decisions that preserve space for branch search instead of collapsing immediately to a single low-information calibration tweak.\n"
+            "When the current branch is still below target, favor decisions that keep the next plan inside high-value training or data axes before post-hoc tuning only."
         )
     return "\n\n".join(section.strip() for section in prompt_sections if section.strip()) + "\n"
 
@@ -740,6 +721,9 @@ def _provider_meta(
         value = response.extra_meta.get(key, "")
         if value:
             meta[key] = value
+    if response.extra_meta.get("timed_out"):
+        meta["timed_out"] = response.extra_meta.get("timed_out")
+        meta["timeout_seconds"] = response.extra_meta.get("timeout_seconds", "")
     if amp_probe_path:
         meta["amp_probe_path"] = amp_probe_path
         meta["amp_probe_summary"] = amp_probe_summary

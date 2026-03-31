@@ -61,6 +61,9 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
 
     threshold = _submission_threshold(config, experiment.config_path)
     root_cause = str(report.get("root_cause", run.root_cause or run.error or "unknown"))
+    problem_frame = research.get("problem_frame", {}) if isinstance(research.get("problem_frame"), dict) else {}
+    knowledge_card_ids = [str(item) for item in research.get("knowledge_card_ids", [])]
+    rejected_axes = [str(item) for item in research.get("negative_priors", [])][:5]
     if run.status == "failed":
         decision_type = "blocked" if any(token in root_cause.lower() for token in ["missing", "module", "dependency"]) else "fix"
         payload = {
@@ -75,6 +78,10 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "next_config_path": experiment.config_path,
             "priority_delta": -5 if decision_type == "blocked" else 5,
             "launch_mode": "sync" if decision_type == "blocked" else "background",
+            "problem_frame": problem_frame,
+            "knowledge_card_ids": knowledge_card_ids,
+            "rejected_axes": rejected_axes,
+            "branch_portfolio": [],
         }
     elif experiment.family == "perch_head_debug":
         payload = {
@@ -89,6 +96,10 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "next_config_path": str(config.runtime_root() / "configs" / "default.yaml"),
             "priority_delta": 10,
             "launch_mode": "background",
+            "problem_frame": problem_frame,
+            "knowledge_card_ids": knowledge_card_ids,
+            "rejected_axes": rejected_axes,
+            "branch_portfolio": [],
         }
     elif run.primary_metric_value is not None and run.primary_metric_value >= threshold:
         payload = {
@@ -103,6 +114,10 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "next_config_path": experiment.config_path,
             "priority_delta": 0,
             "launch_mode": "background",
+            "problem_frame": problem_frame,
+            "knowledge_card_ids": knowledge_card_ids,
+            "rejected_axes": rejected_axes,
+            "branch_portfolio": [],
         }
     else:
         payload = {
@@ -117,6 +132,10 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "next_config_path": experiment.config_path,
             "priority_delta": 10,
             "launch_mode": "background",
+            "problem_frame": problem_frame,
+            "knowledge_card_ids": knowledge_card_ids,
+            "rejected_axes": rejected_axes,
+            "branch_portfolio": [],
         }
     markdown = stage_markdown(
         f"Decision {run_id}",

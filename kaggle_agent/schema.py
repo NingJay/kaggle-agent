@@ -227,6 +227,12 @@ class WorkItem(_Serializable):
     source_stage_run_id: str = ""
     source_decision_id: str = ""
     dedupe_key: str = ""
+    portfolio_id: str = ""
+    parent_work_item_id: str = ""
+    idea_class: str = ""
+    branch_role: str = ""
+    branch_rank: int = 0
+    knowledge_card_ids: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     created_at: str = ""
     updated_at: str = ""
@@ -254,6 +260,11 @@ class ExperimentSpec(_Serializable):
     notes: list[str] = field(default_factory=list)
     dedupe_key: str = ""
     source_decision_id: str = ""
+    portfolio_id: str = ""
+    idea_class: str = ""
+    branch_role: str = ""
+    branch_rank: int = 0
+    knowledge_card_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -347,6 +358,11 @@ class SpecRecord(_Serializable):
     code_state_ref: str = ""
     status: str = "draft"
     dedupe_key: str = ""
+    portfolio_id: str = ""
+    idea_class: str = ""
+    branch_role: str = ""
+    branch_rank: int = 0
+    knowledge_card_ids: list[str] = field(default_factory=list)
     created_at: str = ""
     updated_at: str = ""
 

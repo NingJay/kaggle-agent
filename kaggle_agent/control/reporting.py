@@ -93,8 +93,8 @@ PROMPT_TEMPLATES = {
     "evidence.md": "# Evidence Program\nCompress runtime outputs into evidence bundles with explicit metrics, artifacts, and root cause.\n",
     "report.md": "# Report Program\nWrite a run report that is useful for the next decision, not just for presentation.\n",
     "research.md": "# Research Program\nTurn the current failure or success mode into adopt-now, consider, and reject guidance.\n",
-    "decision.md": "# Decision Program\nChoose the next action with priority on fixing the root cause first.\n",
-    "plan.md": "# Plan Program\nProduce an executable experiment or submission plan with explicit config paths and dedupe keys.\n",
+    "decision.md": "# Decision Program\nChoose the next action with priority on fixing the root cause first while preserving room for branch search when high-value axes remain.\n",
+    "plan.md": "# Plan Program\nProduce an executable experiment or submission plan with explicit config paths, dedupe keys, and a small branch portfolio when justified.\n",
     "codegen.md": """# Codegen Program
 
 Operate only inside the isolated codegen workspace.
@@ -172,16 +172,33 @@ def _surface_updates(config: WorkspaceConfig, state: WorkspaceState) -> None:
     checklist = [f"- Current attempt: `{attempt_slug}`", ""]
     for work_item in sorted(work_items, key=lambda item: (item.priority, item.created_at, item.id)):
         run_display = next((run_label_from_path(run.run_dir) for run in runs if run.run_id == work_item.latest_run_id), "") or "n/a"
+        branch_bits = []
+        if work_item.portfolio_id:
+            branch_bits.append(f"portfolio={work_item.portfolio_id}")
+        if work_item.branch_role:
+            branch_bits.append(f"branch={work_item.branch_role}")
+        if work_item.idea_class:
+            branch_bits.append(f"idea={work_item.idea_class}")
+        branch_summary = f" | {' '.join(branch_bits)}" if branch_bits else ""
         checklist.append(
-            f"- [{'x' if work_item.status in {'complete', 'submitted'} else ' '}] `{work_item.id}` | {work_item.status} | p{work_item.priority} | {work_item.title} | run={run_display} | stage={_latest_stage_label(state, work_item.latest_stage_run_id)}"
+            f"- [{'x' if work_item.status in {'complete', 'submitted'} else ' '}] `{work_item.id}` | {work_item.status} | p{work_item.priority} | {work_item.title}{branch_summary} | run={run_display} | stage={_latest_stage_label(state, work_item.latest_stage_run_id)}"
         )
     _replace_auto_block(config, "CHECKLIST.md", "\n".join(checklist) or "- No queued work items.")
 
     journal = [f"- Current attempt: `{attempt_slug}`", ""]
     for run in runs[-12:]:
         latest_stage_label = _latest_stage_label(state, run.latest_stage_run_id)
+        work_item = next((item for item in work_items if item.id == run.work_item_id), None)
+        branch_bits = []
+        if work_item is not None and work_item.branch_role:
+            branch_bits.append(f"branch={work_item.branch_role}")
+        if work_item is not None and work_item.idea_class:
+            branch_bits.append(f"idea={work_item.idea_class}")
+        if work_item is not None and work_item.portfolio_id:
+            branch_bits.append(f"portfolio={work_item.portfolio_id}")
+        branch_suffix = f" | {' '.join(branch_bits)}" if branch_bits else ""
         journal.append(
-            f"- `{run_label_from_path(run.run_dir) or run.run_id}` | {run.status} | cursor={run.stage_cursor or 'n/a'} | latest_stage={latest_stage_label} | metric={run.primary_metric_name}={run.primary_metric_value}"
+            f"- `{run_label_from_path(run.run_dir) or run.run_id}` | {run.status} | cursor={run.stage_cursor or 'n/a'} | latest_stage={latest_stage_label} | metric={run.primary_metric_name}={run.primary_metric_value}{branch_suffix}"
         )
     _replace_auto_block(config, "JOURNAL.md", "\n".join(journal) or "- No runs yet.")
 

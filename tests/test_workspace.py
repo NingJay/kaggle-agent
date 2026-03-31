@@ -15,14 +15,19 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from kaggle_agent.adapters.command import CommandAdapterTimeout, run_stage_adapter
+from kaggle_agent.adapters.providers.claude_code_exec import run_claude_code_exec
+from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
 from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, _build_prompt, _verify_codegen_workspace
 from kaggle_agent.cli import main as cli_main
 from kaggle_agent.control.executor import collect_finished_runs, start_run
+from kaggle_agent.control.scheduler import choose_next_work_items
 from kaggle_agent.control.monitor import _process_run_stage_chain, _run_validate_stage, process_completed_runs
 from kaggle_agent.decision.codegen import build_codegen
+from kaggle_agent.decision.planner import build_plan
+from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle
 from kaggle_agent.layout import run_label
 from kaggle_agent.control.store import load_state
-from kaggle_agent.schema import RunRecord, RuntimeState, StageRun, WorkspaceState
+from kaggle_agent.schema import ExperimentSpec, RunRecord, RuntimeState, StageRun, WorkspaceState
 from kaggle_agent.service import (
     build_submission,
     doctor_checks,
@@ -534,6 +539,73 @@ class WorkspaceTests(unittest.TestCase):
             self.assertIn("train_sed.py", verify_command)
             self.assertIn("timed out", verify_summary.lower())
 
+    def test_claude_code_exec_agentic_timeout_returns_salvage_response(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bin_dir = root / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            _write_executable(
+                bin_dir / "claude",
+                "#!/usr/bin/env python3\n"
+                "import subprocess\n"
+                "import sys\n"
+                "import time\n"
+                "if '--help' in sys.argv:\n"
+                "    print('Usage: claude --output-format --no-session-persistence --disable-slash-commands --no-chrome --add-dir')\n"
+                "    raise SystemExit(0)\n"
+                "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+                "time.sleep(5)\n",
+            )
+            started = time.monotonic()
+            with patch.dict(os.environ, {"PATH": f"{bin_dir}:{os.environ.get('PATH', '')}", "KAGGLE_AGENT_PROVIDER_TIMEOUT_SECONDS": "1"}, clear=False):
+                response = run_claude_code_exec(
+                    prompt="touch a file",
+                    schema_path=None,
+                    workspace_root=root,
+                    mode="agentic",
+                )
+            elapsed = time.monotonic() - started
+
+            self.assertEqual(response.exit_code, 124)
+            self.assertEqual(response.extra_meta.get("timed_out"), "1")
+            self.assertIn("timed out", response.raw_stderr.lower())
+            self.assertLess(elapsed, 10)
+
+    def test_codex_exec_agentic_timeout_returns_salvage_response(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bin_dir = root / "bin"
+            output_dir = root / "output"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            _write_executable(
+                bin_dir / "codex",
+                "#!/usr/bin/env python3\n"
+                "import subprocess\n"
+                "import sys\n"
+                "import time\n"
+                "if len(sys.argv) > 1 and sys.argv[1] == 'exec':\n"
+                "    subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+                "    time.sleep(5)\n"
+                "    raise SystemExit(0)\n"
+                "raise SystemExit(0)\n",
+            )
+            started = time.monotonic()
+            with patch.dict(os.environ, {"PATH": f"{bin_dir}:{os.environ.get('PATH', '')}", "KAGGLE_AGENT_PROVIDER_TIMEOUT_SECONDS": "1"}, clear=False):
+                response = run_codex_exec(
+                    prompt="edit files",
+                    schema_path=None,
+                    workspace_root=root,
+                    output_dir=output_dir,
+                    mode="agentic",
+                )
+            elapsed = time.monotonic() - started
+
+            self.assertEqual(response.exit_code, 124)
+            self.assertEqual(response.extra_meta.get("timed_out"), "1")
+            self.assertIn("timed out", response.raw_stderr.lower())
+            self.assertLess(elapsed, 10)
+
     def test_runtime_verify_mode_does_not_mirror_outputs_back_into_source_tree(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -561,6 +633,392 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, msg=completed.stderr or completed.stdout)
             self.assertTrue((verify_root / "result.json").exists())
             self.assertFalse((root / "BirdCLEF-2026-Codebase" / "outputs" / "perch_head_debug").exists())
+
+    def test_retrieved_knowledge_bundle_surfaces_positive_negative_and_conditional_priors(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+            knowledge_root = root / "knowledge"
+            knowledge_root.mkdir(parents=True, exist_ok=True)
+            (knowledge_root / "01_validated_findings.md").write_text(
+                "# Findings\n\n"
+                "## Soft pseudo labels are the biggest win\n\n"
+                "Soft pseudo labels improved validation and remain the strongest positive prior.\n\n"
+                "## Calibration-only sweep hurts\n\n"
+                "Pure calibration-only sweeps regressed holdout validation and should be vetoed.\n",
+                encoding="utf-8",
+            )
+            (knowledge_root / "03_next_experiment_priors.md").write_text(
+                "# Priors\n\n"
+                "## Class coverage before calibration\n\n"
+                "If class imbalance is the blocking issue, expand coverage first and only then revisit calibration.\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            bundle = retrieve_knowledge_bundle(
+                config,
+                {
+                    "run": {"run_id": "run-knowledge", "primary_metric_name": "val_soundscape_macro_roc_auc"},
+                    "experiment": {"family": "perch_cached_probe", "title": "Probe baseline"},
+                    "report": {"root_cause": "class imbalance on holdout", "focus": "class coverage"},
+                },
+                stage="plan",
+            )
+            rendered = render_retrieved_knowledge(bundle)
+
+            self.assertGreaterEqual(bundle["knowledge_files_seen"], 2)
+            self.assertIn("Positive Priors", rendered)
+            self.assertIn("Negative Vetoes", rendered)
+            self.assertIn("Conditional Leads", rendered)
+            self.assertTrue(bundle["knowledge_card_ids"])
+
+    def test_build_plan_materializes_multi_branch_configs_from_fallback_search(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+            knowledge_root = root / "knowledge"
+            knowledge_root.mkdir(parents=True, exist_ok=True)
+            (knowledge_root / "01_validated_findings.md").write_text(
+                "# Findings\n\n"
+                "## Coverage fixes help\n\n"
+                "Long-tail coverage fixes improved validation.\n",
+                encoding="utf-8",
+            )
+            (knowledge_root / "03_next_experiment_priors.md").write_text(
+                "# Priors\n\n"
+                "## Coverage before calibration\n\n"
+                "Address coverage before calibration-only tuning when class imbalance is visible.\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            work_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            experiment = ExperimentSpec(
+                id="exp-plan-fallback",
+                title="Perch cached-probe baseline",
+                hypothesis="baseline",
+                family=work_item.family,
+                config_path=work_item.config_path,
+                priority=work_item.priority,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+            )
+            state.experiments.append(experiment)
+            run = RunRecord(
+                run_id="run-plan-fallback",
+                experiment_id=experiment.id,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+                status="succeeded",
+                command="",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-plan-fallback"),
+                log_path=str(root / "artifacts" / "runs" / "run-plan-fallback" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.61,
+            )
+            state.runs.append(run)
+
+            def _latest_payload(_state, _run_id, stage_name):
+                if stage_name == "decision":
+                    return {
+                        "stage": "decision",
+                        "next_action": "run_new_experiment",
+                        "why": "Keep searching higher-value branches.",
+                        "next_title": "Perch cached-probe baseline follow-up",
+                        "next_family": "perch_cached_probe",
+                        "next_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+                        "priority_delta": 10,
+                        "launch_mode": "background",
+                    }
+                if stage_name == "research":
+                    return {
+                        "stage": "research",
+                        "root_cause": "class imbalance on holdout",
+                        "adopt_now": ["coverage-first branch"],
+                        "consider": ["probe-head capacity branch"],
+                        "reject": ["calibration-only sweep"],
+                    }
+                return {}
+
+            with patch("kaggle_agent.decision.planner.latest_stage_payload", side_effect=_latest_payload), patch(
+                "kaggle_agent.decision.planner.run_configured_stage_adapter",
+                return_value=None,
+            ):
+                stage_run = build_plan(config, state, run.run_id)
+
+            payload = json.loads(Path(stage_run.output_json_path).read_text(encoding="utf-8"))
+            self.assertEqual(payload["plan_status"], "planned")
+            self.assertGreaterEqual(len(payload["branch_plans"]), 2)
+            self.assertEqual(payload["branch_plans"][0]["branch_role"], "primary")
+            self.assertTrue(payload["portfolio_id"])
+            for branch in payload["branch_plans"]:
+                config_path = root / branch["config_path"]
+                self.assertTrue(config_path.exists())
+                self.assertTrue(branch["idea_class"])
+
+    def test_build_plan_falls_back_when_decision_next_config_path_is_not_materialized(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            work_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            experiment = ExperimentSpec(
+                id="exp-plan-missing-next-config",
+                title="Perch cached-probe baseline",
+                hypothesis="baseline",
+                family=work_item.family,
+                config_path=work_item.config_path,
+                priority=work_item.priority,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+            )
+            state.experiments.append(experiment)
+            run = RunRecord(
+                run_id="run-plan-missing-next-config",
+                experiment_id=experiment.id,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+                status="succeeded",
+                command="",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-plan-missing-next-config"),
+                log_path=str(root / "artifacts" / "runs" / "run-plan-missing-next-config" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.63,
+            )
+            state.runs.append(run)
+
+            def _latest_payload(_state, _run_id, stage_name):
+                if stage_name == "decision":
+                    return {
+                        "stage": "decision",
+                        "next_action": "run_new_experiment",
+                        "why": "Use the current config as the base even if the provider named a future config path.",
+                        "next_title": "Perch cached-probe baseline follow-up",
+                        "next_family": "perch_cached_probe",
+                        "next_config_path": "BirdCLEF-2026-Codebase/configs/generated/plan-future-debug-branch.yaml",
+                        "priority_delta": 10,
+                        "launch_mode": "background",
+                    }
+                if stage_name == "research":
+                    return {
+                        "stage": "research",
+                        "root_cause": "class imbalance on holdout",
+                        "adopt_now": ["coverage-first branch"],
+                        "consider": ["probe-head capacity branch"],
+                        "reject": ["calibration-only sweep"],
+                    }
+                return {}
+
+            with patch("kaggle_agent.decision.planner.latest_stage_payload", side_effect=_latest_payload), patch(
+                "kaggle_agent.decision.planner.run_configured_stage_adapter",
+                return_value=None,
+            ):
+                stage_run = build_plan(config, state, run.run_id)
+
+            payload = json.loads(Path(stage_run.output_json_path).read_text(encoding="utf-8"))
+            self.assertEqual(payload["plan_status"], "planned")
+            self.assertGreaterEqual(len(payload["branch_plans"]), 1)
+            for branch in payload["branch_plans"]:
+                config_path = root / branch["config_path"]
+                self.assertTrue(config_path.exists())
+
+    def test_validate_stage_registers_multiple_branch_work_items(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            work_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            experiment = ExperimentSpec(
+                id="exp-validate-branches",
+                title="Perch cached-probe baseline",
+                hypothesis="baseline",
+                family=work_item.family,
+                config_path=work_item.config_path,
+                priority=work_item.priority,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+            )
+            state.experiments.append(experiment)
+            run = RunRecord(
+                run_id="run-validate-branches",
+                experiment_id=experiment.id,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+                status="succeeded",
+                command="",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-validate-branches"),
+                log_path=str(root / "artifacts" / "runs" / "run-validate-branches" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.63,
+            )
+            state.runs.append(run)
+            code_state_root = root / "state" / "snapshots" / "codegen" / "code-state"
+            code_state_root.mkdir(parents=True, exist_ok=True)
+            generated_root = root / "BirdCLEF-2026-Codebase" / "configs" / "generated"
+            generated_root.mkdir(parents=True, exist_ok=True)
+            branch_a = generated_root / "branch-a.yaml"
+            branch_b = generated_root / "branch-b.yaml"
+            branch_a.write_text((root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+            branch_b.write_text((root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+
+            def _latest_payload(_state, _run_id, stage_name):
+                if stage_name == "plan":
+                    return {
+                        "stage": "plan",
+                        "plan_status": "planned",
+                        "source_run_id": run.run_id,
+                        "reason": "Register sibling follow-up branches.",
+                        "title": "Primary branch",
+                        "family": "perch_cached_probe",
+                        "hypothesis": "Primary branch hypothesis",
+                        "config_path": str(branch_a.relative_to(root)),
+                        "priority": 30,
+                        "depends_on": [work_item.id],
+                        "tags": ["planned", "branch-search"],
+                        "launch_mode": "background",
+                        "dedupe_key": "plan:branch-a",
+                        "work_type": "experiment_iteration",
+                        "portfolio_id": "portfolio-run-validate-branches",
+                        "knowledge_card_ids": ["card-a"],
+                        "branch_plans": [
+                            {
+                                "title": "Primary branch",
+                                "family": "perch_cached_probe",
+                                "hypothesis": "Primary branch hypothesis",
+                                "reason": "Coverage-first branch",
+                                "config_path": str(branch_a.relative_to(root)),
+                                "priority": 30,
+                                "depends_on": [work_item.id],
+                                "tags": ["planned", "branch-search", "primary"],
+                                "launch_mode": "background",
+                                "dedupe_key": "plan:branch-a",
+                                "work_type": "experiment_iteration",
+                                "portfolio_id": "portfolio-run-validate-branches",
+                                "idea_class": "class_coverage",
+                                "branch_role": "primary",
+                                "branch_rank": 0,
+                                "knowledge_card_ids": ["card-a"],
+                            },
+                            {
+                                "title": "Hedge branch",
+                                "family": "perch_cached_probe",
+                                "hypothesis": "Hedge branch hypothesis",
+                                "reason": "Representation hedge",
+                                "config_path": str(branch_b.relative_to(root)),
+                                "priority": 32,
+                                "depends_on": [work_item.id],
+                                "tags": ["planned", "branch-search", "hedge"],
+                                "launch_mode": "background",
+                                "dedupe_key": "plan:branch-b",
+                                "work_type": "experiment_iteration",
+                                "portfolio_id": "portfolio-run-validate-branches",
+                                "idea_class": "probe_head",
+                                "branch_role": "hedge",
+                                "branch_rank": 1,
+                                "knowledge_card_ids": ["card-b"],
+                            },
+                        ],
+                    }
+                if stage_name == "codegen":
+                    return {
+                        "stage": "codegen",
+                        "status": "generated",
+                        "reason": "Generated code state.",
+                        "generated_config_path": str(branch_a),
+                        "run_bundle_path": "",
+                        "patch_path": "",
+                        "code_state_ref": str(code_state_root),
+                        "verify_artifacts_ref": str(root / "state" / "verify"),
+                        "verify_command": "python train_sed.py --config generated/branch-a.yaml",
+                        "verify_status": "passed",
+                        "verify_summary": "verify passed",
+                        "worktree_path": str(code_state_root),
+                        "base_commit": "abc123",
+                        "head_commit": "def456",
+                        "changed_files": ["train_sed.py"],
+                        "provider_runtime": "claude_code mode:agentic",
+                        "allowed_edit_roots": ["train_sed.py"],
+                        "smoke_status": "passed",
+                        "smoke_summary": "verify passed",
+                    }
+                if stage_name == "critic":
+                    return {"stage": "critic", "status": "approved"}
+                return {}
+
+            with patch("kaggle_agent.control.monitor.latest_stage_payload", side_effect=_latest_payload):
+                stage_run = _run_validate_stage(config, state, run.run_id)
+
+            payload = json.loads(Path(stage_run.output_json_path).read_text(encoding="utf-8"))
+            self.assertEqual(payload["status"], "validated")
+            self.assertEqual(payload["branch_count"], 2)
+            new_items = [item for item in state.work_items if item.id != "workitem-perch-baseline"]
+            self.assertEqual(len(new_items), 2)
+            self.assertEqual({item.portfolio_id for item in new_items}, {"portfolio-run-validate-branches"})
+            self.assertEqual({item.branch_role for item in new_items}, {"primary", "hedge"})
+            self.assertEqual({item.idea_class for item in new_items}, {"class_coverage", "probe_head"})
+            self.assertTrue(all(item.latest_spec_id for item in new_items))
+
+    def test_choose_next_work_items_returns_batch_up_to_capacity(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            config_path = str((root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml").relative_to(root))
+            for index in range(2):
+                state.work_items.append(
+                    state.work_items[0].__class__(
+                        id=f"workitem-extra-{index}",
+                        title=f"Extra branch {index}",
+                        work_type="experiment_iteration",
+                        family="perch_cached_probe",
+                        priority=25 + index,
+                        status="queued",
+                        config_path=config_path,
+                        pipeline=list(state.work_items[0].pipeline),
+                    )
+                )
+            state.runtime.active_run_ids = []
+            config = config.__class__(
+                root=config.root,
+                competition=config.competition,
+                metrics=config.metrics,
+                data=config.data,
+                paths=config.paths,
+                automation=config.automation.__class__(**{**config.automation.__dict__, "max_active_runs": 2}),
+                adapters=config.adapters,
+                runtime=config.runtime,
+                kaggle=config.kaggle,
+                notes=config.notes,
+            )
+
+            selected = choose_next_work_items(config, state)
+            self.assertEqual(len(selected), 2)
 
     def test_force_init_reset_clears_stale_workspace_state_and_seeds_attempt(self) -> None:
         with TemporaryDirectory() as tmp:

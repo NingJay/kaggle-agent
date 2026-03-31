@@ -28,6 +28,39 @@
     "next_config_path": { "type": "string" },
     "priority_delta": { "type": "integer" },
     "launch_mode": { "type": "string" },
+    "problem_frame": { "type": "object" },
+    "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
+    "rejected_axes": { "type": "array", "items": { "type": "string" } },
+    "branch_portfolio": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string" },
+          "family": { "type": "string" },
+          "hypothesis": { "type": "string" },
+          "rationale": { "type": "string" },
+          "branch_role": { "type": "string" },
+          "idea_class": { "type": "string" },
+          "target_component": { "type": "string" },
+          "priority_delta": { "type": "integer" },
+          "launch_mode": { "type": "string" },
+          "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
+          "config_overrides": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string" },
+                "value": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "requires_human": { "type": "boolean" },
     "markdown": { "type": "string" }
   }

@@ -147,7 +147,7 @@ def ensure_layout(config: WorkspaceConfig) -> None:
     ensure_directory(config.legacy_root())
     ensure_directory(config.knowledge_root())
     ensure_directory(config.prompt_root())
-    for category in ["research", "papers"]:
+    for category in ["research", "papers", "index"]:
         ensure_directory(config.knowledge_path(category))
     ensure_directory(config.generated_config_root())
 

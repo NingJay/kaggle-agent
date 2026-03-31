@@ -33,6 +33,57 @@
     "launch_mode": { "type": "string" },
     "dedupe_key": { "type": "string" },
     "work_type": { "type": "string" },
+    "portfolio_id": { "type": "string" },
+    "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
+    "problem_frame": { "type": "object" },
+    "created_at": { "type": "string" },
+    "config_overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "value": {}
+        }
+      }
+    },
+    "branch_plans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string" },
+          "family": { "type": "string" },
+          "hypothesis": { "type": "string" },
+          "reason": { "type": "string" },
+          "config_path": { "type": "string" },
+          "priority": { "type": "integer" },
+          "depends_on": { "type": "array", "items": { "type": "string" } },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "launch_mode": { "type": "string" },
+          "dedupe_key": { "type": "string" },
+          "work_type": { "type": "string" },
+          "portfolio_id": { "type": "string" },
+          "idea_class": { "type": "string" },
+          "branch_role": { "type": "string" },
+          "branch_rank": { "type": "integer" },
+          "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
+          "config_overrides": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string" },
+                "value": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "markdown": { "type": "string" }
   }
 }

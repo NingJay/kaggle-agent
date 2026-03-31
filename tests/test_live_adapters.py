@@ -231,7 +231,7 @@ class CodegenGuardrailTests(unittest.TestCase):
                 "kaggle_agent.adapters.providers.codex_exec.shutil.which",
                 return_value="/usr/bin/codex",
             ), patch(
-                "kaggle_agent.adapters.providers.codex_exec.subprocess.run",
+                "kaggle_agent.adapters.providers.codex_exec._run_process",
                 return_value=completed,
             ) as run_mock:
                 response = run_codex_exec(
@@ -275,7 +275,7 @@ class CodegenGuardrailTests(unittest.TestCase):
                 "kaggle_agent.adapters.providers.claude_code_exec._supports_flag",
                 return_value=True,
             ), patch(
-                "kaggle_agent.adapters.providers.claude_code_exec.subprocess.run",
+                "kaggle_agent.adapters.providers.claude_code_exec._run_process",
                 return_value=completed,
             ) as run_mock:
                 response = run_claude_code_exec(
@@ -292,7 +292,7 @@ class CodegenGuardrailTests(unittest.TestCase):
 
         called_args = run_mock.call_args.args[0]
         called_env = run_mock.call_args.kwargs["env"]
-        self.assertEqual(run_mock.call_args.kwargs["cwd"], root)
+        self.assertEqual(run_mock.call_args.kwargs["workspace_root"], root)
         self.assertIn("--dangerously-skip-permissions", called_args)
         self.assertIn("--output-format", called_args)
         self.assertIn("json", called_args)
@@ -336,7 +336,7 @@ class CodegenGuardrailTests(unittest.TestCase):
                 "kaggle_agent.adapters.providers.claude_code_exec._supports_flag",
                 return_value=True,
             ), patch(
-                "kaggle_agent.adapters.providers.claude_code_exec.subprocess.run",
+                "kaggle_agent.adapters.providers.claude_code_exec._run_process",
                 return_value=completed,
             ) as run_mock:
                 response = run_claude_code_exec(
