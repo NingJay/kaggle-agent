@@ -16,6 +16,17 @@ from kaggle_agent.adapters.providers.claude_runtime import claude_subprocess_env
 CLAUDE_BINARY = "claude"
 
 
+def _timeout_seconds() -> int | None:
+    raw = os.environ.get("KAGGLE_AGENT_PROVIDER_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 @lru_cache(maxsize=1)
 def _help_text() -> str:
     binary = shutil.which(CLAUDE_BINARY)
@@ -86,16 +97,22 @@ def run_claude_headless(
     if effort:
         args.extend(["--effort", effort])
 
+    timeout_seconds = _timeout_seconds()
     with claude_subprocess_env(isolate_home_env_var="KAGGLE_AGENT_CLAUDE_ISOLATE_HOME") as env:
-        completed = subprocess.run(
-            args,
-            input=prompt,
-            capture_output=True,
-            text=True,
-            cwd=workspace_root,
-            env=env,
-            check=False,
-        )
+        try:
+            completed = subprocess.run(
+                args,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                cwd=workspace_root,
+                env=env,
+                check=False,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as error:
+            timeout_label = f"{timeout_seconds}s" if timeout_seconds is not None else "the configured timeout"
+            raise RuntimeError(f"claude headless timed out after {timeout_label}") from error
     if completed.returncode != 0:
         stderr = (completed.stderr or completed.stdout or "claude invocation failed").strip()
         raise RuntimeError(stderr)

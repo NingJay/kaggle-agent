@@ -14,11 +14,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, _build_prompt
+from kaggle_agent.adapters.command import CommandAdapterTimeout, run_stage_adapter
+from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, _build_prompt, _verify_codegen_workspace
 from kaggle_agent.cli import main as cli_main
 from kaggle_agent.control.executor import collect_finished_runs, start_run
-from kaggle_agent.control.monitor import _run_validate_stage
+from kaggle_agent.control.monitor import _process_run_stage_chain, _run_validate_stage, process_completed_runs
 from kaggle_agent.decision.codegen import build_codegen
+from kaggle_agent.layout import run_label
 from kaggle_agent.control.store import load_state
 from kaggle_agent.schema import RunRecord, RuntimeState, StageRun, WorkspaceState
 from kaggle_agent.service import (
@@ -473,6 +475,65 @@ print(json.dumps({
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_run_label_truncates_long_titles_with_stable_hash(self) -> None:
+        title = (
+            "Perch probe round 8 replace linear head with 1 hidden layer MLP embedding dim 256 "
+            "num classes relu on run 0002 leader code state with extra calibration audit"
+        )
+        label = run_label("run-0008-0007", title)
+
+        self.assertTrue(label.startswith("run-0008-0007__"))
+        self.assertLessEqual(len(label), 120)
+        self.assertRegex(label, r"run-0008-0007__.+-[0-9a-f]{10}$")
+
+    def test_run_stage_adapter_times_out(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "adapter-output"
+            output_dir.mkdir(parents=True)
+            input_manifest_path = root / "input_manifest.json"
+            input_manifest_path.write_text("{}", encoding="utf-8")
+
+            with self.assertRaises(CommandAdapterTimeout):
+                run_stage_adapter(
+                    f'{sys.executable} -c "import time; time.sleep(5)"',
+                    stage="critic",
+                    workspace_root=root,
+                    input_manifest_path=input_manifest_path,
+                    output_dir=output_dir,
+                    timeout_seconds=1,
+                )
+
+    def test_codegen_verify_timeout_returns_failed_status(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runtime_root = root / "BirdCLEF-2026-Codebase"
+            (runtime_root / "configs" / "generated").mkdir(parents=True)
+            config_source = runtime_root / "configs" / "generated" / "verify-timeout.yaml"
+            config_source.write_text("experiment_name: verify_timeout\n", encoding="utf-8")
+            train_entrypoint = root / "train_sed.py"
+            train_entrypoint.write_text(
+                "from __future__ import annotations\n"
+                "import time\n"
+                "time.sleep(5)\n",
+                encoding="utf-8",
+            )
+            codegen_workspace = CodegenWorkspace(
+                snapshot_root=root / "state" / "snapshots" / "codegen",
+                workspace_root=root,
+                verify_root=root / "state" / "snapshots" / "codegen" / "verify_runtime",
+                base_commit="abc123",
+                expected_config_relpath="BirdCLEF-2026-Codebase/configs/generated/verify-timeout.yaml",
+            )
+            codegen_workspace.verify_root.mkdir(parents=True, exist_ok=True)
+
+            with patch.dict(os.environ, {"KAGGLE_AGENT_VERIFY_TIMEOUT_SECONDS": "1"}, clear=False):
+                status, verify_command, verify_summary = _verify_codegen_workspace(codegen_workspace, config_source)
+
+            self.assertEqual(status, "failed")
+            self.assertIn("train_sed.py", verify_command)
+            self.assertIn("timed out", verify_summary.lower())
+
     def test_runtime_verify_mode_does_not_mirror_outputs_back_into_source_tree(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1013,6 +1074,182 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(state.validations[-1].status, "failed")
             register_mock.assert_not_called()
 
+    def test_process_completed_runs_reconciles_stale_active_run_ids(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+
+            run = RunRecord(
+                run_id="run-stale-active-id",
+                experiment_id="exp-stale-active-id",
+                work_item_id="workitem-stale-active-id",
+                spec_id="",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-stale-active-id"),
+                log_path=str(root / "artifacts" / "runs" / "run-stale-active-id" / "train.log"),
+                stage_cursor="complete",
+            )
+            state = WorkspaceState(
+                work_items=[],
+                experiments=[],
+                runs=[run],
+                stage_runs=[],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(
+                    initialized_at="2026-03-31T00:00:00Z",
+                    next_validation_number=1,
+                    active_run_ids=[run.run_id],
+                ),
+            )
+
+            process_completed_runs(config, state)
+
+            self.assertEqual(state.runtime.active_run_ids, [])
+
+    def test_process_run_stage_chain_returns_to_codegen_after_critic_reject(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+
+            run = RunRecord(
+                run_id="run-critic-repair-loop",
+                experiment_id="exp-critic-repair-loop",
+                work_item_id="workitem-critic-repair-loop",
+                spec_id="",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-critic-repair-loop"),
+                log_path=str(root / "artifacts" / "runs" / "run-critic-repair-loop" / "train.log"),
+                stage_cursor="critic",
+            )
+            prior_codegen = StageRun(
+                stage_run_id="stage-codegen-0001",
+                run_id=run.run_id,
+                work_item_id=run.work_item_id,
+                stage_name="codegen",
+                status="completed",
+                input_ref=run.run_id,
+                output_dir=str(root / "artifacts" / "codegen"),
+                output_json_path=str(root / "artifacts" / "codegen" / "codegen.json"),
+                output_md_path=str(root / "artifacts" / "codegen" / "codegen.md"),
+            )
+            state = WorkspaceState(
+                work_items=[],
+                experiments=[],
+                runs=[run],
+                stage_runs=[prior_codegen],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(initialized_at="2026-03-31T00:00:00Z", next_validation_number=1),
+            )
+
+            def _payload_for_stage(_state: WorkspaceState, _run_id: str, stage_name: str) -> dict[str, object]:
+                if stage_name == "plan":
+                    return {"stage": "plan", "plan_status": "planned"}
+                if stage_name == "critic":
+                    return {"stage": "critic", "status": "rejected"}
+                return {}
+
+            with patch("kaggle_agent.control.monitor.build_critic", return_value=None) as critic_mock, patch(
+                "kaggle_agent.control.monitor.latest_stage_payload",
+                side_effect=_payload_for_stage,
+            ), patch(
+                "kaggle_agent.control.monitor._run_validate_stage",
+            ) as validate_mock, patch(
+                "kaggle_agent.control.monitor.build_codegen",
+            ) as codegen_mock:
+                _process_run_stage_chain(config, state, run.run_id)
+
+            critic_mock.assert_called_once()
+            validate_mock.assert_not_called()
+            codegen_mock.assert_not_called()
+            self.assertEqual(run.stage_cursor, "codegen")
+
+    def test_process_run_stage_chain_retries_retryable_stage_errors(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+
+            run = RunRecord(
+                run_id="run-critic-timeout-retry",
+                experiment_id="exp-critic-timeout-retry",
+                work_item_id="workitem-critic-timeout-retry",
+                spec_id="",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-critic-timeout-retry"),
+                log_path=str(root / "artifacts" / "runs" / "run-critic-timeout-retry" / "train.log"),
+                stage_cursor="critic",
+                stage_error="critic adapter timed out after 1080s",
+            )
+            running_critic_stage = StageRun(
+                stage_run_id="stage-critic-running",
+                run_id=run.run_id,
+                work_item_id=run.work_item_id,
+                stage_name="critic",
+                status="running",
+                input_ref=run.run_id,
+                output_dir=str(root / "artifacts" / "critic"),
+                output_json_path=str(root / "artifacts" / "critic" / "critic.json"),
+                output_md_path=str(root / "artifacts" / "critic" / "critic.md"),
+            )
+            state = WorkspaceState(
+                work_items=[],
+                experiments=[],
+                runs=[run],
+                stage_runs=[running_critic_stage],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(initialized_at="2026-03-31T00:00:00Z", next_validation_number=1),
+            )
+
+            with patch(
+                "kaggle_agent.control.monitor.build_critic",
+                side_effect=CommandAdapterTimeout("critic adapter timed out after 1080s"),
+            ) as critic_mock:
+                _process_run_stage_chain(config, state, run.run_id)
+
+            critic_mock.assert_called_once()
+            self.assertEqual(run.stage_cursor, "critic")
+            self.assertEqual(run.stage_error, "")
+            self.assertEqual(state.stage_runs[-1].status, "failed")
+            self.assertIn("timed out", state.stage_runs[-1].error)
+
     def test_build_codegen_retries_failed_verify_with_previous_attempt_context(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1174,6 +1411,12 @@ class WorkspaceTests(unittest.TestCase):
                             "BirdCLEF-2026-Codebase/src/birdclef_runtime/cached_probe.py",
                         ],
                     },
+                    "previous_critic_attempt": {
+                        "status": "rejected",
+                        "concerns": ["Verify score regressed versus the leader baseline."],
+                        "warnings": ["Do not keep the regressed runtime source edit."],
+                        "required_fixes": ["Repair the bundle so critic can approve it."],
+                    },
                 },
             )
             codegen_workspace = CodegenWorkspace(
@@ -1191,6 +1434,126 @@ class WorkspaceTests(unittest.TestCase):
             self.assertIn("First repair the previous verify failure", prompt)
             self.assertIn("revert or narrow those source edits", prompt)
             self.assertIn("cached_probe.py", prompt)
+            self.assertIn("Critic Feedback", prompt)
+            self.assertIn("Verify score regressed versus the leader baseline", prompt)
+            self.assertIn("Repair the bundle so critic can approve it", prompt)
+
+    def test_build_codegen_includes_previous_critic_feedback_in_manifest(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            config = load_config(root)
+
+            output_dir = root / "artifacts" / "codegen-critic-output"
+            output_dir.mkdir(parents=True)
+            input_manifest_path = output_dir / "input_manifest.json"
+            run = RunRecord(
+                run_id="run-codegen-critic-feedback",
+                experiment_id="exp-codegen-critic-feedback",
+                work_item_id="workitem-codegen-critic-feedback",
+                spec_id="",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-codegen-critic-feedback"),
+                log_path=str(root / "artifacts" / "runs" / "run-codegen-critic-feedback" / "train.log"),
+            )
+            state = WorkspaceState(
+                work_items=[],
+                experiments=[],
+                runs=[run],
+                stage_runs=[],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(initialized_at="2026-03-31T00:00:00Z", next_validation_number=1),
+            )
+            stage_run = StageRun(
+                stage_run_id="stage-codegen-critic-feedback",
+                run_id=run.run_id,
+                work_item_id=run.work_item_id,
+                stage_name="codegen",
+                status="running",
+                input_ref=run.run_id,
+                output_dir=str(output_dir),
+                output_json_path=str(output_dir / "codegen.json"),
+                output_md_path=str(output_dir / "codegen.md"),
+            )
+            plan_payload = {
+                "stage": "plan",
+                "plan_status": "planned",
+                "title": "Repair critic rejection",
+                "family": "perch_cached_probe",
+                "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+                "launch_mode": "background",
+                "dedupe_key": "codegen-critic-feedback:test",
+            }
+            critic_payload = {
+                "stage": "critic",
+                "status": "rejected",
+                "concerns": ["The generated bundle regressed below the leader baseline."],
+                "warnings": ["Revert the unsafe cached_probe.py edit unless it is strictly required."],
+                "required_fixes": ["Repair the bundle so verify beats the current leader."],
+                "amp_probe_summary": "No extra sidecar blocks.",
+            }
+            generated_payload = {
+                "stage": "codegen",
+                "status": "generated",
+                "reason": "Generated a repaired bundle.",
+                "generated_config_path": str(output_dir / "generated_config.yaml"),
+                "run_bundle_path": str(output_dir / "run_bundle.json"),
+                "patch_path": str(output_dir / "patch.diff"),
+                "code_state_ref": str(root / "state" / "code-state"),
+                "verify_artifacts_ref": str(root / "state" / "verify"),
+                "verify_command": "python ./train_sed.py --config configs/default.yaml",
+                "verify_status": "passed",
+                "verify_summary": "Verify run completed with val_soundscape_macro_roc_auc=0.681 and verdict=continue-iterating.",
+                "worktree_path": str(root / "state" / "code-state"),
+                "base_commit": "abc123",
+                "head_commit": "def456",
+                "changed_files": ["BirdCLEF-2026-Codebase/configs/default.yaml"],
+                "provider_runtime": "claude_code mode:agentic",
+                "allowed_edit_roots": ["BirdCLEF-2026-Codebase/configs"],
+                "smoke_status": "passed",
+                "smoke_summary": "Verify run completed with val_soundscape_macro_roc_auc=0.681 and verdict=continue-iterating.",
+            }
+
+            captured_manifests: list[dict[str, object]] = []
+
+            def _latest_payload(_state: WorkspaceState, _run_id: str, stage_name: str) -> dict[str, object]:
+                if stage_name == "plan":
+                    return plan_payload
+                if stage_name == "critic":
+                    return critic_payload
+                return {}
+
+            with patch("kaggle_agent.decision.codegen.latest_stage_payload", side_effect=_latest_payload), patch(
+                "kaggle_agent.decision.codegen.begin_stage_run",
+                return_value=(stage_run, input_manifest_path),
+            ), patch(
+                "kaggle_agent.decision.codegen.write_input_manifest",
+                side_effect=lambda _path, payload: captured_manifests.append(payload),
+            ), patch(
+                "kaggle_agent.decision.codegen.run_configured_stage_adapter",
+                return_value=(generated_payload, "generated"),
+            ), patch(
+                "kaggle_agent.decision.codegen.complete_stage_run",
+                return_value=None,
+            ):
+                build_codegen(config, state, run.run_id)
+
+            self.assertEqual(len(captured_manifests), 1)
+            critic_attempt = captured_manifests[0]["previous_critic_attempt"]
+            self.assertEqual(critic_attempt["status"], "rejected")
+            self.assertIn("leader baseline", critic_attempt["concerns"][0])
+            self.assertIn("Repair the bundle", critic_attempt["required_fixes"][0])
 
     def test_adapter_wrapper_fails_on_schema_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:

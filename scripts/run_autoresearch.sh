@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INTERVAL_SECONDS="${INTERVAL_SECONDS:-600}"
+INTERVAL_SECONDS="${INTERVAL_SECONDS:-15}"
 RESTART_DELAY_SECONDS="${RESTART_DELAY_SECONDS:-30}"
 LOG_DIR="${LOG_DIR:-$ROOT/state/autoresearch}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"

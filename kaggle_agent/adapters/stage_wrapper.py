@@ -129,6 +129,17 @@ def _optional_env(name: str) -> str:
     return os.environ.get(name, "")
 
 
+def _positive_int_env(name: str) -> int | None:
+    raw = _optional_env(name).strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def _read_optional(path: Path | None) -> str:
     if path is None or not path.exists():
         return ""
@@ -258,6 +269,22 @@ def _build_prompt(
                 "First repair the previous verify failure before attempting any new optimization.\n"
                 "Prefer the smallest change that restores a passing verify run.\n"
                 "If the previous attempt edited runtime source files and verify failed, revert or narrow those source edits unless they are strictly required."
+            )
+        previous_critic = ctx.input_manifest.get("previous_critic_attempt")
+        if isinstance(previous_critic, dict):
+            concerns = previous_critic.get("concerns", [])
+            required_fixes = previous_critic.get("required_fixes", [])
+            warnings = previous_critic.get("warnings", [])
+            concern_lines = "\n".join(f"- {str(item)}" for item in concerns) if isinstance(concerns, list) and concerns else ""
+            warning_lines = "\n".join(f"- {str(item)}" for item in warnings) if isinstance(warnings, list) and warnings else ""
+            fix_lines = "\n".join(f"- {str(item)}" for item in required_fixes) if isinstance(required_fixes, list) and required_fixes else ""
+            prompt_sections.append(
+                "# Critic Feedback\n\n"
+                "The previous generated bundle was rejected by critic. Repair the bundle so the critic concerns are explicitly addressed before exploring any new edits.\n\n"
+                + (f"Concerns:\n{concern_lines}\n\n" if concern_lines else "")
+                + (f"Warnings:\n{warning_lines}\n\n" if warning_lines else "")
+                + (f"Required fixes:\n{fix_lines}\n\n" if fix_lines else "")
+                + (f"Amp probe summary: {previous_critic.get('amp_probe_summary', '')}\n" if previous_critic.get("amp_probe_summary") else "")
             )
         prompt_sections.append(
             "# Editable Workspace\n\n"
@@ -504,14 +531,20 @@ def _verify_codegen_workspace(codegen_workspace: CodegenWorkspace, config_source
             "PYTHONDONTWRITEBYTECODE": "1",
         }
     )
-    completed = subprocess.run(
-        [sys.executable, str(train_entrypoint), "--config", _verify_config_argument(codegen_workspace, config_source)],
-        cwd=codegen_workspace.workspace_root,
-        capture_output=True,
-        text=True,
-        env=env,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            [sys.executable, str(train_entrypoint), "--config", _verify_config_argument(codegen_workspace, config_source)],
+            cwd=codegen_workspace.workspace_root,
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+            timeout=_positive_int_env("KAGGLE_AGENT_VERIFY_TIMEOUT_SECONDS"),
+        )
+    except subprocess.TimeoutExpired:
+        timeout_seconds = _positive_int_env("KAGGLE_AGENT_VERIFY_TIMEOUT_SECONDS")
+        timeout_label = f"{timeout_seconds}s" if timeout_seconds is not None else "the configured timeout"
+        return "failed", verify_command, f"Verify command timed out after {timeout_label}."
     status = "passed" if completed.returncode == 0 else "failed"
     return status, verify_command, _verify_summary(codegen_workspace, completed)
 

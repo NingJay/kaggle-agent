@@ -7,6 +7,7 @@ from typing import Any
 from kaggle_agent.config import load_workspace_config
 from kaggle_agent.control.monitor import maybe_start_next_run, process_completed_runs, tick_workspace, watch_workspace
 from kaggle_agent.control.reporting import ensure_surface_files, write_reports
+from kaggle_agent.control.executor import reconcile_active_run_ids
 from kaggle_agent.control.scheduler import queue_config_experiment, register_work_item, runnable_work_items
 from kaggle_agent.control.store import initialize_workspace, load_state, save_state
 from kaggle_agent.control.submission import build_submission_candidate, dry_run_submission_candidate, plan_submission_slots
@@ -97,6 +98,7 @@ def doctor_checks(config: WorkspaceConfig) -> list[tuple[bool, str, str]]:
 def get_status_state(config: WorkspaceConfig) -> WorkspaceState:
     with workspace_lock(config.lock_path()):
         state = load_state(config)
+        reconcile_active_run_ids(state)
         write_reports(config, state)
         save_state(config, state)
         return state

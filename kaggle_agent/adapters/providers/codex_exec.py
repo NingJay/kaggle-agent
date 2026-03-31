@@ -15,6 +15,17 @@ CODEX_BINARY = "codex"
 CODEX_PROFILE_ENV = "KAGGLE_AGENT_CODEX_PROFILE"
 
 
+def _timeout_seconds() -> int | None:
+    raw = os.environ.get("KAGGLE_AGENT_PROVIDER_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def _first_string(obj: Any, key: str) -> str:
     if isinstance(obj, dict):
         value = obj.get(key)
@@ -94,15 +105,21 @@ def run_codex_exec(
     if profile:
         args[2:2] = ["--profile", profile]
 
-    completed = subprocess.run(
-        args,
-        input=prompt,
-        capture_output=True,
-        text=True,
-        cwd=workspace_root,
-        env=env,
-        check=False,
-    )
+    timeout_seconds = _timeout_seconds()
+    try:
+        completed = subprocess.run(
+            args,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            cwd=workspace_root,
+            env=env,
+            check=False,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as error:
+        timeout_label = f"{timeout_seconds}s" if timeout_seconds is not None else "the configured timeout"
+        raise RuntimeError(f"codex {mode} timed out after {timeout_label}") from error
     if completed.returncode != 0:
         stderr = (completed.stderr or completed.stdout or "codex invocation failed").strip()
         raise RuntimeError(stderr)

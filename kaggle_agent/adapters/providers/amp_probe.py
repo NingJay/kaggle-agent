@@ -12,6 +12,17 @@ from typing import Any
 AMP_BINARY = "amp"
 
 
+def _timeout_seconds() -> int | None:
+    raw = os.environ.get("KAGGLE_AGENT_PROVIDER_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 @dataclass
 class AmpProbeResult:
     summary: str
@@ -75,14 +86,19 @@ def run_amp_probe(*, prompt: str, workspace_root: Path) -> AmpProbeResult | None
         "-x",
         "--stream-json",
     ]
-    completed = subprocess.run(
-        args,
-        input=prompt,
-        capture_output=True,
-        text=True,
-        cwd=workspace_root,
-        check=False,
-    )
+    timeout_seconds = _timeout_seconds()
+    try:
+        completed = subprocess.run(
+            args,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            cwd=workspace_root,
+            check=False,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        return None
     if completed.returncode != 0:
         return None
     summary, thread_id = _assistant_summary(completed.stdout)

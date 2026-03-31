@@ -31,6 +31,7 @@ def _codegen_retry_manifest(
     plan: dict[str, object],
     *,
     previous_payload: dict[str, object] | None = None,
+    previous_critic: dict[str, object] | None = None,
     attempt_number: int = 1,
 ) -> dict[str, object]:
     manifest: dict[str, object] = {
@@ -38,6 +39,14 @@ def _codegen_retry_manifest(
         "plan": plan,
         "codegen_attempt_number": attempt_number,
     }
+    if previous_critic is not None and str(previous_critic.get("status", "")) == "rejected":
+        manifest["previous_critic_attempt"] = {
+            "status": str(previous_critic.get("status", "")),
+            "concerns": [str(item) for item in previous_critic.get("concerns", [])],
+            "warnings": [str(item) for item in previous_critic.get("warnings", [])],
+            "required_fixes": [str(item) for item in previous_critic.get("required_fixes", [])],
+            "amp_probe_summary": str(previous_critic.get("amp_probe_summary", "")),
+        }
     if previous_payload is None:
         return manifest
     manifest["previous_codegen_attempt"] = {
@@ -64,6 +73,7 @@ def _should_retry_codegen_payload(payload: dict[str, object], *, plan_status: st
 def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     run = next(item for item in state.runs if item.run_id == run_id)
     plan = latest_stage_payload(state, run_id, "plan")
+    critic = latest_stage_payload(state, run_id, "critic")
     stage_run, input_manifest_path = begin_stage_run(
         config,
         state,
@@ -81,6 +91,7 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
                 run,
                 plan,
                 previous_payload=previous_payload,
+                previous_critic=critic,
                 attempt_number=attempt_number,
             ),
         )

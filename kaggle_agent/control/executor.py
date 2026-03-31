@@ -284,6 +284,7 @@ def _resolve_primary_metric(result_payload: dict[str, object], default_metric: s
 
 
 def collect_finished_runs(config: WorkspaceConfig, state: WorkspaceState) -> list[RunRecord]:
+    reconcile_active_run_ids(state)
     finished: list[RunRecord] = []
     for run in state.runs:
         if run.status != "running":
@@ -293,7 +294,16 @@ def collect_finished_runs(config: WorkspaceConfig, state: WorkspaceState) -> lis
             continue
         finalize_run(config, state, run.run_id)
         finished.append(run)
+    reconcile_active_run_ids(state)
     return finished
+
+
+def reconcile_active_run_ids(state: WorkspaceState) -> None:
+    running_run_ids = [run.run_id for run in state.runs if run.status == "running"]
+    state.runtime.active_run_ids = [run_id for run_id in state.runtime.active_run_ids if run_id in running_run_ids]
+    for run_id in running_run_ids:
+        if run_id not in state.runtime.active_run_ids:
+            state.runtime.active_run_ids.append(run_id)
 
 
 def finalize_run(config: WorkspaceConfig, state: WorkspaceState, run_id: str) -> RunRecord:

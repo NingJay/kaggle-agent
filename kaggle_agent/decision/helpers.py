@@ -20,6 +20,30 @@ STAGE_TO_ADAPTER_FIELD = {
     "submission": "submission_command",
 }
 
+STAGE_TIMEOUT_CAP_SECONDS = {
+    "evidence": 15 * 60,
+    "report": 15 * 60,
+    "research": 15 * 60,
+    "decision": 15 * 60,
+    "plan": 15 * 60,
+    "codegen": 30 * 60,
+    "critic": 15 * 60,
+    "submission": 15 * 60,
+}
+PROVIDER_TIMEOUT_CAP_SECONDS = {
+    "evidence": 12 * 60,
+    "report": 12 * 60,
+    "research": 12 * 60,
+    "decision": 12 * 60,
+    "plan": 12 * 60,
+    "codegen": 20 * 60,
+    "critic": 12 * 60,
+    "submission": 12 * 60,
+}
+VERIFY_TIMEOUT_CAP_SECONDS = {
+    "codegen": 10 * 60,
+}
+
 
 def load_json_file(path: Path) -> dict[str, Any]:
     if not path.exists():
@@ -257,6 +281,29 @@ def _read_meta_payload(path: Path | None) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _stage_timeout_seconds(config: WorkspaceConfig, stage_name: str) -> int:
+    configured = max(60, int(config.automation.default_timeout_minutes) * 60)
+    cap = STAGE_TIMEOUT_CAP_SECONDS.get(stage_name)
+    return min(configured, cap) if cap else configured
+
+
+def _provider_timeout_seconds(stage_name: str, stage_timeout_seconds: int) -> int:
+    slack = 10 * 60 if stage_name == "codegen" else 2 * 60
+    provider_budget = stage_timeout_seconds - slack if stage_timeout_seconds > slack + 60 else stage_timeout_seconds
+    provider_budget = max(60, provider_budget)
+    cap = PROVIDER_TIMEOUT_CAP_SECONDS.get(stage_name)
+    if cap is not None:
+        provider_budget = min(provider_budget, cap)
+    return min(provider_budget, stage_timeout_seconds)
+
+
+def _verify_timeout_seconds(stage_name: str, stage_timeout_seconds: int) -> int:
+    cap = VERIFY_TIMEOUT_CAP_SECONDS.get(stage_name)
+    if cap is None:
+        return stage_timeout_seconds
+    return min(stage_timeout_seconds, cap)
+
+
 def _apply_provider_metadata(agent_run: AgentRun, stage_run: StageRun, result: dict[str, Path]) -> None:
     meta_path = result.get("meta_path")
     meta = _read_meta_payload(meta_path if isinstance(meta_path, Path) else None)
@@ -335,6 +382,18 @@ def run_configured_stage_adapter(
     command = getattr(config.adapters, adapter_field, "").strip()
     if not command:
         return None
+    stage_timeout_seconds = _stage_timeout_seconds(config, stage_run.stage_name)
+    adapter_env = {
+        "KAGGLE_AGENT_STAGE_TIMEOUT_SECONDS": str(stage_timeout_seconds),
+        "KAGGLE_AGENT_PROVIDER_TIMEOUT_SECONDS": str(
+            _provider_timeout_seconds(stage_run.stage_name, stage_timeout_seconds)
+        ),
+        "KAGGLE_AGENT_VERIFY_TIMEOUT_SECONDS": str(
+            _verify_timeout_seconds(stage_run.stage_name, stage_timeout_seconds)
+        ),
+    }
+    if extra_env:
+        adapter_env.update(extra_env)
 
     agent_run = register_agent_run(
         config,
@@ -351,9 +410,10 @@ def run_configured_stage_adapter(
             input_manifest_path=input_manifest_path,
             output_dir=Path(stage_run.output_dir),
             prompt_path=Path(stage_run.prompt_path) if stage_run.prompt_path else None,
-            extra_env=extra_env,
+            extra_env=adapter_env,
             shell_init=config.runtime.shell_init,
             conda_env=config.runtime.conda_env,
+            timeout_seconds=stage_timeout_seconds,
         )
         agent_run.status = "completed"
         agent_run.output_json_path = str(result["json_path"])

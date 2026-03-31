@@ -4,7 +4,8 @@ import json
 import time
 from pathlib import Path
 
-from kaggle_agent.control.executor import collect_finished_runs, start_run
+from kaggle_agent.adapters.command import CommandAdapterError
+from kaggle_agent.control.executor import collect_finished_runs, reconcile_active_run_ids, start_run
 from kaggle_agent.control.reporting import write_reports
 from kaggle_agent.control.scheduler import choose_next_work_item, mark_work_item_status, register_work_item
 from kaggle_agent.control.store import find_work_item, load_state, save_state
@@ -30,6 +31,15 @@ from kaggle_agent.utils import now_utc_iso, truncate, workspace_lock
 
 
 FINAL_RUN_STATUSES = {"succeeded", "failed"}
+CODEGEN_CRITIC_MAX_REPAIR_CYCLES = 4
+AUTO_RETRY_STAGE_NAMES = {"report", "research", "decision", "plan", "codegen", "critic"}
+AUTO_RETRY_ERROR_MARKERS = (
+    "timed out",
+    "timeout",
+    "temporarily unavailable",
+    "connection reset",
+    "broken pipe",
+)
 
 
 def _validated_spec_for_dedupe(state: WorkspaceState, dedupe_key: str) -> SpecRecord | None:
@@ -37,6 +47,42 @@ def _validated_spec_for_dedupe(state: WorkspaceState, dedupe_key: str) -> SpecRe
         if spec.dedupe_key == dedupe_key and spec.status == "validated":
             return spec
     return None
+
+
+def _completed_stage_runs_count(state: WorkspaceState, run_id: str, stage_name: str) -> int:
+    return sum(
+        1
+        for stage_run in state.stage_runs
+        if stage_run.run_id == run_id and stage_run.stage_name == stage_name and stage_run.status in {"completed", "failed"}
+    )
+
+
+def _should_retry_codegen_after_critic_reject(state: WorkspaceState, run_id: str) -> bool:
+    plan = latest_stage_payload(state, run_id, "plan")
+    critic = latest_stage_payload(state, run_id, "critic")
+    if str(plan.get("plan_status", "")) != "planned":
+        return False
+    if str(critic.get("status", "")) != "rejected":
+        return False
+    return _completed_stage_runs_count(state, run_id, "codegen") < CODEGEN_CRITIC_MAX_REPAIR_CYCLES
+
+
+def _should_auto_retry_stage_error(run) -> bool:
+    if not run.stage_cursor or run.stage_cursor not in AUTO_RETRY_STAGE_NAMES:
+        return False
+    message = str(run.stage_error or "").lower()
+    return any(marker in message for marker in AUTO_RETRY_ERROR_MARKERS)
+
+
+def _should_auto_retry_stage_exception(stage_run, error: Exception) -> bool:
+    if stage_run is None:
+        return False
+    if stage_run.stage_name not in AUTO_RETRY_STAGE_NAMES:
+        return False
+    if not isinstance(error, CommandAdapterError):
+        return False
+    message = str(error).lower()
+    return any(marker in message for marker in AUTO_RETRY_ERROR_MARKERS)
 
 
 def _create_or_update_spec(
@@ -259,7 +305,12 @@ def _finalize_work_item_status(state: WorkspaceState, run_id: str) -> None:
 
 def _process_run_stage_chain(config: WorkspaceConfig, state: WorkspaceState, run_id: str) -> None:
     run = next(item for item in state.runs if item.run_id == run_id)
-    while run.status in FINAL_RUN_STATUSES and run.stage_cursor and run.stage_cursor != "complete" and not run.stage_error:
+    while run.status in FINAL_RUN_STATUSES and run.stage_cursor and run.stage_cursor != "complete":
+        if run.stage_error:
+            if _should_auto_retry_stage_error(run):
+                run.stage_error = ""
+            else:
+                break
         try:
             if run.stage_cursor == "evidence":
                 build_evidence(config, state, run_id)
@@ -281,6 +332,10 @@ def _process_run_stage_chain(config: WorkspaceConfig, state: WorkspaceState, run
                 run.stage_cursor = "critic"
             elif run.stage_cursor == "critic":
                 build_critic(config, state, run_id)
+                if _should_retry_codegen_after_critic_reject(state, run_id):
+                    run.stage_cursor = "codegen"
+                    run.stage_updated_at = now_utc_iso()
+                    break
                 run.stage_cursor = "validate"
             elif run.stage_cursor == "validate":
                 _run_validate_stage(config, state, run_id)
@@ -296,6 +351,10 @@ def _process_run_stage_chain(config: WorkspaceConfig, state: WorkspaceState, run
             latest = latest_stage_run(state, run_id)
             if latest is not None and latest.status == "running":
                 fail_stage_run(latest, error, state=state)
+            if _should_auto_retry_stage_exception(latest, error):
+                run.stage_error = ""
+                run.stage_updated_at = now_utc_iso()
+                break
             run.stage_error = truncate(str(error), limit=800)
             run.stage_updated_at = now_utc_iso()
             break
@@ -330,8 +389,10 @@ def maybe_start_next_run(
 
 def _tick_workspace_once(config: WorkspaceConfig, *, auto_start: bool = True) -> WorkspaceState:
     state = load_state(config)
+    reconcile_active_run_ids(state)
     state.runtime.last_tick_at = now_utc_iso()
     process_completed_runs(config, state)
+    reconcile_active_run_ids(state)
     if auto_start and not state.runtime.active_run_ids:
         run, run_in_background = maybe_start_next_run(config, state)
         if run is not None and not run_in_background:

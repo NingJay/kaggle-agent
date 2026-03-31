@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -28,6 +29,8 @@ STAGE_SEQUENCE = [
     "submission",
 ]
 STAGE_ORDER = {name: index + 1 for index, name in enumerate(STAGE_SEQUENCE)}
+MAX_RUN_LABEL_LENGTH = 120
+RUN_LABEL_HASH_LENGTH = 10
 
 
 def derive_attempt_slug(seed_notebook_path: str = "") -> str:
@@ -78,8 +81,25 @@ def visible_stage_runs(state: Any, *, include_debug: bool = False) -> list[Any]:
     return [item for item in stage_runs if getattr(item, "run_id", "") in allowed_run_ids]
 
 
+def _bounded_slug(value: str, *, max_length: int) -> str:
+    slug = slugify(value)
+    if len(slug) <= max_length:
+        return slug
+    digest = hashlib.sha1(slug.encode("utf-8")).hexdigest()[:RUN_LABEL_HASH_LENGTH]
+    head_budget = max(8, max_length - RUN_LABEL_HASH_LENGTH - 1)
+    head = slug[:head_budget].rstrip("-")
+    if "-" in head:
+        candidate = head.rsplit("-", 1)[0]
+        if len(candidate) >= max(8, head_budget // 2):
+            head = candidate
+    head = head.rstrip("-") or slug[:head_budget].rstrip("-") or slug[:head_budget]
+    return f"{head}-{digest}"
+
+
 def run_label(run_id: str, title: str) -> str:
-    return f"{run_id}__{slugify(title)}"
+    prefix = f"{run_id}__"
+    budget = max(16, MAX_RUN_LABEL_LENGTH - len(prefix))
+    return f"{prefix}{_bounded_slug(title, max_length=budget)}"
 
 
 def run_label_from_path(run_dir: str) -> str:
