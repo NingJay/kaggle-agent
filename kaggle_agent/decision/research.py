@@ -66,12 +66,28 @@ def _default_research_payload(root_cause: str, family: str, knowledge_bundle: di
     positive_priors = _string_priors(knowledge_bundle, "positive")
     negative_priors = _string_priors(knowledge_bundle, "negative")
     conditional_priors = _string_priors(knowledge_bundle, "conditional")
+    policy_cards = [item for item in knowledge_bundle.get("policy_cards", []) if isinstance(item, dict)]
+    branch_memories = [item for item in knowledge_bundle.get("branch_memories", []) if isinstance(item, dict)]
+    contradictions = [item for item in knowledge_bundle.get("contradictions", []) if isinstance(item, dict)]
+    policy_trace = [
+        f"{item.get('policy_type', 'context')}:{item.get('component', 'general')}:{item.get('card_id', '')}"
+        for item in policy_cards[:8]
+    ]
     if positive_priors:
         adopt_now.extend(item.split(": ", maxsplit=1)[1] for item in positive_priors[:3] if ": " in item)
     if conditional_priors:
         consider.extend(item.split(": ", maxsplit=1)[1] for item in conditional_priors[:3] if ": " in item)
     if negative_priors:
         reject.extend(item.split(": ", maxsplit=1)[1] for item in negative_priors[:3] if ": " in item)
+    if branch_memories:
+        best_memory = branch_memories[0]
+        if str(best_memory.get("outcome", "")) in {"leader", "improved", "submission_candidate"}:
+            adopt_now.append(f"reuse the strongest recent branch pattern: {best_memory.get('summary', '')}")
+        weak_memories = [item for item in branch_memories if str(item.get("outcome", "")) in {"regressed", "critic_rejected", "run_failed", "validate_failed"}]
+        if weak_memories:
+            reject.append(f"avoid repeating weak recent branch patterns: {weak_memories[0].get('summary', '')}")
+    for contradiction in contradictions[:2]:
+        consider.append(f"resolve contradiction: {contradiction.get('summary', '')}")
     if "probe" in family and not adopt_now:
         adopt_now.append("expand cached-probe variants along coverage or representation axes before heavier finetuning")
     if "probe" in family and not consider:
@@ -96,6 +112,11 @@ def _default_research_payload(root_cause: str, family: str, knowledge_bundle: di
         "positive_priors": positive_priors,
         "negative_priors": negative_priors,
         "conditional_priors": conditional_priors,
+        "policy_cards": policy_cards,
+        "policy_trace": policy_trace,
+        "branch_memories": branch_memories,
+        "branch_memory_ids": [str(item) for item in knowledge_bundle.get("branch_memory_ids", [])],
+        "contradictions": contradictions,
     }
 
 
@@ -112,6 +133,7 @@ def build_research(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "report": report_payload,
         },
         stage="research",
+        state=state,
     )
     stage_run, input_manifest_path = begin_stage_run(
         config,
@@ -159,6 +181,41 @@ def build_research(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             lines.extend(["", "## Reject For Now", *(f"- {item}" for item in payload["reject"])])
         if payload.get("knowledge_card_ids"):
             lines.extend(["", "## Retrieved Knowledge Cards", *(f"- `{item}`" for item in payload["knowledge_card_ids"])])
+        policy_cards = payload.get("policy_cards")
+        if isinstance(policy_cards, list) and policy_cards:
+            lines.extend(
+                [
+                    "",
+                    "## Policy Cards",
+                    *(
+                        f"- `{item.get('policy_type', 'context')}` | `{item.get('component', 'general')}` | `{item.get('card_id', '')}` | {item.get('summary', '')}"
+                        for item in policy_cards
+                        if isinstance(item, dict)
+                    ),
+                ]
+            )
+        branch_memories = payload.get("branch_memories")
+        if isinstance(branch_memories, list) and branch_memories:
+            lines.extend(
+                [
+                    "",
+                    "## Recent Branch Memories",
+                    *(
+                        f"- `{item.get('run_id', '')}` | outcome={item.get('outcome', '')} | {item.get('summary', '')}"
+                        for item in branch_memories
+                        if isinstance(item, dict)
+                    ),
+                ]
+            )
+        contradictions = payload.get("contradictions")
+        if isinstance(contradictions, list) and contradictions:
+            lines.extend(
+                [
+                    "",
+                    "## Contradictions",
+                    *(f"- {item.get('summary', '')}" for item in contradictions if isinstance(item, dict)),
+                ]
+            )
         markdown = stage_markdown(f"Research Summary {run_id}", lines)
         complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
 

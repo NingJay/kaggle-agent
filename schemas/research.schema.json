@@ -24,6 +24,29 @@
     "positive_priors": { "type": "array", "items": { "type": "string" } },
     "negative_priors": { "type": "array", "items": { "type": "string" } },
     "conditional_priors": { "type": "array", "items": { "type": "string" } },
+    "policy_cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "policy_trace": { "type": "array", "items": { "type": "string" } },
+    "branch_memories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
     "markdown": { "type": "string" }
   }
 }

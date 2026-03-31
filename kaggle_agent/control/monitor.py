@@ -26,6 +26,7 @@ from kaggle_agent.decision.helpers import (
 from kaggle_agent.decision.planner import build_plan
 from kaggle_agent.decision.reporter import build_report
 from kaggle_agent.decision.research import build_research
+from kaggle_agent.knowledge import synchronize_branch_memory
 from kaggle_agent.schema import SpecRecord, ValidationRecord, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import now_utc_iso, truncate, workspace_lock
 
@@ -40,6 +41,16 @@ AUTO_RETRY_ERROR_MARKERS = (
     "connection reset",
     "broken pipe",
 )
+
+
+def _submission_branch_origin(work_item) -> str:
+    if work_item is None:
+        return "frontier"
+    if work_item.branch_role == "support":
+        return "support"
+    if not work_item.source_run_id and not work_item.parent_work_item_id:
+        return "baseline"
+    return "frontier"
 
 
 def _validated_spec_for_dedupe(state: WorkspaceState, dedupe_key: str) -> SpecRecord | None:
@@ -157,6 +168,9 @@ def _plan_branches(plan: dict[str, object], run) -> list[dict[str, object]]:
             "branch_role": str(plan.get("branch_role", "primary")),
             "branch_rank": int(plan.get("branch_rank", 0) or 0),
             "knowledge_card_ids": [str(item) for item in plan.get("knowledge_card_ids", [])],
+            "policy_trace": [str(item) for item in plan.get("policy_trace", [])],
+            "branch_memory_ids": [str(item) for item in plan.get("branch_memory_ids", [])],
+            "scheduler_hints": dict(plan.get("scheduler_hints", {})) if isinstance(plan.get("scheduler_hints"), dict) else {},
         }
     ]
 
@@ -187,6 +201,8 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
     spec_id = ""
     status = "not_required"
     summary = "No follow-up experiment required."
+    dispatch_summary: list[dict[str, object]] = []
+    portfolio_id = str(plan.get("portfolio_id", "") or "")
     if plan_status == "planned":
         branches = _plan_branches(plan, run)
         code_state_ref = str(codegen.get("code_state_ref", "") or "")
@@ -258,6 +274,9 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                             branch_rank=int(branch_payload.get("branch_rank", index) or index),
                             knowledge_card_ids=[str(item) for item in branch_payload.get("knowledge_card_ids", [])],
                             notes=[str(branch_payload.get("hypothesis", "")), str(branch_payload.get("reason", ""))],
+                            policy_trace=[str(item) for item in branch_payload.get("policy_trace", [])],
+                            branch_memory_ids=[str(item) for item in branch_payload.get("branch_memory_ids", [])],
+                            scheduler_hints=dict(branch_payload.get("scheduler_hints", {})) if isinstance(branch_payload.get("scheduler_hints"), dict) else {},
                         )
                         queued.updated_at = now_utc_iso()
                         work_item_id = queued.id
@@ -270,6 +289,21 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                         queued.latest_spec_id = spec.spec_id
                         queued.updated_at = now_utc_iso()
                         queued_work_item_ids.append(queued.id)
+                    dispatch_summary.append(
+                        {
+                            "branch_rank": int(branch_payload.get("branch_rank", index) or index),
+                            "branch_role": str(branch_payload.get("branch_role", "primary")),
+                            "idea_class": str(branch_payload.get("idea_class", "")),
+                            "portfolio_id": str(branch_payload.get("portfolio_id", "") or portfolio_id),
+                            "work_item_id": work_item_id,
+                            "spec_id": spec.spec_id,
+                            "config_path": str(branch_payload.get("config_path", "")),
+                            "knowledge_card_ids": [str(item) for item in branch_payload.get("knowledge_card_ids", [])],
+                            "policy_trace": [str(item) for item in branch_payload.get("policy_trace", [])],
+                            "branch_memory_ids": [str(item) for item in branch_payload.get("branch_memory_ids", [])],
+                            "scheduler_hints": dict(branch_payload.get("scheduler_hints", {})) if isinstance(branch_payload.get("scheduler_hints"), dict) else {},
+                        }
+                    )
                     if index == 0:
                         spec_id = spec.spec_id
                         queued_work_item_id = queued.id if queued is not None else ""
@@ -286,6 +320,8 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
         "spec_id": spec_id,
         "queued_work_item_id": queued_work_item_id,
         "branch_count": len(_plan_branches(plan, run)) if plan_status == "planned" else 0,
+        "portfolio_id": portfolio_id,
+        "dispatch_summary": dispatch_summary,
     }
     markdown = stage_markdown(
         f"Validation {run_id}",
@@ -295,6 +331,11 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
             f"- Spec id: `{spec_id or 'n/a'}`",
             f"- Queued work item: `{queued_work_item_id or 'n/a'}`",
             f"- Branch count: {payload['branch_count']}",
+            *(["", "## Dispatch Summary"] if dispatch_summary else []),
+            *(
+                f"- rank={item.get('branch_rank', 0)} | role={item.get('branch_role', '')} | idea={item.get('idea_class', '')} | work_item=`{item.get('work_item_id', '')}` | spec=`{item.get('spec_id', '')}`"
+                for item in dispatch_summary
+            ),
         ],
     )
     complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown, validator_status=status)
@@ -339,6 +380,8 @@ def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id
         str(decision.get("submission_recommendation", "no")) == "candidate"
         or str(plan.get("plan_status", "")) == "submission_candidate"
     )
+    work_item = next((item for item in state.work_items if item.id == run.work_item_id), None)
+    branch_origin = _submission_branch_origin(work_item)
     if should_build:
         candidate = build_submission_candidate(config, state, run_id)
         slot_plan = plan_submission_slots(config, state)
@@ -348,6 +391,7 @@ def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id
             "candidate_id": candidate.id,
             "cpu_ready": candidate.cpu_ready,
             "slot_plan": slot_plan,
+            "branch_origin": branch_origin,
         }
         markdown = stage_markdown(
             f"Submission {run_id}",
@@ -361,9 +405,10 @@ def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id
         )
     else:
         payload = {"stage": "submission", "status": "skipped", "reason": "No submission recommendation for this run."}
+        payload["branch_origin"] = branch_origin
         markdown = stage_markdown(
             f"Submission {run_id}",
-            ["- Status: `skipped`", f"- Reason: {payload['reason']}"],
+            ["- Status: `skipped`", f"- Reason: {payload['reason']}", f"- Branch origin: `{branch_origin}`"],
         )
     complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     return stage_run
@@ -449,9 +494,10 @@ def process_completed_runs(config: WorkspaceConfig, state: WorkspaceState) -> No
     for run in state.runs:
         if run.status not in FINAL_RUN_STATUSES:
             continue
-        if run.stage_cursor == "complete":
-            continue
-        _process_run_stage_chain(config, state, run.run_id)
+        if run.stage_cursor != "complete":
+            _process_run_stage_chain(config, state, run.run_id)
+        if run.stage_cursor == "complete" or run.stage_error:
+            synchronize_branch_memory(state, run.run_id)
 
 
 def maybe_start_next_run(

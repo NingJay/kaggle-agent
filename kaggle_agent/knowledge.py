@@ -7,8 +7,8 @@ from typing import Any
 
 from kaggle_agent.decision.helpers import latest_stage_payload, load_run_result
 from kaggle_agent.layout import visible_runs
-from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
-from kaggle_agent.utils import atomic_write_json, atomic_write_text, ensure_directory, slugify, truncate
+from kaggle_agent.schema import BranchMemoryRecord, WorkspaceConfig, WorkspaceState
+from kaggle_agent.utils import atomic_write_json, atomic_write_text, ensure_directory, now_utc_iso, slugify, truncate
 
 
 SECTION_HEADING_RE = re.compile(r"^##+\s+(.*)$", re.MULTILINE)
@@ -84,6 +84,10 @@ class KnowledgeCard:
     text: str
     stance: str
     component: str
+    policy_type: str
+    confidence: float
+    applies_to: list[str] = field(default_factory=list)
+    override_required: bool = False
     keywords: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -158,6 +162,41 @@ def _infer_component(source_path: str, title: str, text: str) -> str:
     return best_component
 
 
+def _confidence_for_card(source_path: str, title: str, text: str, stance: str) -> float:
+    corpus = f"{source_path}\n{title}\n{text}".lower()
+    score = 0.42
+    score += min(0.24, SOURCE_PRIORITY_HINTS.get(Path(source_path).name, 0.0) * 0.04)
+    if stance in {"positive", "negative"}:
+        score += 0.16
+    elif stance == "conditional":
+        score += 0.08
+    if "validated" in corpus or "biggest win" in corpus or "load-bearing" in corpus:
+        score += 0.10
+    if "regress" in corpus or "hurts" in corpus or "didn't help" in corpus or "did not help" in corpus:
+        score += 0.10
+    return max(0.35, min(0.95, round(score, 3)))
+
+
+def _policy_type_for_card(stance: str, confidence: float) -> str:
+    if stance == "negative":
+        return "veto" if confidence >= 0.72 else "avoid"
+    if stance == "positive":
+        return "require" if confidence >= 0.82 else "prefer"
+    if stance == "conditional":
+        return "conditional"
+    return "context"
+
+
+def _applies_to_for_card(component: str, keywords: list[str]) -> list[str]:
+    scope: list[str] = []
+    if component and component != "general":
+        scope.append(component)
+    for keyword in keywords[:4]:
+        if keyword not in scope:
+            scope.append(keyword)
+    return scope
+
+
 def _iter_sections(path: Path) -> list[tuple[str, str]]:
     text = path.read_text(encoding="utf-8").strip()
     if not text:
@@ -197,6 +236,35 @@ def _compile_knowledge_index(knowledge_root: Path) -> list[KnowledgeCard]:
                     text=truncate(section_text, limit=1200),
                     stance=_infer_stance(source_path, section_title, section_text),
                     component=_infer_component(source_path, section_title, section_text),
+                    policy_type=_policy_type_for_card(
+                        _infer_stance(source_path, section_title, section_text),
+                        _confidence_for_card(
+                            source_path,
+                            section_title,
+                            section_text,
+                            _infer_stance(source_path, section_title, section_text),
+                        ),
+                    ),
+                    confidence=_confidence_for_card(
+                        source_path,
+                        section_title,
+                        section_text,
+                        _infer_stance(source_path, section_title, section_text),
+                    ),
+                    applies_to=_applies_to_for_card(
+                        _infer_component(source_path, section_title, section_text),
+                        _keywords_for_card(source_path, section_title, section_text),
+                    ),
+                    override_required=_policy_type_for_card(
+                        _infer_stance(source_path, section_title, section_text),
+                        _confidence_for_card(
+                            source_path,
+                            section_title,
+                            section_text,
+                            _infer_stance(source_path, section_title, section_text),
+                        ),
+                    )
+                    == "veto",
                     keywords=_keywords_for_card(source_path, section_title, section_text),
                 )
             )
@@ -294,6 +362,9 @@ def _score_card(card: dict[str, Any], frame: dict[str, Any], *, stage: str) -> f
         score += 1.5
     if stage == "research" and stance in {"positive", "conditional"}:
         score += 1.0
+    if str(card.get("policy_type", "")) in {"veto", "require"}:
+        score += 2.0
+    score += float(card.get("confidence", 0.0) or 0.0) * 3.0
 
     summary = f"{card.get('title', '')} {card.get('summary', '')}".lower()
     if "validation" in summary and "val" in str(frame.get("objective_metric", "")).lower():
@@ -325,6 +396,138 @@ def _select_diverse_cards(cards: list[dict[str, Any]], limit: int) -> list[dict[
         selected.append(card)
         seen_ids.add(card_id)
     return selected[:limit]
+
+
+def _compact_branch_memory(memory: BranchMemoryRecord) -> dict[str, Any]:
+    return {
+        "memory_id": memory.memory_id,
+        "run_id": memory.run_id,
+        "family": memory.family,
+        "portfolio_id": memory.portfolio_id,
+        "idea_class": memory.idea_class,
+        "branch_role": memory.branch_role,
+        "branch_rank": memory.branch_rank,
+        "status": memory.status,
+        "outcome": memory.outcome,
+        "summary": memory.summary,
+        "root_cause": memory.root_cause,
+        "metric_name": memory.metric_name,
+        "metric_value": memory.metric_value,
+        "metric_delta": memory.metric_delta,
+        "signal_score": memory.signal_score,
+        "critic_status": memory.critic_status,
+        "validation_status": memory.validation_status,
+        "submission_status": memory.submission_status,
+        "policy_tags": list(memory.policy_tags),
+        "knowledge_card_ids": list(memory.knowledge_card_ids),
+        "created_at": memory.created_at,
+    }
+
+
+def _score_branch_memory(memory: BranchMemoryRecord, frame: dict[str, Any], *, stage: str) -> float:
+    score = abs(float(memory.signal_score)) * 1.5
+    query_terms = set(str(item) for item in frame.get("query_terms", []) if str(item))
+    text = " ".join(
+        [
+            memory.family,
+            memory.idea_class,
+            memory.branch_role,
+            memory.summary,
+            memory.root_cause,
+            " ".join(memory.policy_tags),
+        ]
+    ).lower()
+    memory_tokens = set(_tokenize(text))
+    score += len(query_terms & memory_tokens) * 3.0
+    if memory.family and memory.family == str(frame.get("family", "")):
+        score += 6.0
+    focus = str(frame.get("focus", "")).lower()
+    if focus and focus in text:
+        score += 3.0
+    if stage in {"plan", "decision"} and memory.outcome in {"leader", "improved", "regressed", "critic_rejected"}:
+        score += 2.0
+    return score
+
+
+def _recent_branch_memories(
+    state: WorkspaceState,
+    frame: dict[str, Any],
+    *,
+    stage: str,
+    limit: int = 6,
+) -> list[dict[str, Any]]:
+    scored = sorted(
+        (
+            {
+                **_compact_branch_memory(memory),
+                "_score": _score_branch_memory(memory, frame, stage=stage),
+            }
+            for memory in state.branch_memories
+        ),
+        key=lambda item: (float(item.get("_score", 0.0)), str(item.get("created_at", "")), str(item.get("memory_id", ""))),
+        reverse=True,
+    )
+    selected = [dict(item) for item in scored if float(item.get("_score", 0.0)) > 0.0][:limit]
+    if not selected:
+        selected = [dict(item) for item in scored[:limit]]
+    for item in selected:
+        item.pop("_score", None)
+    return selected
+
+
+def _policy_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    policies: list[dict[str, Any]] = []
+    for card in cards:
+        policy_type = str(card.get("policy_type", "context"))
+        if policy_type == "context":
+            continue
+        policies.append(
+            {
+                "card_id": str(card.get("card_id", "")),
+                "title": str(card.get("title", "")),
+                "summary": str(card.get("summary", "")),
+                "source_path": str(card.get("source_path", "")),
+                "stance": str(card.get("stance", "")),
+                "component": str(card.get("component", "")),
+                "policy_type": policy_type,
+                "confidence": float(card.get("confidence", 0.0) or 0.0),
+                "applies_to": [str(item) for item in card.get("applies_to", [])],
+                "override_required": bool(card.get("override_required", False)),
+            }
+        )
+    return policies
+
+
+def _policy_contradictions(policy_cards: list[dict[str, Any]], branch_memories: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    contradictions: list[dict[str, Any]] = []
+    for card in policy_cards:
+        component = str(card.get("component", ""))
+        policy_type = str(card.get("policy_type", ""))
+        if not component or component == "general":
+            continue
+        for memory in branch_memories:
+            if str(memory.get("idea_class", "")) != component:
+                continue
+            outcome = str(memory.get("outcome", ""))
+            if policy_type in {"veto", "avoid"} and outcome in {"leader", "improved", "submission_candidate"}:
+                contradictions.append(
+                    {
+                        "card_id": str(card.get("card_id", "")),
+                        "memory_id": str(memory.get("memory_id", "")),
+                        "type": "negative-policy-overridden-by-result",
+                        "summary": f"{card.get('title', '')} conflicts with successful branch memory {memory.get('run_id', '')}.",
+                    }
+                )
+            elif policy_type in {"require", "prefer"} and outcome in {"regressed", "critic_rejected", "run_failed", "validate_failed"}:
+                contradictions.append(
+                    {
+                        "card_id": str(card.get("card_id", "")),
+                        "memory_id": str(memory.get("memory_id", "")),
+                        "type": "positive-policy-underperformed-recently",
+                        "summary": f"{card.get('title', '')} conflicts with recent weak outcome {memory.get('run_id', '')}.",
+                    }
+                )
+    return contradictions[:8]
 
 
 def retrieve_knowledge_bundle_from_root(
@@ -371,9 +574,25 @@ def retrieve_knowledge_bundle(
     *,
     stage: str = "",
     limit: int = 8,
+    state: WorkspaceState | None = None,
+    memory_limit: int = 6,
 ) -> dict[str, Any]:
     ensure_knowledge_layout(config)
-    return retrieve_knowledge_bundle_from_root(config.root, manifest, stage=stage, limit=limit)
+    bundle = retrieve_knowledge_bundle_from_root(config.root, manifest, stage=stage, limit=limit)
+    cards = bundle.get("cards", [])
+    compact_cards = [item for item in cards if isinstance(item, dict)] if isinstance(cards, list) else []
+    policy_cards = _policy_cards(compact_cards)
+    bundle["policy_cards"] = policy_cards
+    bundle["branch_memories"] = []
+    bundle["branch_memory_ids"] = []
+    bundle["contradictions"] = []
+    if state is not None:
+        frame = bundle.get("problem_frame", {}) if isinstance(bundle.get("problem_frame"), dict) else {}
+        branch_memories = _recent_branch_memories(state, frame, stage=stage or str(frame.get("stage", "")), limit=memory_limit)
+        bundle["branch_memories"] = branch_memories
+        bundle["branch_memory_ids"] = [str(item.get("memory_id", "")) for item in branch_memories]
+        bundle["contradictions"] = _policy_contradictions(policy_cards, branch_memories)
+    return bundle
 
 
 def render_retrieved_knowledge(bundle: dict[str, Any], *, limit: int = 16000) -> str:
@@ -419,9 +638,38 @@ def render_retrieved_knowledge(bundle: dict[str, Any], *, limit: int = 16000) ->
                     f"- card_id: `{card.get('card_id', '')}`",
                     f"- source: `knowledge/{card.get('source_path', '')}`",
                     f"- component: `{card.get('component', 'general')}`",
+                    f"- policy: `{card.get('policy_type', 'context')}` @ {float(card.get('confidence', 0.0) or 0.0):.2f}",
                     f"- summary: {card.get('summary', '')}",
                 ]
             )
+        sections.append("\n".join(lines))
+    policy_cards = bundle.get("policy_cards", [])
+    if isinstance(policy_cards, list) and policy_cards:
+        lines = ["## Policy Cards"]
+        for card in policy_cards:
+            if not isinstance(card, dict):
+                continue
+            lines.append(
+                f"- `{card.get('policy_type', 'context')}` | `{card.get('component', 'general')}` | `{card.get('card_id', '')}` | {card.get('summary', '')}"
+            )
+        sections.append("\n".join(lines))
+    branch_memories = bundle.get("branch_memories", [])
+    if isinstance(branch_memories, list) and branch_memories:
+        lines = ["## Recent Branch Memories"]
+        for memory in branch_memories:
+            if not isinstance(memory, dict):
+                continue
+            lines.append(
+                f"- `{memory.get('run_id', '')}` | outcome={memory.get('outcome', '')} | idea={memory.get('idea_class', '')} | {memory.get('summary', '')}"
+            )
+        sections.append("\n".join(lines))
+    contradictions = bundle.get("contradictions", [])
+    if isinstance(contradictions, list) and contradictions:
+        lines = ["## Contradictions"]
+        for item in contradictions:
+            if not isinstance(item, dict):
+                continue
+            lines.append(f"- `{item.get('type', '')}` | {item.get('summary', '')}")
         sections.append("\n".join(lines))
     rendered = "\n\n".join(section for section in sections if section.strip())
     return truncate(rendered, limit=limit) if len(rendered) > limit else rendered
@@ -440,13 +688,19 @@ def compact_knowledge_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
                     "source_path": str(card.get("source_path", "")),
                     "stance": str(card.get("stance", "")),
                     "component": str(card.get("component", "")),
+                    "policy_type": str(card.get("policy_type", "context")),
+                    "confidence": float(card.get("confidence", 0.0) or 0.0),
                 }
             )
     return {
         "problem_frame": bundle.get("problem_frame", {}),
         "knowledge_files_seen": int(bundle.get("knowledge_files_seen", 0) or 0),
         "knowledge_card_ids": [str(item) for item in bundle.get("knowledge_card_ids", [])],
+        "branch_memory_ids": [str(item) for item in bundle.get("branch_memory_ids", [])],
         "cards": compact_cards,
+        "policy_cards": [item for item in bundle.get("policy_cards", []) if isinstance(item, dict)],
+        "branch_memories": [item for item in bundle.get("branch_memories", []) if isinstance(item, dict)],
+        "contradictions": [item for item in bundle.get("contradictions", []) if isinstance(item, dict)],
     }
 
 
@@ -459,6 +713,136 @@ def read_knowledge_context(config: WorkspaceConfig) -> str:
         relative = path.relative_to(config.knowledge_root())
         parts.append(f"## {relative}\n\n{path.read_text(encoding='utf-8').strip()}")
     return "\n\n".join(part for part in parts if part.strip())
+
+
+def _family_reference_metrics(state: WorkspaceState, run_id: str, family: str, *, parent_run_id: str = "") -> tuple[float | None, float | None]:
+    family_best: float | None = None
+    parent_metric: float | None = None
+    experiment_by_id = {item.id: item for item in state.experiments}
+    for candidate in state.runs:
+        if candidate.run_id == run_id or candidate.status != "succeeded" or candidate.primary_metric_value is None:
+            continue
+        experiment = experiment_by_id.get(candidate.experiment_id)
+        if experiment is None or experiment.family != family:
+            continue
+        family_best = candidate.primary_metric_value if family_best is None else max(family_best, candidate.primary_metric_value)
+        if parent_run_id and candidate.run_id == parent_run_id:
+            parent_metric = candidate.primary_metric_value
+    return family_best, parent_metric
+
+
+def _branch_memory_outcome(
+    *,
+    run,
+    family_best_before: float | None,
+    parent_metric: float | None,
+    critic_status: str,
+    validation_status: str,
+    submission_status: str,
+) -> tuple[str, float | None]:
+    if critic_status == "rejected":
+        return "critic_rejected", None
+    if validation_status == "failed":
+        return "validate_failed", None
+    if run.status == "failed":
+        return "run_failed", None
+    if run.primary_metric_value is None:
+        return "unscored", None
+    delta_reference = parent_metric if parent_metric is not None else family_best_before
+    delta = None if delta_reference is None else run.primary_metric_value - delta_reference
+    if family_best_before is None or run.primary_metric_value > family_best_before + 1e-9:
+        return ("submission_candidate" if submission_status == "candidate_created" else "leader"), delta
+    if delta is not None and delta >= 0.002:
+        return "improved", delta
+    if delta is not None and delta <= -0.002:
+        return "regressed", delta
+    return "flat", delta
+
+
+def _signal_score_for_outcome(outcome: str) -> float:
+    return {
+        "leader": 3.0,
+        "submission_candidate": 2.6,
+        "improved": 2.0,
+        "flat": 0.5,
+        "unscored": 0.0,
+        "regressed": -1.8,
+        "critic_rejected": -2.4,
+        "validate_failed": -2.6,
+        "run_failed": -3.0,
+    }.get(outcome, 0.0)
+
+
+def synchronize_branch_memory(state: WorkspaceState, run_id: str) -> BranchMemoryRecord | None:
+    run = next((item for item in state.runs if item.run_id == run_id), None)
+    if run is None:
+        return None
+    work_item = next((item for item in state.work_items if item.id == run.work_item_id), None)
+    experiment = next((item for item in state.experiments if item.id == run.experiment_id), None)
+    if work_item is None or experiment is None:
+        return None
+    critic = latest_stage_payload(state, run_id, "critic")
+    validation = latest_stage_payload(state, run_id, "validate")
+    decision = latest_stage_payload(state, run_id, "decision")
+    submission = latest_stage_payload(state, run_id, "submission")
+    report = latest_stage_payload(state, run_id, "report")
+    source_run_id = str(work_item.source_run_id or "")
+    family_best_before, parent_metric = _family_reference_metrics(state, run.run_id, experiment.family, parent_run_id=source_run_id)
+    outcome, metric_delta = _branch_memory_outcome(
+        run=run,
+        family_best_before=family_best_before,
+        parent_metric=parent_metric,
+        critic_status=str(critic.get("status", "")),
+        validation_status=str(validation.get("status", "")),
+        submission_status=str(submission.get("status", "")),
+    )
+    summary_bits = [f"{work_item.branch_role or 'branch'} {work_item.idea_class or experiment.family} -> {outcome}"]
+    if run.primary_metric_value is not None:
+        summary_bits.append(f"{run.primary_metric_name or 'metric'}={run.primary_metric_value:.6f}")
+    if metric_delta is not None:
+        summary_bits.append(f"delta={metric_delta:+.6f}")
+    if critic.get("status"):
+        summary_bits.append(f"critic={critic.get('status')}")
+    if validation.get("status"):
+        summary_bits.append(f"validate={validation.get('status')}")
+    memory = next((item for item in state.branch_memories if item.run_id == run_id), None)
+    if memory is None:
+        memory = BranchMemoryRecord(
+            memory_id=f"memory-{state.runtime.next_branch_memory_number:04d}",
+            run_id=run_id,
+            work_item_id=work_item.id,
+            experiment_id=experiment.id,
+            family=experiment.family,
+            created_at=now_utc_iso(),
+        )
+        state.runtime.next_branch_memory_number += 1
+        state.branch_memories.append(memory)
+    memory.portfolio_id = work_item.portfolio_id
+    memory.idea_class = work_item.idea_class
+    memory.branch_role = work_item.branch_role
+    memory.branch_rank = work_item.branch_rank
+    memory.source_stage_run_id = run.latest_stage_run_id
+    memory.status = run.status
+    memory.outcome = outcome
+    memory.summary = truncate("; ".join(summary_bits), limit=320)
+    memory.root_cause = str(report.get("root_cause") or decision.get("root_cause") or run.root_cause or run.error or "")
+    memory.metric_name = run.primary_metric_name
+    memory.metric_value = run.primary_metric_value
+    memory.metric_delta = metric_delta
+    memory.verify_status = str(latest_stage_payload(state, run_id, "codegen").get("verify_status", ""))
+    memory.critic_status = str(critic.get("status", ""))
+    memory.validation_status = str(validation.get("status", ""))
+    memory.submission_status = str(submission.get("status", ""))
+    memory.signal_score = _signal_score_for_outcome(outcome)
+    memory.policy_tags = [
+        f"outcome:{outcome}",
+        *(f"role:{work_item.branch_role}" for _ in [0] if work_item.branch_role),
+        *(f"idea:{work_item.idea_class}" for _ in [0] if work_item.idea_class),
+    ]
+    memory.knowledge_card_ids = list(work_item.knowledge_card_ids)
+    memory.contradiction_ids = []
+    memory.updated_at = now_utc_iso()
+    return memory
 
 
 def write_experiment_conclusions(config: WorkspaceConfig, state: WorkspaceState) -> Path:

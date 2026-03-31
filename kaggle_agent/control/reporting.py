@@ -179,6 +179,8 @@ def _surface_updates(config: WorkspaceConfig, state: WorkspaceState) -> None:
             branch_bits.append(f"branch={work_item.branch_role}")
         if work_item.idea_class:
             branch_bits.append(f"idea={work_item.idea_class}")
+        if work_item.policy_trace:
+            branch_bits.append(f"policy={work_item.policy_trace[0]}")
         branch_summary = f" | {' '.join(branch_bits)}" if branch_bits else ""
         checklist.append(
             f"- [{'x' if work_item.status in {'complete', 'submitted'} else ' '}] `{work_item.id}` | {work_item.status} | p{work_item.priority} | {work_item.title}{branch_summary} | run={run_display} | stage={_latest_stage_label(state, work_item.latest_stage_run_id)}"
@@ -196,6 +198,8 @@ def _surface_updates(config: WorkspaceConfig, state: WorkspaceState) -> None:
             branch_bits.append(f"idea={work_item.idea_class}")
         if work_item is not None and work_item.portfolio_id:
             branch_bits.append(f"portfolio={work_item.portfolio_id}")
+        if work_item is not None and work_item.policy_trace:
+            branch_bits.append(f"policy={work_item.policy_trace[0]}")
         branch_suffix = f" | {' '.join(branch_bits)}" if branch_bits else ""
         journal.append(
             f"- `{run_label_from_path(run.run_dir) or run.run_id}` | {run.status} | cursor={run.stage_cursor or 'n/a'} | latest_stage={latest_stage_label} | metric={run.primary_metric_name}={run.primary_metric_value}{branch_suffix}"
@@ -242,6 +246,7 @@ def _overview_markdown(config: WorkspaceConfig, state: WorkspaceState) -> str:
         f"- Active runs: {', '.join(state.runtime.active_run_ids) if state.runtime.active_run_ids else 'none'}",
         f"- Work items: {len(work_items)}",
         f"- Stage runs: {len(stage_runs)}",
+        f"- Branch memories: {len(state.branch_memories)}",
         f"- Last tick: {state.runtime.last_tick_at or 'n/a'}",
         f"- Last report: {state.runtime.last_report_at or 'n/a'}",
         f"- Remaining daily submission slots: {slot_plan['remaining_daily_slots']}",
@@ -322,10 +327,11 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
             "<ul>"
             f"<li>Current attempt: {html.escape(current_attempt_slug(state.runtime))}</li>"
             f"<li>Active runs: {html.escape(', '.join(state.runtime.active_run_ids) if state.runtime.active_run_ids else 'none')}</li>"
-            f"<li>Queued work items: {len([item for item in work_items if item.status == 'queued'])}</li>"
-            f"<li>Completed work items: {len([item for item in work_items if item.status in {'complete', 'submitted'}])}</li>"
-            f"<li>Remaining daily slots: {slot_plan['remaining_daily_slots']}</li>"
-            "</ul>",
+                f"<li>Queued work items: {len([item for item in work_items if item.status == 'queued'])}</li>"
+                f"<li>Completed work items: {len([item for item in work_items if item.status in {'complete', 'submitted'}])}</li>"
+                f"<li>Branch memories: {len(state.branch_memories)}</li>"
+                f"<li>Remaining daily slots: {slot_plan['remaining_daily_slots']}</li>"
+                "</ul>",
         ),
             (
                 "Best Run",
@@ -416,9 +422,16 @@ def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
         f"<li>{html.escape(item.title)} | {html.escape(item.stance)} | {html.escape(item.summary)}</li>"
         for item in research_notes[-15:]
     ) or "<li>No research notes yet.</li>"
+    branch_memory_items = "".join(
+        f"<li>{html.escape(item.run_id)} | {html.escape(item.outcome)} | {html.escape(item.summary)}</li>"
+        for item in state.branch_memories[-15:]
+    ) or "<li>No branch memories yet.</li>"
     atomic_write_text(
         config.report_path("research_report.html"),
-        _render_html_page("Research Report", [("Research Notes", f"<ul>{research_items}</ul>")]),
+        _render_html_page(
+            "Research Report",
+            [("Research Notes", f"<ul>{research_items}</ul>"), ("Branch Memories", f"<ul>{branch_memory_items}</ul>")],
+        ),
     )
 
     _write_csv(

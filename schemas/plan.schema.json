@@ -36,7 +36,30 @@
     "portfolio_id": { "type": "string" },
     "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
     "problem_frame": { "type": "object" },
+    "candidate_branches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
     "created_at": { "type": "string" },
+    "pruned_branches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "overridden_branches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "policy_trace": { "type": "array", "items": { "type": "string" } },
+    "scheduler_hints": { "type": "object", "additionalProperties": true },
     "config_overrides": {
       "type": "array",
       "items": {
@@ -70,6 +93,10 @@
           "branch_role": { "type": "string" },
           "branch_rank": { "type": "integer" },
           "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
+          "policy_trace": { "type": "array", "items": { "type": "string" } },
+          "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
+          "scheduler_hints": { "type": "object", "additionalProperties": true },
+          "policy_score": { "type": "number" },
           "config_overrides": {
             "type": "array",
             "items": {

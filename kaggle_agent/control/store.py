@@ -7,6 +7,7 @@ from pathlib import Path
 from kaggle_agent.layout import DEFAULT_ATTEMPT_SLUG, LEGACY_DEFAULT_ATTEMPT_SLUG, ROOT_SURFACE_DOC_NAMES
 from kaggle_agent.schema import (
     AgentRun,
+    BranchMemoryRecord,
     ExperimentSpec,
     FindingRecord,
     IssueRecord,
@@ -39,6 +40,7 @@ TABLE_TO_MODEL = {
     "research_notes": ResearchNoteRecord,
     "submissions": SubmissionCandidate,
     "submission_results": SubmissionResult,
+    "branch_memories": BranchMemoryRecord,
 }
 STATE_TABLES = list(TABLE_TO_MODEL.keys())
 
@@ -113,6 +115,7 @@ def _entity_id(item) -> str:
         "agent_run_id",
         "spec_id",
         "validation_id",
+        "memory_id",
         "metric_id",
         "finding_id",
         "issue_id",
@@ -202,6 +205,7 @@ def _empty_state(config: WorkspaceConfig) -> WorkspaceState:
         submissions=[],
         submission_results=[],
         runtime=_default_runtime_state(config),
+        branch_memories=[],
     )
 
 
@@ -218,6 +222,7 @@ def _snapshot_state(config: WorkspaceConfig, state: WorkspaceState) -> None:
     atomic_write_json(config.export_root() / "issues.json", [item.to_dict() for item in state.issues])
     atomic_write_json(config.export_root() / "research_notes.json", [item.to_dict() for item in state.research_notes])
     atomic_write_json(config.export_root() / "submissions.json", [item.to_dict() for item in state.submissions])
+    atomic_write_json(config.export_root() / "branch_memories.json", [item.to_dict() for item in state.branch_memories])
 
 
 def load_state(config: WorkspaceConfig) -> WorkspaceState:
@@ -246,6 +251,7 @@ def load_state(config: WorkspaceConfig) -> WorkspaceState:
         submissions=tables["submissions"],
         submission_results=tables["submission_results"],
         runtime=runtime,
+        branch_memories=tables["branch_memories"],
     )
 
 

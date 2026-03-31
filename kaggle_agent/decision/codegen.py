@@ -70,6 +70,73 @@ def _should_retry_codegen_payload(payload: dict[str, object], *, plan_status: st
     return status != "generated" or verify_status == "failed"
 
 
+def _primary_branch(plan: dict[str, object]) -> dict[str, object]:
+    branches = plan.get("branch_plans")
+    if isinstance(branches, list):
+        for item in branches:
+            if isinstance(item, dict):
+                return dict(item)
+    return dict(plan)
+
+
+def _decorate_codegen_payload(payload: dict[str, object], plan: dict[str, object]) -> dict[str, object]:
+    branch = _primary_branch(plan)
+    payload = dict(payload)
+    payload.setdefault("portfolio_id", str(branch.get("portfolio_id") or plan.get("portfolio_id") or ""))
+    payload.setdefault("branch_role", str(branch.get("branch_role") or ""))
+    payload.setdefault("idea_class", str(branch.get("idea_class") or ""))
+    payload.setdefault("knowledge_card_ids", [str(item) for item in branch.get("knowledge_card_ids", [])] or [str(item) for item in plan.get("knowledge_card_ids", [])])
+    payload.setdefault("policy_trace", [str(item) for item in branch.get("policy_trace", [])] or [str(item) for item in plan.get("policy_trace", [])])
+    payload.setdefault("branch_memory_ids", [str(item) for item in branch.get("branch_memory_ids", [])])
+    payload.setdefault("scheduler_hints", dict(branch.get("scheduler_hints", {})) if isinstance(branch.get("scheduler_hints"), dict) else dict(plan.get("scheduler_hints", {})))
+    payload.setdefault(
+        "motivation_summary",
+        str(branch.get("reason") or branch.get("hypothesis") or plan.get("reason") or ""),
+    )
+    return payload
+
+
+def _append_codegen_context_markdown(markdown: str, plan: dict[str, object], payload: dict[str, object]) -> str:
+    has_meaningful_context = any(
+        [
+            str(payload.get("branch_role", "")).strip(),
+            str(payload.get("idea_class", "")).strip(),
+            str(payload.get("portfolio_id", "")).strip(),
+            str(payload.get("motivation_summary", "")).strip(),
+            bool(payload.get("policy_trace")),
+            bool(payload.get("branch_memory_ids")),
+            bool(payload.get("scheduler_hints")),
+        ]
+    )
+    if not has_meaningful_context:
+        return markdown
+    context_lines = [
+        "",
+        "## Branch Context",
+        f"- branch_role: `{payload.get('branch_role', '') or 'n/a'}`",
+        f"- idea_class: `{payload.get('idea_class', '') or 'n/a'}`",
+        f"- portfolio_id: `{payload.get('portfolio_id', '') or 'n/a'}`",
+        f"- motivation: {payload.get('motivation_summary', '') or 'n/a'}",
+    ]
+    policy_trace = payload.get("policy_trace")
+    if isinstance(policy_trace, list) and policy_trace:
+        context_lines.extend(["", "## Policy Trace", *(f"- `{item}`" for item in policy_trace if str(item).strip())])
+    branch_memory_ids = payload.get("branch_memory_ids")
+    if isinstance(branch_memory_ids, list) and branch_memory_ids:
+        context_lines.extend(["", "## Branch Memories", *(f"- `{item}`" for item in branch_memory_ids if str(item).strip())])
+    scheduler_hints = payload.get("scheduler_hints")
+    if isinstance(scheduler_hints, dict) and scheduler_hints:
+        context_lines.extend(
+            [
+                "",
+                "## Scheduler Hints",
+                *(f"- {key}: `{value}`" for key, value in scheduler_hints.items()),
+            ]
+        )
+    suffix = "\n".join(context_lines).strip()
+    return markdown.rstrip() + ("\n\n" + suffix if suffix else "")
+
+
 def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     run = next(item for item in state.runs if item.run_id == run_id)
     plan = latest_stage_payload(state, run_id, "plan")
@@ -105,6 +172,8 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         if adapted is None:
             break
         payload, markdown = adapted
+        payload = _decorate_codegen_payload(payload, plan)
+        markdown = _append_codegen_context_markdown(markdown, plan, payload)
         previous_payload = payload
         previous_markdown = markdown
         if not _should_retry_codegen_payload(payload, plan_status=plan_status, attempt_number=attempt_number):
@@ -138,9 +207,15 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "smoke_status": "skipped",
             "smoke_summary": "Codegen did not run because the plan was not in planned state.",
         }
+        payload = _decorate_codegen_payload(payload, plan)
         markdown = stage_markdown(
             f"Codegen {run_id}",
-            [f"- Status: `noop`", f"- Reason: {payload['reason']}"],
+            [
+                f"- Status: `noop`",
+                f"- Reason: {payload['reason']}",
+                f"- Branch role: `{payload.get('branch_role', '') or 'n/a'}`",
+                f"- Idea class: `{payload.get('idea_class', '') or 'n/a'}`",
+            ],
         )
         complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
@@ -185,12 +260,15 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         "smoke_status": "skipped",
         "smoke_summary": "Deterministic fallback does not produce an isolated code snapshot.",
     }
+    payload = _decorate_codegen_payload(payload, plan)
     markdown = stage_markdown(
         f"Codegen {run_id}",
         [
             f"- Status: `generated`",
             f"- Generated config: `{generated_copy}`",
             f"- Run bundle: `{run_bundle_path}`",
+            f"- Branch role: `{payload.get('branch_role', '') or 'n/a'}`",
+            f"- Idea class: `{payload.get('idea_class', '') or 'n/a'}`",
         ],
     )
     complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)

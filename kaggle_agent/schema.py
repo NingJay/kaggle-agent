@@ -234,6 +234,9 @@ class WorkItem(_Serializable):
     branch_rank: int = 0
     knowledge_card_ids: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    policy_trace: list[str] = field(default_factory=list)
+    branch_memory_ids: list[str] = field(default_factory=list)
+    scheduler_hints: dict[str, Any] = field(default_factory=dict)
     created_at: str = ""
     updated_at: str = ""
 
@@ -381,6 +384,37 @@ class ValidationRecord(_Serializable):
 
 
 @dataclass
+class BranchMemoryRecord(_Serializable):
+    memory_id: str
+    run_id: str
+    work_item_id: str
+    experiment_id: str
+    family: str
+    portfolio_id: str = ""
+    idea_class: str = ""
+    branch_role: str = ""
+    branch_rank: int = 0
+    source_stage_run_id: str = ""
+    status: str = ""
+    outcome: str = ""
+    summary: str = ""
+    root_cause: str = ""
+    metric_name: str = ""
+    metric_value: float | None = None
+    metric_delta: float | None = None
+    verify_status: str = ""
+    critic_status: str = ""
+    validation_status: str = ""
+    submission_status: str = ""
+    signal_score: float = 0.0
+    policy_tags: list[str] = field(default_factory=list)
+    knowledge_card_ids: list[str] = field(default_factory=list)
+    contradiction_ids: list[str] = field(default_factory=list)
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass
 class MetricObservation(_Serializable):
     metric_id: str
     run_id: str
@@ -485,6 +519,7 @@ class RuntimeState(_Serializable):
     next_finding_number: int = 1
     next_issue_number: int = 1
     next_note_number: int = 1
+    next_branch_memory_number: int = 1
     notes: list[str] = field(default_factory=list)
 
 
@@ -504,3 +539,4 @@ class WorkspaceState(_Serializable):
     submissions: list[SubmissionCandidate]
     submission_results: list[SubmissionResult]
     runtime: RuntimeState
+    branch_memories: list[BranchMemoryRecord] = field(default_factory=list)

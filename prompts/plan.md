@@ -12,3 +12,4 @@ Rules:
 - When `plan_status="planned"`, prefer returning a small `branch_plans` portfolio instead of a single timid tweak.
 - Use `config_overrides` typed ops when you want the harness to materialize sibling configs.
 - Reserve calibration-only or blend-only branches for cases where the retrieved knowledge does not veto them.
+- Persist `candidate_branches`, `pruned_branches`, `overridden_branches`, `policy_trace`, and `scheduler_hints` so humans can read why branches were kept or removed.

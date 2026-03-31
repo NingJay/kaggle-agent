@@ -31,6 +31,21 @@
     "problem_frame": { "type": "object" },
     "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
     "rejected_axes": { "type": "array", "items": { "type": "string" } },
+    "portfolio_intent": { "type": "string" },
+    "portfolio_policy": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "selected_policy_cards": { "type": "array", "items": { "type": "string" } },
+    "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
+    "deprioritized_axes": { "type": "array", "items": { "type": "string" } },
+    "branch_mix": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
     "branch_portfolio": {
       "type": "array",
       "items": {
@@ -47,6 +62,10 @@
           "priority_delta": { "type": "integer" },
           "launch_mode": { "type": "string" },
           "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
+          "policy_trace": { "type": "array", "items": { "type": "string" } },
+          "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
+          "override_reason": { "type": "string" },
+          "scheduler_hints": { "type": "object", "additionalProperties": true },
           "config_overrides": {
             "type": "array",
             "items": {

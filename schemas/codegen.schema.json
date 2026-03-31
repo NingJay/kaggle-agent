@@ -41,6 +41,14 @@
     "provider_runtime": { "type": "string" },
     "allowed_edit_roots": { "type": "array", "items": { "type": "string" } },
     "smoke_status": { "type": "string", "enum": ["passed", "skipped", "failed"] },
-    "smoke_summary": { "type": "string" }
+    "smoke_summary": { "type": "string" },
+    "portfolio_id": { "type": "string" },
+    "branch_role": { "type": "string" },
+    "idea_class": { "type": "string" },
+    "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
+    "policy_trace": { "type": "array", "items": { "type": "string" } },
+    "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
+    "scheduler_hints": { "type": "object", "additionalProperties": true },
+    "motivation_summary": { "type": "string" }
   }
 }

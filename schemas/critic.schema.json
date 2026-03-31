@@ -15,6 +15,9 @@
     "concerns": { "type": "array", "items": { "type": "string" } },
     "warnings": { "type": "array", "items": { "type": "string" } },
     "required_fixes": { "type": "array", "items": { "type": "string" } },
+    "branch_quality": { "type": "object", "additionalProperties": true },
+    "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
+    "reusable_judgments": { "type": "array", "items": { "type": "string" } },
     "markdown": { "type": "string" }
   }
 }

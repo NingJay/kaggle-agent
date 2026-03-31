@@ -7,3 +7,4 @@ Rules:
 - Separate strong positive priors, negative vetoes, and conditional leads.
 - Prefer priors that constrain future planning, not just prose that restates the current run.
 - When useful, preserve knowledge card ids inside the prior strings so downstream planning can cite them.
+- Surface explicit `policy_cards`, `branch_memories`, and `contradictions` when they materially affect the next search step.

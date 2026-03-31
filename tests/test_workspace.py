@@ -24,10 +24,10 @@ from kaggle_agent.control.scheduler import choose_next_work_items
 from kaggle_agent.control.monitor import _process_run_stage_chain, _run_validate_stage, process_completed_runs
 from kaggle_agent.decision.codegen import build_codegen
 from kaggle_agent.decision.planner import build_plan
-from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle
+from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle, synchronize_branch_memory
 from kaggle_agent.layout import run_label
 from kaggle_agent.control.store import load_state
-from kaggle_agent.schema import ExperimentSpec, RunRecord, RuntimeState, StageRun, WorkspaceState
+from kaggle_agent.schema import BranchMemoryRecord, ExperimentSpec, RunRecord, RuntimeState, StageRun, WorkItem, WorkspaceState
 from kaggle_agent.service import (
     build_submission,
     doctor_checks,
@@ -676,6 +676,58 @@ class WorkspaceTests(unittest.TestCase):
             self.assertIn("Conditional Leads", rendered)
             self.assertTrue(bundle["knowledge_card_ids"])
 
+    def test_retrieved_knowledge_bundle_includes_branch_memories_and_policy_contradictions(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+            knowledge_root = root / "knowledge"
+            knowledge_root.mkdir(parents=True, exist_ok=True)
+            (knowledge_root / "01_validated_findings.md").write_text(
+                "# Findings\n\n"
+                "## Coverage fixes are validated\n\n"
+                "Coverage-first branches improved validation and should be preferred.\n\n"
+                "## Calibration-only sweep hurts\n\n"
+                "Calibration-only sweeps regressed holdout validation and should be vetoed.\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            state.branch_memories.append(
+                BranchMemoryRecord(
+                    memory_id="memory-0001",
+                    run_id="run-calibration-win",
+                    work_item_id="workitem-0001",
+                    experiment_id="exp-0001",
+                    family="perch_cached_probe",
+                    idea_class="prior_calibration",
+                    branch_role="hedge",
+                    outcome="improved",
+                    summary="A prior-calibration hedge unexpectedly improved holdout ROC-AUC.",
+                    signal_score=2.0,
+                    created_at="2026-04-01T00:00:00Z",
+                )
+            )
+
+            bundle = retrieve_knowledge_bundle(
+                config,
+                {
+                    "run": {"run_id": "run-knowledge-memory", "primary_metric_name": "val_soundscape_macro_roc_auc"},
+                    "experiment": {"family": "perch_cached_probe", "title": "Probe baseline"},
+                    "report": {"root_cause": "class imbalance on holdout", "focus": "calibration"},
+                },
+                stage="plan",
+                state=state,
+            )
+
+            self.assertTrue(bundle["policy_cards"])
+            self.assertTrue(bundle["branch_memories"])
+            contradiction_types = {item["type"] for item in bundle["contradictions"]}
+            self.assertIn("negative-policy-overridden-by-result", contradiction_types)
+
     def test_build_plan_materializes_multi_branch_configs_from_fallback_search(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -764,6 +816,169 @@ class WorkspaceTests(unittest.TestCase):
                 config_path = root / branch["config_path"]
                 self.assertTrue(config_path.exists())
                 self.assertTrue(branch["idea_class"])
+
+    def test_build_plan_persists_pruned_branches_and_policy_trace(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            work_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            experiment = ExperimentSpec(
+                id="exp-plan-policy-prune",
+                title="Perch cached-probe baseline",
+                hypothesis="baseline",
+                family=work_item.family,
+                config_path=work_item.config_path,
+                priority=work_item.priority,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+            )
+            state.experiments.append(experiment)
+            state.branch_memories.append(
+                BranchMemoryRecord(
+                    memory_id="memory-0002",
+                    run_id="run-old-calibration-regression",
+                    work_item_id="workitem-old",
+                    experiment_id="exp-old",
+                    family="perch_cached_probe",
+                    idea_class="prior_calibration",
+                    branch_role="hedge",
+                    outcome="regressed",
+                    summary="Calibration-only branch regressed validation.",
+                    signal_score=-2.0,
+                    created_at="2026-04-01T00:10:00Z",
+                )
+            )
+            run = RunRecord(
+                run_id="run-plan-policy-prune",
+                experiment_id=experiment.id,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+                status="succeeded",
+                command="",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-plan-policy-prune"),
+                log_path=str(root / "artifacts" / "runs" / "run-plan-policy-prune" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.64,
+            )
+            state.runs.append(run)
+
+            def _latest_payload(_state, _run_id, stage_name):
+                if stage_name == "decision":
+                    return {
+                        "stage": "decision",
+                        "next_action": "run_new_experiment",
+                        "why": "Keep a compact frontier portfolio.",
+                        "next_title": "Perch cached-probe baseline follow-up",
+                        "next_family": "perch_cached_probe",
+                        "next_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+                        "priority_delta": 10,
+                        "launch_mode": "background",
+                        "portfolio_policy": {
+                            "target_branch_count": 2,
+                            "per_portfolio_cap": 1,
+                            "per_idea_class_cap": 1,
+                            "dispatch_strategy": "prefer-diverse-frontier-before-follow-on-support",
+                            "deprioritized_axes": ["prior_calibration"],
+                        },
+                        "branch_portfolio": [
+                            {
+                                "title": "Coverage branch",
+                                "family": "perch_cached_probe",
+                                "hypothesis": "Fix coverage first.",
+                                "rationale": "Coverage remains the main bottleneck.",
+                                "branch_role": "primary",
+                                "idea_class": "class_coverage",
+                                "target_component": "class_coverage",
+                                "priority_delta": 10,
+                                "launch_mode": "background",
+                                "knowledge_card_ids": ["card-coverage"],
+                            },
+                            {
+                                "title": "Calibration sweep",
+                                "family": "perch_cached_probe",
+                                "hypothesis": "Only retune calibration.",
+                                "rationale": "Cheap hedge branch.",
+                                "branch_role": "hedge",
+                                "idea_class": "prior_calibration",
+                                "target_component": "prior_calibration",
+                                "priority_delta": 12,
+                                "launch_mode": "background",
+                                "knowledge_card_ids": ["card-calibration"],
+                            },
+                            {
+                                "title": "Probe branch",
+                                "family": "perch_cached_probe",
+                                "hypothesis": "Adjust probe capacity.",
+                                "rationale": "Representation hedge.",
+                                "branch_role": "explore",
+                                "idea_class": "probe_head",
+                                "target_component": "probe_head",
+                                "priority_delta": 14,
+                                "launch_mode": "background",
+                                "knowledge_card_ids": ["card-probe"],
+                            },
+                        ],
+                    }
+                if stage_name == "research":
+                    return {
+                        "stage": "research",
+                        "root_cause": "class imbalance on holdout",
+                        "adopt_now": ["coverage-first branch"],
+                        "consider": ["probe-head capacity branch"],
+                        "reject": ["calibration-only sweep"],
+                        "knowledge_card_ids": ["card-coverage", "card-calibration", "card-probe"],
+                        "policy_cards": [
+                            {
+                                "card_id": "card-coverage",
+                                "component": "class_coverage",
+                                "policy_type": "require",
+                                "confidence": 0.91,
+                            },
+                            {
+                                "card_id": "card-calibration",
+                                "component": "prior_calibration",
+                                "policy_type": "veto",
+                                "confidence": 0.88,
+                            },
+                        ],
+                        "branch_memories": [
+                            {
+                                "memory_id": "memory-0002",
+                                "idea_class": "prior_calibration",
+                                "outcome": "regressed",
+                                "signal_score": -2.0,
+                            }
+                        ],
+                        "branch_memory_ids": ["memory-0002"],
+                    }
+                return {}
+
+            with patch("kaggle_agent.decision.planner.latest_stage_payload", side_effect=_latest_payload), patch(
+                "kaggle_agent.decision.planner.run_configured_stage_adapter",
+                return_value=None,
+            ):
+                stage_run = build_plan(config, state, run.run_id)
+
+            payload = json.loads(Path(stage_run.output_json_path).read_text(encoding="utf-8"))
+            self.assertEqual(payload["plan_status"], "planned")
+            self.assertEqual(len(payload["branch_plans"]), 2)
+            self.assertTrue(payload["pruned_branches"])
+            pruned_titles = {item["title"] for item in payload["pruned_branches"]}
+            self.assertIn("Calibration sweep", pruned_titles)
+            self.assertTrue(payload["policy_trace"])
+            self.assertTrue(payload["scheduler_hints"])
+            self.assertTrue(all(branch["policy_trace"] for branch in payload["branch_plans"]))
+            self.assertTrue(all(isinstance(branch["scheduler_hints"], dict) for branch in payload["branch_plans"]))
+            markdown = Path(stage_run.output_md_path).read_text(encoding="utf-8")
+            self.assertIn("Pruned Branches", markdown)
+            self.assertIn("Policy Trace", markdown)
 
     def test_build_plan_falls_back_when_decision_next_config_path_is_not_materialized(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -1019,6 +1234,174 @@ class WorkspaceTests(unittest.TestCase):
 
             selected = choose_next_work_items(config, state)
             self.assertEqual(len(selected), 2)
+
+    def test_choose_next_work_items_prefers_portfolio_diversity(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            config_path = str((root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml").relative_to(root))
+            state.work_items = [
+                WorkItem(
+                    id="workitem-a",
+                    title="Coverage frontier",
+                    work_type="experiment_iteration",
+                    family="perch_cached_probe",
+                    priority=20,
+                    status="queued",
+                    config_path=config_path,
+                    pipeline=list(state.work_items[0].pipeline),
+                    portfolio_id="portfolio-a",
+                    idea_class="class_coverage",
+                    branch_role="primary",
+                    scheduler_hints={"portfolio_cap": 1, "idea_class_cap": 1, "dispatch_priority": 8.0},
+                ),
+                WorkItem(
+                    id="workitem-b",
+                    title="Probe hedge same portfolio",
+                    work_type="experiment_iteration",
+                    family="perch_cached_probe",
+                    priority=21,
+                    status="queued",
+                    config_path=config_path,
+                    pipeline=list(state.work_items[0].pipeline),
+                    portfolio_id="portfolio-a",
+                    idea_class="probe_head",
+                    branch_role="hedge",
+                    scheduler_hints={"portfolio_cap": 1, "idea_class_cap": 1, "dispatch_priority": 7.0},
+                ),
+                WorkItem(
+                    id="workitem-c",
+                    title="Pseudo-label frontier",
+                    work_type="experiment_iteration",
+                    family="perch_cached_probe",
+                    priority=22,
+                    status="queued",
+                    config_path=config_path,
+                    pipeline=list(state.work_items[0].pipeline),
+                    portfolio_id="portfolio-b",
+                    idea_class="pseudo_label",
+                    branch_role="primary",
+                    scheduler_hints={"portfolio_cap": 1, "idea_class_cap": 1, "dispatch_priority": 6.0},
+                ),
+            ]
+            state.runtime.active_run_ids = []
+            config = config.__class__(
+                root=config.root,
+                competition=config.competition,
+                metrics=config.metrics,
+                data=config.data,
+                paths=config.paths,
+                automation=config.automation.__class__(**{**config.automation.__dict__, "max_active_runs": 2}),
+                adapters=config.adapters,
+                runtime=config.runtime,
+                kaggle=config.kaggle,
+                notes=config.notes,
+            )
+
+            selected = choose_next_work_items(config, state)
+
+            self.assertEqual([item.id for item in selected], ["workitem-a", "workitem-c"])
+
+    def test_synchronize_branch_memory_records_outcome_summary(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            work_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            work_item.branch_role = "primary"
+            work_item.idea_class = "class_coverage"
+            experiment = ExperimentSpec(
+                id="exp-memory-sync",
+                title="Perch cached-probe baseline",
+                hypothesis="baseline",
+                family=work_item.family,
+                config_path=work_item.config_path,
+                priority=work_item.priority,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+            )
+            state.experiments.append(experiment)
+            state.runs.append(
+                RunRecord(
+                    run_id="run-memory-parent",
+                    experiment_id=experiment.id,
+                    work_item_id=work_item.id,
+                    spec_id="spec-seed",
+                    status="succeeded",
+                    command="",
+                    cwd=str(root),
+                    run_dir=str(root / "artifacts" / "runs" / "run-memory-parent"),
+                    log_path=str(root / "artifacts" / "runs" / "run-memory-parent" / "train.log"),
+                    primary_metric_name="val_soundscape_macro_roc_auc",
+                    primary_metric_value=0.61,
+                )
+            )
+            work_item.source_run_id = "run-memory-parent"
+            run = RunRecord(
+                run_id="run-memory-sync",
+                experiment_id=experiment.id,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+                status="succeeded",
+                command="",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-memory-sync"),
+                log_path=str(root / "artifacts" / "runs" / "run-memory-sync" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.64,
+            )
+            state.runs.append(run)
+            critic_dir = root / "artifacts" / "critic"
+            critic_dir.mkdir(parents=True)
+            (critic_dir / "critic.json").write_text(json.dumps({"stage": "critic", "status": "approved"}), encoding="utf-8")
+            validate_dir = root / "artifacts" / "validate"
+            validate_dir.mkdir(parents=True)
+            (validate_dir / "validate.json").write_text(json.dumps({"stage": "validate", "status": "validated"}), encoding="utf-8")
+            state.stage_runs.extend(
+                [
+                    StageRun(
+                        stage_run_id="stage-critic-sync",
+                        run_id=run.run_id,
+                        work_item_id=work_item.id,
+                        stage_name="critic",
+                        status="completed",
+                        input_ref=run.run_id,
+                        output_dir=str(critic_dir),
+                        output_json_path=str(critic_dir / "critic.json"),
+                        output_md_path=str(critic_dir / "critic.md"),
+                    ),
+                    StageRun(
+                        stage_run_id="stage-validate-sync",
+                        run_id=run.run_id,
+                        work_item_id=work_item.id,
+                        stage_name="validate",
+                        status="completed",
+                        input_ref=run.run_id,
+                        output_dir=str(validate_dir),
+                        output_json_path=str(validate_dir / "validate.json"),
+                        output_md_path=str(validate_dir / "validate.md"),
+                    ),
+                ]
+            )
+            run.latest_stage_run_id = "stage-validate-sync"
+
+            memory = synchronize_branch_memory(state, run.run_id)
+
+            self.assertIsNotNone(memory)
+            assert memory is not None
+            self.assertEqual(memory.outcome, "leader")
+            self.assertIn("delta=+0.030000", memory.summary)
+            self.assertEqual(state.branch_memories[-1].run_id, run.run_id)
 
     def test_force_init_reset_clears_stale_workspace_state_and_seeds_attempt(self) -> None:
         with TemporaryDirectory() as tmp:
