@@ -240,6 +240,25 @@ def _build_prompt(
         + "\n```"
     )
     if codegen_workspace is not None:
+        previous_attempt = ctx.input_manifest.get("previous_codegen_attempt")
+        if isinstance(previous_attempt, dict):
+            changed_files = previous_attempt.get("changed_files", [])
+            changed_files_lines = ""
+            if isinstance(changed_files, list) and changed_files:
+                changed_files_lines = "\n".join(f"- `{str(item)}`" for item in changed_files)
+            prompt_sections.append(
+                "# Retry Context\n\n"
+                f"This is codegen repair attempt `{ctx.input_manifest.get('codegen_attempt_number', '')}`.\n\n"
+                f"- Previous attempt: `{previous_attempt.get('attempt_number', '')}`\n"
+                f"- Previous status: `{previous_attempt.get('status', '')}`\n"
+                f"- Previous verify status: `{previous_attempt.get('verify_status', '')}`\n"
+                f"- Previous verify summary: {previous_attempt.get('verify_summary', '')}\n"
+                + (f"- Previous changed files:\n{changed_files_lines}\n" if changed_files_lines else "")
+                + "\n"
+                "First repair the previous verify failure before attempting any new optimization.\n"
+                "Prefer the smallest change that restores a passing verify run.\n"
+                "If the previous attempt edited runtime source files and verify failed, revert or narrow those source edits unless they are strictly required."
+            )
         prompt_sections.append(
             "# Editable Workspace\n\n"
             f"- Workspace root: `{codegen_workspace.workspace_root}`\n"
@@ -525,7 +544,7 @@ def _materialize_codegen(
     canonical = {
         "stage": "codegen",
         "status": "noop",
-        "reason": "Claude Code completed without modifying the isolated stage workspace.",
+        "reason": "The agentic codegen provider completed without modifying the isolated stage workspace.",
         "generated_config_path": "",
         "run_bundle_path": "",
         "patch_path": "",
@@ -563,7 +582,7 @@ def _materialize_codegen(
     if not final_changed_files:
         canonical.update(
             {
-                "reason": "Claude Code completed without leaving net source changes after transient codegen noise was pruned.",
+                "reason": "The agentic codegen provider completed without leaving net source changes after transient codegen noise was pruned.",
                 "head_commit": head_commit if head_commit != codegen_workspace.base_commit else "",
             }
         )
@@ -605,7 +624,7 @@ def _materialize_codegen(
     canonical.update(
         {
             "status": "generated",
-            "reason": "Materialized Claude Code edits from the isolated stage workspace and recorded the deterministic verify result.",
+            "reason": "Materialized agentic codegen edits from the isolated stage workspace and recorded the deterministic verify result.",
             "generated_config_path": str(generated_config_path),
             "run_bundle_path": str(run_bundle_path),
             "patch_path": str(patch_path),

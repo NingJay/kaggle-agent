@@ -14,9 +14,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, _build_prompt
 from kaggle_agent.cli import main as cli_main
 from kaggle_agent.control.executor import collect_finished_runs, start_run
 from kaggle_agent.control.monitor import _run_validate_stage
+from kaggle_agent.decision.codegen import build_codegen
 from kaggle_agent.control.store import load_state
 from kaggle_agent.schema import RunRecord, RuntimeState, StageRun, WorkspaceState
 from kaggle_agent.service import (
@@ -1010,6 +1012,185 @@ class WorkspaceTests(unittest.TestCase):
             self.assertIn("verify", captured["payload"]["summary"])
             self.assertEqual(state.validations[-1].status, "failed")
             register_mock.assert_not_called()
+
+    def test_build_codegen_retries_failed_verify_with_previous_attempt_context(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            config = load_config(root)
+
+            output_dir = root / "artifacts" / "codegen-retry-output"
+            output_dir.mkdir(parents=True)
+            input_manifest_path = output_dir / "input_manifest.json"
+            run = RunRecord(
+                run_id="run-codegen-retry",
+                experiment_id="exp-codegen-retry",
+                work_item_id="workitem-codegen-retry",
+                spec_id="",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-codegen-retry"),
+                log_path=str(root / "artifacts" / "runs" / "run-codegen-retry" / "train.log"),
+            )
+            state = WorkspaceState(
+                work_items=[],
+                experiments=[],
+                runs=[run],
+                stage_runs=[],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(initialized_at="2026-03-31T00:00:00Z", next_validation_number=1),
+            )
+            stage_run = StageRun(
+                stage_run_id="stage-codegen-retry",
+                run_id=run.run_id,
+                work_item_id=run.work_item_id,
+                stage_name="codegen",
+                status="running",
+                input_ref=run.run_id,
+                output_dir=str(output_dir),
+                output_json_path=str(output_dir / "codegen.json"),
+                output_md_path=str(output_dir / "codegen.md"),
+            )
+            plan_payload = {
+                "stage": "plan",
+                "plan_status": "planned",
+                "title": "Retry verify failure",
+                "family": "perch_cached_probe",
+                "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+                "launch_mode": "background",
+                "dedupe_key": "codegen-retry:test",
+            }
+            failed_payload = {
+                "stage": "codegen",
+                "status": "generated",
+                "reason": "First attempt broke cached probe calibration.",
+                "generated_config_path": str(output_dir / "generated_config.yaml"),
+                "run_bundle_path": str(output_dir / "run_bundle.json"),
+                "patch_path": str(output_dir / "patch.diff"),
+                "code_state_ref": str(root / "state" / "code-state"),
+                "verify_artifacts_ref": str(root / "state" / "verify"),
+                "verify_command": "python ./train_sed.py --config configs/default.yaml",
+                "verify_status": "failed",
+                "verify_summary": "Runtime failed: could not broadcast input array from shape (564,) into shape (708,)",
+                "worktree_path": str(root / "state" / "code-state"),
+                "base_commit": "abc123",
+                "head_commit": "def456",
+                "changed_files": [
+                    "BirdCLEF-2026-Codebase/configs/default.yaml",
+                    "BirdCLEF-2026-Codebase/src/birdclef_runtime/cached_probe.py",
+                ],
+                "provider_runtime": "claude_code mode:agentic",
+                "allowed_edit_roots": [
+                    "train_sed.py",
+                    "BirdCLEF-2026-Codebase/configs",
+                    "BirdCLEF-2026-Codebase/src",
+                ],
+                "smoke_status": "failed",
+                "smoke_summary": "Runtime failed: could not broadcast input array from shape (564,) into shape (708,)",
+            }
+            repaired_payload = dict(failed_payload)
+            repaired_payload.update(
+                {
+                    "reason": "Second attempt repaired the failing probe edit.",
+                    "verify_status": "passed",
+                    "verify_summary": "Verify run completed with val_soundscape_macro_roc_auc=0.681 and verdict=continue-iterating.",
+                    "smoke_status": "passed",
+                    "smoke_summary": "Verify run completed with val_soundscape_macro_roc_auc=0.681 and verdict=continue-iterating.",
+                    "changed_files": ["BirdCLEF-2026-Codebase/configs/default.yaml"],
+                }
+            )
+
+            captured_manifests: list[dict[str, object]] = []
+            completed: dict[str, object] = {}
+            adapter_payloads = [(failed_payload, "first"), (repaired_payload, "second")]
+
+            def _capture_manifest(_path: Path, payload: dict[str, object]) -> None:
+                captured_manifests.append(payload)
+
+            with patch("kaggle_agent.decision.codegen.latest_stage_payload", return_value=plan_payload), patch(
+                "kaggle_agent.decision.codegen.begin_stage_run",
+                return_value=(stage_run, input_manifest_path),
+            ), patch(
+                "kaggle_agent.decision.codegen.write_input_manifest",
+                side_effect=_capture_manifest,
+            ), patch(
+                "kaggle_agent.decision.codegen.run_configured_stage_adapter",
+                side_effect=adapter_payloads,
+            ) as adapter_mock, patch(
+                "kaggle_agent.decision.codegen.complete_stage_run",
+                side_effect=lambda _stage_run, **kwargs: completed.update(kwargs),
+            ):
+                build_codegen(config, state, run.run_id)
+
+            self.assertEqual(adapter_mock.call_count, 2)
+            self.assertEqual(len(captured_manifests), 2)
+            self.assertEqual(captured_manifests[0]["codegen_attempt_number"], 1)
+            self.assertNotIn("previous_codegen_attempt", captured_manifests[0])
+            self.assertEqual(captured_manifests[1]["codegen_attempt_number"], 2)
+            previous_attempt = captured_manifests[1]["previous_codegen_attempt"]
+            self.assertEqual(previous_attempt["attempt_number"], 1)
+            self.assertEqual(previous_attempt["verify_status"], "failed")
+            self.assertIn("shape (564,)", previous_attempt["verify_summary"])
+            self.assertIn("cached_probe.py", previous_attempt["changed_files"][1])
+            self.assertEqual(completed["payload"]["verify_status"], "passed")
+            self.assertEqual(completed["markdown"], "second")
+
+    def test_codegen_prompt_surfaces_retry_context_and_repair_rules(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            schema_path = root / "schemas" / "codegen.schema.json"
+            schema_path.parent.mkdir(parents=True)
+            schema_path.write_text("{}", encoding="utf-8")
+            output_dir = root / "artifacts" / "codegen-output"
+            output_dir.mkdir(parents=True)
+            ctx = StageContext(
+                stage="codegen",
+                workspace_root=root,
+                input_manifest_path=output_dir / "input_manifest.json",
+                output_dir=output_dir,
+                prompt_path=None,
+                schema_path=schema_path,
+                input_manifest={
+                    "run": {"run_id": "run-codegen-prompt"},
+                    "plan": {"config_path": "BirdCLEF-2026-Codebase/configs/default.yaml"},
+                    "codegen_attempt_number": 2,
+                    "previous_codegen_attempt": {
+                        "attempt_number": 1,
+                        "status": "generated",
+                        "verify_status": "failed",
+                        "verify_summary": "Runtime failed: shape mismatch in cached probe logits.",
+                        "changed_files": [
+                            "BirdCLEF-2026-Codebase/configs/default.yaml",
+                            "BirdCLEF-2026-Codebase/src/birdclef_runtime/cached_probe.py",
+                        ],
+                    },
+                },
+            )
+            codegen_workspace = CodegenWorkspace(
+                snapshot_root=root / "state" / "worktrees" / "codegen" / "stage",
+                workspace_root=root,
+                verify_root=root / "state" / "worktrees" / "codegen" / "stage" / "verify_runtime",
+                base_commit="abc123",
+                expected_config_relpath="BirdCLEF-2026-Codebase/configs/default.yaml",
+            )
+
+            prompt = _build_prompt(ctx, codegen_workspace)
+
+            self.assertIn("Retry Context", prompt)
+            self.assertIn("shape mismatch in cached probe logits", prompt)
+            self.assertIn("First repair the previous verify failure", prompt)
+            self.assertIn("revert or narrow those source edits", prompt)
+            self.assertIn("cached_probe.py", prompt)
 
     def test_adapter_wrapper_fails_on_schema_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:

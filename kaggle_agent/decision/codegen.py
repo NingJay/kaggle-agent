@@ -23,6 +23,42 @@ FALLBACK_ALLOWED_EDIT_ROOTS = [
     "BirdCLEF-2026-Codebase/inference.py",
     "BirdCLEF-2026-Codebase/scripts",
 ]
+CODEGEN_MAX_REPAIR_ATTEMPTS = 3
+
+
+def _codegen_retry_manifest(
+    run,
+    plan: dict[str, object],
+    *,
+    previous_payload: dict[str, object] | None = None,
+    attempt_number: int = 1,
+) -> dict[str, object]:
+    manifest: dict[str, object] = {
+        "run": run.to_dict(),
+        "plan": plan,
+        "codegen_attempt_number": attempt_number,
+    }
+    if previous_payload is None:
+        return manifest
+    manifest["previous_codegen_attempt"] = {
+        "attempt_number": attempt_number - 1,
+        "status": str(previous_payload.get("status", "")),
+        "reason": str(previous_payload.get("reason", "")),
+        "verify_status": str(previous_payload.get("verify_status", "")),
+        "verify_summary": str(previous_payload.get("verify_summary", "")),
+        "changed_files": [str(item) for item in previous_payload.get("changed_files", [])],
+    }
+    return manifest
+
+
+def _should_retry_codegen_payload(payload: dict[str, object], *, plan_status: str, attempt_number: int) -> bool:
+    if plan_status != "planned":
+        return False
+    if attempt_number >= CODEGEN_MAX_REPAIR_ATTEMPTS:
+        return False
+    status = str(payload.get("status", "") or "")
+    verify_status = str(payload.get("verify_status") or payload.get("smoke_status") or "")
+    return status != "generated" or verify_status == "failed"
 
 
 def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
@@ -35,20 +71,39 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         stage_name="codegen",
         input_ref=run.latest_stage_run_id or run.run_id,
     )
-    write_input_manifest(input_manifest_path, {"run": run.to_dict(), "plan": plan})
-    adapted = run_configured_stage_adapter(
-        config,
-        state,
-        stage_run,
-        input_manifest_path=input_manifest_path,
-        extra_env={"KAGGLE_AGENT_RUN_ID": run_id},
-    )
-    if adapted is not None:
+    plan_status = str(plan.get("plan_status", "hold"))
+    previous_payload: dict[str, object] | None = None
+    previous_markdown = ""
+    for attempt_number in range(1, CODEGEN_MAX_REPAIR_ATTEMPTS + 1):
+        write_input_manifest(
+            input_manifest_path,
+            _codegen_retry_manifest(
+                run,
+                plan,
+                previous_payload=previous_payload,
+                attempt_number=attempt_number,
+            ),
+        )
+        adapted = run_configured_stage_adapter(
+            config,
+            state,
+            stage_run,
+            input_manifest_path=input_manifest_path,
+            extra_env={"KAGGLE_AGENT_RUN_ID": run_id, "KAGGLE_AGENT_CODEGEN_ATTEMPT": str(attempt_number)},
+        )
+        if adapted is None:
+            break
         payload, markdown = adapted
-        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
+        previous_payload = payload
+        previous_markdown = markdown
+        if not _should_retry_codegen_payload(payload, plan_status=plan_status, attempt_number=attempt_number):
+            complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
+            return stage_run
+
+    if previous_payload is not None:
+        complete_stage_run(stage_run, state=state, payload=previous_payload, markdown=previous_markdown)
         return stage_run
 
-    plan_status = str(plan.get("plan_status", "hold"))
     output_dir = Path(stage_run.output_dir)
     if plan_status != "planned":
         payload = {
