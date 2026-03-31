@@ -73,6 +73,19 @@ def _work_item_from_run(state: WorkspaceState, run: RunRecord):
     return next((item for item in state.work_items if item.id == run.work_item_id), None)
 
 
+def _archive_conflicting_stage_dir(path: Path) -> Path | None:
+    if not path.exists():
+        return None
+    stamp = now_utc_iso().replace(":", "").replace("+00:00", "Z")
+    archived = path.parent / f"{path.name}__stale_{stamp}"
+    counter = 1
+    while archived.exists():
+        archived = path.parent / f"{path.name}__stale_{stamp}_{counter:02d}"
+        counter += 1
+    path.rename(archived)
+    return archived
+
+
 def begin_stage_run(
     config: WorkspaceConfig,
     state: WorkspaceState,
@@ -86,13 +99,13 @@ def begin_stage_run(
     work_item = _work_item_from_run(state, run)
     attempt_slug = current_attempt_slug(state.runtime)
     readable_run_label = run_label(run.run_id, work_item.title if work_item is not None else run.experiment_id)
-    output_dir = ensure_directory(
-        config.stage_dir(
-            attempt_slug,
-            readable_run_label,
-            stage_label(stage_name, stage_status="running"),
-        )
+    output_dir = config.stage_dir(
+        attempt_slug,
+        readable_run_label,
+        stage_label(stage_name, stage_status="running"),
     )
+    _archive_conflicting_stage_dir(output_dir)
+    output_dir = ensure_directory(output_dir)
     prompt_path = prompt_path_for_stage(config, stage_name)
     stage_run = StageRun(
         stage_run_id=stage_run_id,
@@ -148,6 +161,7 @@ def _relocate_stage_output(
         return old_dir, new_dir
     if old_dir.exists():
         ensure_directory(new_dir.parent)
+        _archive_conflicting_stage_dir(new_dir)
         old_dir.rename(new_dir)
     stage_run.output_dir = str(new_dir)
     stage_run.output_json_path = _rebase_stage_path(stage_run.output_json_path, old_dir, new_dir)

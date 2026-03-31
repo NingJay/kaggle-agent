@@ -15,7 +15,8 @@ from kaggle_agent.adapters.providers.claude_code_exec import run_claude_code_exe
 from kaggle_agent.adapters.providers.claude_headless import run_claude_headless
 from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
 from kaggle_agent.adapters.schema_validation import SchemaValidationError
-from kaggle_agent.decision.helpers import _rewrite_text_file_paths
+from kaggle_agent.decision.helpers import _archive_conflicting_stage_dir, _relocate_stage_output, _rewrite_text_file_paths
+from kaggle_agent.schema import StageRun
 from kaggle_agent.adapters.stage_wrapper import (
     CodegenWorkspace,
     StageContext,
@@ -39,6 +40,53 @@ def _skip_amp() -> bool:
 
 
 class StageWrapperCompatibilityTests(unittest.TestCase):
+    def test_archive_conflicting_stage_dir_moves_stale_directory_aside(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            running_dir = root / "01-evidence__running"
+            running_dir.mkdir(parents=True)
+            (running_dir / "input_manifest.json").write_text("{}", encoding="utf-8")
+
+            archived = _archive_conflicting_stage_dir(running_dir)
+
+            self.assertIsNotNone(archived)
+            assert archived is not None
+            self.assertFalse(running_dir.exists())
+            self.assertTrue(archived.exists())
+            self.assertIn("__stale_", archived.name)
+            self.assertTrue((archived / "input_manifest.json").exists())
+
+    def test_relocate_stage_output_archives_existing_target_dir(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old_dir = root / "01-evidence__running"
+            old_dir.mkdir(parents=True)
+            (old_dir / "evidence.json").write_text('{"status":"running"}\n', encoding="utf-8")
+            (old_dir / "evidence.md").write_text("running\n", encoding="utf-8")
+            stale_target = root / "01-evidence__succeeded"
+            stale_target.mkdir(parents=True)
+            (stale_target / "stale.txt").write_text("stale\n", encoding="utf-8")
+            stage_run = StageRun(
+                stage_run_id="stage-9999-evidence",
+                run_id="run-9999",
+                work_item_id="workitem-9999",
+                stage_name="evidence",
+                status="running",
+                input_ref="run-9999",
+                output_dir=str(old_dir),
+                output_json_path=str(old_dir / "evidence.json"),
+                output_md_path=str(old_dir / "evidence.md"),
+            )
+
+            _relocate_stage_output(None, stage_run, payload={"status": "succeeded"}, status="completed")
+
+            target_dir = root / "01-evidence__succeeded"
+            archived_targets = list(root.glob("01-evidence__succeeded__stale_*"))
+            self.assertTrue(target_dir.exists())
+            self.assertTrue((target_dir / "evidence.json").exists())
+            self.assertEqual(len(archived_targets), 1)
+            self.assertTrue((archived_targets[0] / "stale.txt").exists())
+
     def test_rewrite_text_file_paths_rebases_markdown_links(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
