@@ -1,0 +1,2 @@
+id,source_run_id,status,cpu_ready,predicted_public_lb
+submission-0001-run-0001-perch-baseline,run-0001-perch-baseline,cpu_ready,True,0.665078

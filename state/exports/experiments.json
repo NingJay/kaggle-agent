@@ -1,0 +1,96 @@
+[
+  {
+    "id": "exp-0001-class-coverage-expansion-probe",
+    "title": "Class coverage expansion probe",
+    "hypothesis": "Work item workitem-0001-class-coverage-expansion-probe: Class coverage expansion probe",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "priority": 45,
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "spec_id": "spec-0002",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "latest_decision_id": "",
+    "created_at": "2026-04-01T11:35:41+00:00",
+    "updated_at": "2026-04-01T11:38:33+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-0001-class-coverage-expansion-probe:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "data_coverage",
+    "branch_role": "primary",
+    "branch_rank": 0,
+    "knowledge_card_ids": [
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+    ]
+  },
+  {
+    "id": "exp-0002-calibrated-prior-fusion-v2",
+    "title": "Calibrated prior fusion v2",
+    "hypothesis": "Work item workitem-0002-calibrated-prior-fusion-v2: Calibrated prior fusion v2",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+    "priority": 37,
+    "work_item_id": "workitem-0002-calibrated-prior-fusion-v2",
+    "spec_id": "spec-0003",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "latest_decision_id": "",
+    "created_at": "2026-04-01T11:35:41+00:00",
+    "updated_at": "2026-04-01T11:38:33+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-0002-calibrated-prior-fusion-v2:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "post_processing",
+    "branch_role": "tertiary",
+    "branch_rank": 1,
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause"
+    ]
+  },
+  {
+    "id": "exp-perch-baseline",
+    "title": "Perch cached-probe baseline",
+    "hypothesis": "Work item workitem-perch-baseline: Perch cached-probe baseline",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "priority": 20,
+    "work_item_id": "workitem-perch-baseline",
+    "spec_id": "spec-0001",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0001-perch-baseline",
+    "latest_decision_id": "",
+    "created_at": "2026-04-01T11:29:26+00:00",
+    "updated_at": "2026-04-01T11:29:31+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-perch-baseline:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "",
+    "idea_class": "",
+    "branch_role": "",
+    "branch_rank": 0,
+    "knowledge_card_ids": []
+  }
+]

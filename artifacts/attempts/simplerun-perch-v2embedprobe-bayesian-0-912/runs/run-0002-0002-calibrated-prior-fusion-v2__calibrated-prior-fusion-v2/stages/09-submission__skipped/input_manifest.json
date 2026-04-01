@@ -1,0 +1,864 @@
+{
+  "run": {
+    "run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "experiment_id": "exp-0002-calibrated-prior-fusion-v2",
+    "work_item_id": "workitem-0002-calibrated-prior-fusion-v2",
+    "spec_id": "spec-0003",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/train.log",
+    "started_at": "2026-04-01T11:35:41+00:00",
+    "completed_at": "2026-04-01T11:38:33+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6647655401194675,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917797885609636,
+      "padded_cmap": 0.062420468209544416,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "branch_experiment",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "submission",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-01T11:49:01+00:00",
+    "latest_stage_run_id": "stage-0021-submission"
+  },
+  "decision": {
+    "stage": "decision",
+    "decision_type": "branch_exhaustion",
+    "next_action": "plan",
+    "submission_recommendation": "ship_leader_bundle",
+    "root_cause": "Calibrated prior fusion v2 (run-0002-0002) scored 0.6648 val ROC-AUC, a -0.0005 regression vs the leader run-0003-0001 (0.6652). The prior fusion component is near-random on train (0.487) and below raw probe on validation (0.662), confirming Bayesian prior calibration extracts no meaningful signal. The prior fusion branch is exhausted after two failed attempts (run-0003-0002 and run-0002-0002).",
+    "why": "The prior fusion post-processing lane has been tested twice with consistent negative results. Both negative vetoes at confidence 0.68 confirm this axis should be closed. The immediate priority is shipping the critic-approved raw-probe leader bundle (run-0003-0001 at 0.6652) to secure a submission slot. After that, plan should target high-value axes: probe-head architecture improvements (MLP regularization without prior fusion) and revised class-coverage strategies, since brute-force 52→75 expansion was flat. Collapsing to another calibration tweak would waste experiment capacity with no signal basis.",
+    "next_title": "Probe-head architecture and revised coverage strategy",
+    "next_family": "perch_cached_probe",
+    "next_config_path": "BirdCLEF-2026-Codebase/configs/generated/probe-head-arch-v1.yaml",
+    "priority_delta": 10,
+    "launch_mode": "background",
+    "requires_human": false,
+    "portfolio_intent": "Close prior fusion (tertiary, exhausted). Ship primary data_coverage leader. Open probe-head architecture as next experimental axis.",
+    "portfolio_policy": {
+      "max_parallel_branches": 3,
+      "submission_budget_remaining": 4,
+      "exhausted_axes": [
+        "prior_fusion",
+        "bayesian_calibration"
+      ],
+      "active_axes": [
+        "probe_head_architecture",
+        "class_coverage_revised"
+      ],
+      "leader_run": "run-0003-0001-class-coverage-expansion-probe",
+      "leader_metric": 0.6652
+    },
+    "branch_mix": [
+      {
+        "branch_role": "primary",
+        "run_id": "run-0003-0001-class-coverage-expansion-probe",
+        "metric": 0.6652,
+        "action": "submission_bundle",
+        "idea_class": "data_coverage"
+      },
+      {
+        "branch_role": "secondary",
+        "run_id": "run-0001-perch-baseline",
+        "metric": 0.6651,
+        "action": "fallback_submission",
+        "idea_class": "baseline"
+      },
+      {
+        "branch_role": "tertiary",
+        "run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+        "metric": 0.6648,
+        "action": "exhausted",
+        "idea_class": "post_processing"
+      }
+    ],
+    "deprioritized_axes": [
+      "prior_fusion",
+      "bayesian_prior_calibration",
+      "fusion_weight_grid_search",
+      "brute_force_coverage_expansion"
+    ],
+    "problem_frame": {
+      "family": "perch_cached_probe",
+      "focus": "Ship the raw-probe leader submission bundle and open a probe-head architecture experiment axis. Prior fusion is exhausted.",
+      "root_cause": "Prior fusion has been tested twice with negative results; the Bayesian prior adds no signal. The leader at 0.6652 is critic-approved and ready for submission. Next gains likely come from probe-head architecture rather than post-processing.",
+      "objective_metric": "val_soundscape_macro_roc_auc"
+    },
+    "knowledge_card_ids": [
+      "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+      "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+      "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+      "01-validated-findings-md-perch-and-embedding-findings",
+      "03-next-experiment-priors-md-perch-probe-lane"
+    ],
+    "branch_memory_ids": [
+      "memory-0002",
+      "memory-0001"
+    ],
+    "selected_policy_cards": [
+      "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+      "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+      "01-validated-findings-md-perch-and-embedding-findings",
+      "03-next-experiment-priors-md-perch-probe-lane"
+    ]
+  },
+  "plan": {
+    "stage": "plan",
+    "plan_status": "planned",
+    "source_run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "reason": "Critic-approved leader, ready for submission packaging.",
+    "title": "Ship leader bundle and open probe-head architecture axis",
+    "family": "perch_cached_probe",
+    "hypothesis": "The prior fusion axis is exhausted. The immediate priority is packaging the critic-approved leader (run-0003-0001, val ROC-AUC 0.6652) for submission. After securing a submission slot, the next gains are likely from probe-head architecture improvements (MLP regularization without prior fusion, based on the coverage-MLP context card showing 0.672 on a different split) and fixing the abnormally high training temperature (7.39) identified in the conditional lead.",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/ship-leader-bundle-and-open-probe-head-architecture-axis.yaml",
+    "priority": 47,
+    "depends_on": [
+      "workitem-0002-calibrated-prior-fusion-v2"
+    ],
+    "tags": [
+      "perch_cached_probe",
+      "planned",
+      "branch-search",
+      "primary",
+      "submission-packaging"
+    ],
+    "launch_mode": "background",
+    "dedupe_key": "plan:run-0002-0002-calibrated-prior-fusion-v2:portfolio-run-0001-perch-baseline-perch-cached-probe:00:ship-leader-bundle-and-open-probe-head-architecture-axis",
+    "work_type": "submission",
+    "lifecycle_template": "submission_from_target_run",
+    "target_run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "stage_plan": [
+      "submission"
+    ],
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "knowledge_card_ids": [
+      "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+      "research-run-0002-0002-calibrated-prior-fusion-v2-md-adopt-now",
+      "research-run-0002-0002-calibrated-prior-fusion-v2-md-result-summary",
+      "research-run-0006-0005-perch-probe-round-6-focal-loss-on-run-0002-leader-code-state-md-actionable-guidance-for-round-7",
+      "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+      "research-run-0002-0002-calibrated-prior-fusion-v2-md-decision-guidance",
+      "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+      "research-run-0002-0002-calibrated-prior-fusion-v2-md-consider"
+    ],
+    "problem_frame": {
+      "stage": "plan",
+      "family": "perch_cached_probe",
+      "title": "Probe-head architecture and revised coverage strategy",
+      "root_cause": "Calibrated prior fusion v2 (run-0002-0002) achieved val_soundscape_macro_roc_auc=0.6648, a -0.0005 regression versus the current leader run-0003-0001 (0.6652). The prior fusion component itself is near-random on train (prior_fusion_macro_roc_auc=0.487) and only marginally above raw probe on validation (val_prior_fusion_macro_roc_auc=0.662), confirming that the Bayesian prior calibration has not extracted meaningful signal. The prior fusion post-processing lane should be deprioritized in favor of shipping the existing raw-probe leader bundle and pursuing class-coverage or probe-head improvements.",
+      "hypothesis": "The prior fusion post-processing lane has been tested twice with consistent negative results. Both negative vetoes at confidence 0.68 confirm this axis should be closed. The immediate priority is shipping the critic-approved raw-probe leader bundle (run-0003-0001 at 0.6652) to secure a submission slot. After that, plan should target high-value axes: probe-head architecture improvements (MLP regularization without prior fusion) and revised class-coverage strategies, since brute-force 52→75 expansion was flat. Collapsing to another calibration tweak would waste experiment capacity with no signal basis.",
+      "objective_metric": "val_soundscape_macro_roc_auc",
+      "current_metric_value": 0.6647655401194675,
+      "focus": "",
+      "next_action": "plan",
+      "adopt_now": [
+        "[card:research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now] Ship run-0003-0001 (leader at 0.6652) or run-0002-0001 raw-probe submission bundle. Use raw probe output exclusively — prior fusion degrades it (0.6622). The bundle is already validated and critic-approved.",
+        "[card:01-validated-findings-md-perch-and-embedding-findings] Embedding-head style models can add complementary signal even when their standalone score is not the best (require @ 0.88). Keep the perch embedding probe as the primary signal source.",
+        "[memory:memory-0002] Primary data_coverage branch is the leader at 0.665216 with critic=approved. This is the submission candidate to bundle first."
+      ],
+      "consider": [
+        "[card:03-next-experiment-priors-md-perch-probe-lane] If fitted classes lag active classes, expand coverage before micro-tuning. Coverage expansion from 52→75 classes was flat, so further coverage gains may require different class selection strategy rather than brute-force expansion.",
+        "[card:research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state] The combined coverage expansion + MLP regularization branch achieved 0.672 on a different metric context — worth investigating whether MLP regularization alone (without prior fusion) could lift the probe head.",
+        "[memory:memory-0001] Baseline run validated at 0.6651 with submission_status=candidate_created. This is a fallback submission if the leader bundle has packaging issues."
+      ],
+      "reject": [
+        "[card:research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause] Prior fusion weight calibration regresses by -0.003 vs leader. Do not allocate further submission slots or experiment iterations to prior fusion calibration until a fundamentally different prior source or calibration method is available.",
+        "The prior fusion component (val_prior_fusion_macro_roc_auc=0.662) is below the raw probe baseline, confirming it adds negative value as currently implemented. Any future prior fusion work must first demonstrate standalone lift on validation before being blended.",
+        "Padded_cmap remains very low (0.062) across all runs — segment-level localization is not the bottleneck for ROC-AUC but should not be a focus area until the primary metric plateau is broken."
+      ],
+      "query_terms": [
+        "perch_cached_probe",
+        "probe",
+        "head",
+        "architecture",
+        "and",
+        "revised",
+        "coverage",
+        "strategy",
+        "calibrated",
+        "prior",
+        "fusion",
+        "run",
+        "0002",
+        "achieved",
+        "val_soundscape_macro_roc_auc",
+        "6648",
+        "0005",
+        "regression",
+        "versus",
+        "the",
+        "current",
+        "leader",
+        "0003",
+        "0001"
+      ]
+    },
+    "candidate_branches": [
+      {
+        "branch_role": "primary",
+        "run_id": "run-0003-0001-class-coverage-expansion-probe",
+        "metric": 0.6652,
+        "action": "submission_bundle",
+        "idea_class": "submission_packaging",
+        "reason": "Critic-approved leader, ready for submission packaging.",
+        "policy_score": 8.0,
+        "policy_trace": [
+          "role:primary:8.0"
+        ],
+        "branch_memory_ids": [],
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 8.0
+        }
+      },
+      {
+        "title": "Submission bundle: run-0003-0001 leader",
+        "family": "perch_cached_probe",
+        "hypothesis": "Package the critic-approved leader run-0003-0001 (val ROC-AUC 0.6652) as a submission bundle using raw probe output exclusively. No prior fusion blending.",
+        "reason": "Two adopt-now cards at 0.68 confidence and branch memory confirm the leader is ready for submission. This secures a leaderboard slot before experimenting on new axes.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 50,
+        "depends_on": [],
+        "tags": [
+          "submission_bundle",
+          "leader",
+          "raw_probe"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "submission:run-0003-0001-leader-bundle:2026-04-01",
+        "work_type": "submission",
+        "lifecycle_template": "branch_experiment",
+        "target_run_id": "run-0003-0001-class-coverage-expansion-probe",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "submission"
+        ],
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "submission_packaging",
+        "branch_role": "primary",
+        "branch_rank": 0,
+        "knowledge_card_ids": [
+          "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-adopt-now"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:primary:8.0"
+        ],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 8.0
+        },
+        "config_overrides": [],
+        "policy_score": 8.0,
+        "override_reason": "",
+        "veto_reasons": []
+      },
+      {
+        "branch_role": "secondary",
+        "run_id": null,
+        "metric": null,
+        "action": "new_experiment",
+        "idea_class": "probe_head_architecture",
+        "reason": "MLP regularization without prior fusion — isolates signal from coverage+MLP context card.",
+        "policy_score": 0.0,
+        "policy_trace": [
+          "role:secondary:0.0"
+        ],
+        "branch_memory_ids": [],
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        }
+      },
+      {
+        "branch_role": "tertiary",
+        "run_id": null,
+        "metric": null,
+        "action": "new_experiment",
+        "idea_class": "temperature_fix",
+        "reason": "Abnormally high temperature (7.39) may suppress discriminative signal. Diagnostic ablation.",
+        "policy_score": 0.0,
+        "policy_trace": [
+          "role:tertiary:0.0"
+        ],
+        "branch_memory_ids": [],
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        }
+      },
+      {
+        "title": "MLP probe-head regularization without prior fusion",
+        "family": "perch_cached_probe",
+        "hypothesis": "Replacing the linear probe head with a regularized MLP (2-layer, dropout=0.3, weight_decay=1e-4) without any prior fusion may lift val ROC-AUC above 0.6652. The coverage+MLP context card showed 0.672 on a different split, suggesting the MLP head has independent value.",
+        "reason": "The context card for run-0002-0003 (coverage+MLP combined) suggests MLP regularization has independent signal. Isolating it from prior fusion removes the vetoed component while potentially retaining the gains.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 45,
+        "depends_on": [],
+        "tags": [
+          "probe_head",
+          "mlp_regularization",
+          "no_prior_fusion"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "experiment:mlp-probe-head-regularization-no-prior-fusion:2026-04-01",
+        "work_type": "ablation_terminal",
+        "lifecycle_template": "branch_experiment",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "execute",
+          "evidence",
+          "report",
+          "research",
+          "decision",
+          "plan"
+        ],
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "probe_head_architecture",
+        "branch_role": "secondary",
+        "branch_rank": 1,
+        "knowledge_card_ids": [
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-consider"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:secondary:0.0"
+        ],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "config_overrides": [
+          {
+            "path": "model.probe_head.type",
+            "value": "mlp"
+          },
+          {
+            "path": "model.probe_head.hidden_dim",
+            "value": 256
+          },
+          {
+            "path": "model.probe_head.dropout",
+            "value": 0.3
+          },
+          {
+            "path": "model.probe_head.num_layers",
+            "value": 2
+          },
+          {
+            "path": "training.weight_decay",
+            "value": 0.0001
+          },
+          {
+            "path": "prior_fusion.enabled",
+            "value": false
+          }
+        ],
+        "policy_score": 0.0,
+        "override_reason": "",
+        "veto_reasons": []
+      },
+      {
+        "title": "Temperature audit: reduce from 7.39 to 1.5",
+        "family": "perch_cached_probe",
+        "hypothesis": "The training temperature of 7.39 is abnormally high and likely inflates logits toward near-uniform distributions, suppressing discriminative signal. Reducing to 1.5 on the run-0002 code state may recover meaningful probe-head signal and lift val ROC-AUC.",
+        "reason": "The conditional lead from run-0006-0005 identifies temperature as a potential root cause for inflated logits. This is a low-risk, high-diagnostic-value ablation that could explain the gap between train (0.992) and val (0.665) ROC-AUC.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 40,
+        "depends_on": [],
+        "tags": [
+          "temperature_audit",
+          "logit_calibration",
+          "diagnostic"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "experiment:temperature-audit-7.39-to-1.5:2026-04-01",
+        "work_type": "ablation_terminal",
+        "lifecycle_template": "branch_experiment",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "execute",
+          "evidence",
+          "report",
+          "research",
+          "decision",
+          "plan"
+        ],
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "temperature_fix",
+        "branch_role": "tertiary",
+        "branch_rank": 2,
+        "knowledge_card_ids": [
+          "research-run-0006-0005-perch-probe-round-6-focal-loss-on-run-0002-leader-code-state-md-actionable-guidance-for-round-7"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:tertiary:0.0"
+        ],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "config_overrides": [
+          {
+            "path": "model.temperature",
+            "value": 1.5
+          },
+          {
+            "path": "prior_fusion.enabled",
+            "value": false
+          }
+        ],
+        "policy_score": 0.0,
+        "override_reason": "",
+        "veto_reasons": []
+      }
+    ],
+    "branch_plans": [
+      {
+        "title": "Ship leader bundle and open probe-head architecture axis",
+        "family": "perch_cached_probe",
+        "hypothesis": "The prior fusion axis is exhausted. The immediate priority is packaging the critic-approved leader (run-0003-0001, val ROC-AUC 0.6652) for submission. After securing a submission slot, the next gains are likely from probe-head architecture improvements (MLP regularization without prior fusion, based on the coverage-MLP context card showing 0.672 on a different split) and fixing the abnormally high training temperature (7.39) identified in the conditional lead.",
+        "reason": "Critic-approved leader, ready for submission packaging.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/ship-leader-bundle-and-open-probe-head-architecture-axis.yaml",
+        "priority": 47,
+        "depends_on": [
+          "workitem-0002-calibrated-prior-fusion-v2"
+        ],
+        "tags": [
+          "perch_cached_probe",
+          "planned",
+          "branch-search",
+          "primary",
+          "submission-packaging"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0002-0002-calibrated-prior-fusion-v2:portfolio-run-0001-perch-baseline-perch-cached-probe:00:ship-leader-bundle-and-open-probe-head-architecture-axis",
+        "work_type": "submission",
+        "lifecycle_template": "submission_from_target_run",
+        "target_run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+        "stage_plan": [
+          "submission"
+        ],
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "submission_packaging",
+        "branch_role": "primary",
+        "branch_rank": 0,
+        "knowledge_card_ids": [
+          "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-adopt-now",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-result-summary",
+          "research-run-0006-0005-perch-probe-round-6-focal-loss-on-run-0002-leader-code-state-md-actionable-guidance-for-round-7",
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-decision-guidance",
+          "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-consider"
+        ],
+        "policy_trace": [
+          "role:primary:8.0"
+        ],
+        "branch_memory_ids": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 8.0
+        },
+        "policy_score": 8.0,
+        "config_overrides": []
+      },
+      {
+        "title": "Ship leader bundle and open probe-head architecture axis branch 2",
+        "family": "perch_cached_probe",
+        "hypothesis": "The prior fusion axis is exhausted. The immediate priority is packaging the critic-approved leader (run-0003-0001, val ROC-AUC 0.6652) for submission. After securing a submission slot, the next gains are likely from probe-head architecture improvements (MLP regularization without prior fusion, based on the coverage-MLP context card showing 0.672 on a different split) and fixing the abnormally high training temperature (7.39) identified in the conditional lead.",
+        "reason": "MLP regularization without prior fusion — isolates signal from coverage+MLP context card.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/ship-leader-bundle-and-open-probe-head-architecture-axis-branch-2.yaml",
+        "priority": 49,
+        "depends_on": [
+          "workitem-0002-calibrated-prior-fusion-v2"
+        ],
+        "tags": [
+          "perch_cached_probe",
+          "planned",
+          "branch-search",
+          "secondary",
+          "probe-head-architecture"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0002-0002-calibrated-prior-fusion-v2:portfolio-run-0001-perch-baseline-perch-cached-probe:01:ship-leader-bundle-and-open-probe-head-architecture-axis-branch-2",
+        "work_type": "experiment_iteration",
+        "lifecycle_template": "branch_experiment",
+        "target_run_id": "",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "execute",
+          "evidence",
+          "report",
+          "research",
+          "decision",
+          "plan",
+          "submission"
+        ],
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "probe_head_architecture",
+        "branch_role": "secondary",
+        "branch_rank": 1,
+        "knowledge_card_ids": [
+          "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-adopt-now",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-result-summary",
+          "research-run-0006-0005-perch-probe-round-6-focal-loss-on-run-0002-leader-code-state-md-actionable-guidance-for-round-7",
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-decision-guidance",
+          "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-consider"
+        ],
+        "policy_trace": [
+          "role:secondary:0.0"
+        ],
+        "branch_memory_ids": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "policy_score": 0.0,
+        "config_overrides": []
+      },
+      {
+        "title": "Ship leader bundle and open probe-head architecture axis branch 3",
+        "family": "perch_cached_probe",
+        "hypothesis": "The prior fusion axis is exhausted. The immediate priority is packaging the critic-approved leader (run-0003-0001, val ROC-AUC 0.6652) for submission. After securing a submission slot, the next gains are likely from probe-head architecture improvements (MLP regularization without prior fusion, based on the coverage-MLP context card showing 0.672 on a different split) and fixing the abnormally high training temperature (7.39) identified in the conditional lead.",
+        "reason": "Abnormally high temperature (7.39) may suppress discriminative signal. Diagnostic ablation.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/ship-leader-bundle-and-open-probe-head-architecture-axis-branch-3.yaml",
+        "priority": 51,
+        "depends_on": [
+          "workitem-0002-calibrated-prior-fusion-v2"
+        ],
+        "tags": [
+          "perch_cached_probe",
+          "planned",
+          "branch-search",
+          "tertiary",
+          "temperature-fix"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0002-0002-calibrated-prior-fusion-v2:portfolio-run-0001-perch-baseline-perch-cached-probe:02:ship-leader-bundle-and-open-probe-head-architecture-axis-branch-3",
+        "work_type": "experiment_iteration",
+        "lifecycle_template": "branch_experiment",
+        "target_run_id": "",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "execute",
+          "evidence",
+          "report",
+          "research",
+          "decision",
+          "plan",
+          "submission"
+        ],
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "temperature_fix",
+        "branch_role": "tertiary",
+        "branch_rank": 2,
+        "knowledge_card_ids": [
+          "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-adopt-now",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-result-summary",
+          "research-run-0006-0005-perch-probe-round-6-focal-loss-on-run-0002-leader-code-state-md-actionable-guidance-for-round-7",
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-decision-guidance",
+          "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-consider"
+        ],
+        "policy_trace": [
+          "role:tertiary:0.0"
+        ],
+        "branch_memory_ids": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "policy_score": 0.0,
+        "config_overrides": []
+      }
+    ],
+    "pruned_branches": [
+      {
+        "title": "Submission bundle: run-0003-0001 leader",
+        "family": "perch_cached_probe",
+        "hypothesis": "Package the critic-approved leader run-0003-0001 (val ROC-AUC 0.6652) as a submission bundle using raw probe output exclusively. No prior fusion blending.",
+        "reason": "Two adopt-now cards at 0.68 confidence and branch memory confirm the leader is ready for submission. This secures a leaderboard slot before experimenting on new axes.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 50,
+        "depends_on": [],
+        "tags": [
+          "submission_bundle",
+          "leader",
+          "raw_probe"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "submission:run-0003-0001-leader-bundle:2026-04-01",
+        "work_type": "submission",
+        "lifecycle_template": "branch_experiment",
+        "target_run_id": "run-0003-0001-class-coverage-expansion-probe",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "submission"
+        ],
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "submission_packaging",
+        "branch_role": "primary",
+        "branch_rank": 0,
+        "knowledge_card_ids": [
+          "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-adopt-now"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:primary:8.0"
+        ],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 8.0
+        },
+        "config_overrides": [],
+        "policy_score": 8.0,
+        "override_reason": "",
+        "veto_reasons": [],
+        "pruned_reason": "portfolio_budget"
+      },
+      {
+        "title": "MLP probe-head regularization without prior fusion",
+        "family": "perch_cached_probe",
+        "hypothesis": "Replacing the linear probe head with a regularized MLP (2-layer, dropout=0.3, weight_decay=1e-4) without any prior fusion may lift val ROC-AUC above 0.6652. The coverage+MLP context card showed 0.672 on a different split, suggesting the MLP head has independent value.",
+        "reason": "The context card for run-0002-0003 (coverage+MLP combined) suggests MLP regularization has independent signal. Isolating it from prior fusion removes the vetoed component while potentially retaining the gains.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 45,
+        "depends_on": [],
+        "tags": [
+          "probe_head",
+          "mlp_regularization",
+          "no_prior_fusion"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "experiment:mlp-probe-head-regularization-no-prior-fusion:2026-04-01",
+        "work_type": "ablation_terminal",
+        "lifecycle_template": "branch_experiment",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "execute",
+          "evidence",
+          "report",
+          "research",
+          "decision",
+          "plan"
+        ],
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "probe_head_architecture",
+        "branch_role": "secondary",
+        "branch_rank": 1,
+        "knowledge_card_ids": [
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+          "research-run-0002-0002-calibrated-prior-fusion-v2-md-consider"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:secondary:0.0"
+        ],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "config_overrides": [
+          {
+            "path": "model.probe_head.type",
+            "value": "mlp"
+          },
+          {
+            "path": "model.probe_head.hidden_dim",
+            "value": 256
+          },
+          {
+            "path": "model.probe_head.dropout",
+            "value": 0.3
+          },
+          {
+            "path": "model.probe_head.num_layers",
+            "value": 2
+          },
+          {
+            "path": "training.weight_decay",
+            "value": 0.0001
+          },
+          {
+            "path": "prior_fusion.enabled",
+            "value": false
+          }
+        ],
+        "policy_score": 0.0,
+        "override_reason": "",
+        "veto_reasons": [],
+        "pruned_reason": "portfolio_budget"
+      },
+      {
+        "title": "Temperature audit: reduce from 7.39 to 1.5",
+        "family": "perch_cached_probe",
+        "hypothesis": "The training temperature of 7.39 is abnormally high and likely inflates logits toward near-uniform distributions, suppressing discriminative signal. Reducing to 1.5 on the run-0002 code state may recover meaningful probe-head signal and lift val ROC-AUC.",
+        "reason": "The conditional lead from run-0006-0005 identifies temperature as a potential root cause for inflated logits. This is a low-risk, high-diagnostic-value ablation that could explain the gap between train (0.992) and val (0.665) ROC-AUC.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 40,
+        "depends_on": [],
+        "tags": [
+          "temperature_audit",
+          "logit_calibration",
+          "diagnostic"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "experiment:temperature-audit-7.39-to-1.5:2026-04-01",
+        "work_type": "ablation_terminal",
+        "lifecycle_template": "branch_experiment",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "execute",
+          "evidence",
+          "report",
+          "research",
+          "decision",
+          "plan"
+        ],
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "temperature_fix",
+        "branch_role": "tertiary",
+        "branch_rank": 2,
+        "knowledge_card_ids": [
+          "research-run-0006-0005-perch-probe-round-6-focal-loss-on-run-0002-leader-code-state-md-actionable-guidance-for-round-7"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:tertiary:0.0"
+        ],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "config_overrides": [
+          {
+            "path": "model.temperature",
+            "value": 1.5
+          },
+          {
+            "path": "prior_fusion.enabled",
+            "value": false
+          }
+        ],
+        "policy_score": 0.0,
+        "override_reason": "",
+        "veto_reasons": [],
+        "pruned_reason": "portfolio_budget"
+      }
+    ],
+    "overridden_branches": [],
+    "policy_trace": [
+      "card:01-validated-findings-md-perch-and-embedding-findings:require",
+      "card:research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now:prefer",
+      "card:research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause:avoid",
+      "card:03-next-experiment-priors-md-perch-probe-lane:conditional",
+      "card:research-run-0002-0002-calibrated-prior-fusion-v2-md-adopt-now:prefer",
+      "card:research-run-0002-0002-calibrated-prior-fusion-v2-md-result-summary:avoid",
+      "role:primary:8.0",
+      "role:secondary:0.0",
+      "role:tertiary:0.0"
+    ],
+    "scheduler_hints": {
+      "per_portfolio_cap": 1,
+      "per_idea_class_cap": 1,
+      "target_branch_count": 3,
+      "dispatch_strategy": "prefer-diverse-frontier-before-follow-on-support"
+    },
+    "created_at": "2026-04-01T11:49:01+00:00"
+  },
+  "validation": {
+    "stage": "validate",
+    "status": "not_required",
+    "summary": "No follow-up experiment required.",
+    "plan_status": "hold",
+    "spec_id": "",
+    "queued_work_item_id": "",
+    "branch_count": 0,
+    "portfolio_id": "",
+    "dispatch_summary": []
+  }
+}

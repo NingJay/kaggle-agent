@@ -1,0 +1,45 @@
+## Report: Class Coverage Expansion Probe
+
+**Run:** `run-0003-0001-class-coverage-expansion-probe`
+**Verdict:** submission-required
+**Primary metric (val_soundscape_macro_roc_auc):** 0.6652
+
+### What happened
+
+The class coverage expansion probe expanded the active class set from 52 to 75, recovering signal from 23 previously uncovered classes. The training pipeline completed successfully in ~3 minutes using the cached PERCH embedding + Bayesian prior approach.
+
+### Key metrics
+
+| Metric | Value |
+|---|---|
+| val_soundscape_macro_roc_auc | 0.6652 |
+| train_soundscape_macro_roc_auc | 0.9918 |
+| val_prior_fusion_macro_roc_auc | 0.6622 |
+| train_prior_fusion_macro_roc_auc | 0.4873 |
+| padded_cmap | 0.0624 |
+| oof_probe_macro_roc_auc | 0.5199 |
+
+### Observations
+
+1. **Large train-val gap on soundscape metric:** Train ROC-AUC is 0.992 vs validation 0.665. This is a ~0.33 point drop, indicating significant overfitting on the training soundscape or a distribution mismatch between train and validation soundscapes.
+2. **Prior fusion adds negligible lift:** Validation prior fusion (0.662) is slightly below the raw soundscape metric (0.665). The Bayesian prior is not helping on the validation set, though it reverses direction on train (0.487 vs 0.992 raw). This suggests the prior is acting more as a regularizer than a signal booster.
+3. **Weak segment localization:** padded_cmap at 0.062 is near floor. The model is not localizing segments well despite strong clip-level ROC-AUC.
+4. **OOF probe is weak:** 0.520 OOF probe ROC-AUC is barely above random (0.5), meaning the probe head learned from cached embeddings generalizes poorly out-of-fold.
+
+### Dataset context
+
+- Cache rows: 708 fully labeled windows across 59 files
+- Active classes: 75 (fitted: 52)
+- 23 classes were newly activated but probe performance on them remains uncertain given the weak OOF score
+
+### Next steps
+
+The verdict is submission-required. The immediate focus should be:
+
+1. **Package submission bundle** with CPU-only, internet-off constraints matching the scored path
+2. **Calibration pass** to close the train-val gap — consider temperature scaling or reducing probe head capacity
+3. **Investigate the 75 vs 52 class split** — the 23 unfitted classes may be diluting the metric if they have insufficient training data
+
+### Queue implications
+
+This work item is the current leader and has `branch_role: primary` with `branch_rank: 0` in portfolio `portfolio-run-0001-perch-baseline-perch-cached-probe`. No other branches compete yet. The scheduler hints show `portfolio_cap: 1` and `idea_class_cap: 1`, so no parallel experiments of the same idea class will dispatch until this one clears submission.

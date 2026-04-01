@@ -1,0 +1,19 @@
+{
+  "stage": "critic",
+  "status": "approved",
+  "concerns": [],
+  "warnings": [
+    "Critic provider was not invoked because the plan is `hold`."
+  ],
+  "required_fixes": [],
+  "branch_quality": {
+    "branch_role": "",
+    "idea_class": "",
+    "verify_status": "skipped",
+    "plan_status": "hold"
+  },
+  "branch_memory_ids": [],
+  "reusable_judgments": [
+    "Critic short-circuited because this run is following the `hold` route rather than an experiment materialization route."
+  ]
+}

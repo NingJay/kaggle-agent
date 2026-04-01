@@ -1,0 +1,5 @@
+{
+  "oof_predictions": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/oof_predictions.npz",
+  "probe_bundle": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/probe_bundle.pkl",
+  "probe_metadata": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/probe_metadata.json"
+}

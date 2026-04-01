@@ -1,0 +1,645 @@
+{
+  "run": {
+    "run_id": "run-0001-perch-baseline",
+    "experiment_id": "exp-perch-baseline",
+    "work_item_id": "workitem-perch-baseline",
+    "spec_id": "spec-0001",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/train.log",
+    "started_at": "2026-04-01T11:29:26+00:00",
+    "completed_at": "2026-04-01T11:29:31+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6650781420618257,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917843019958474,
+      "padded_cmap": 0.06236201378183505,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "recursive_experiment",
+    "stage_plan": [
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "codegen",
+      "critic",
+      "validate",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "plan",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-01T11:32:41+00:00",
+    "latest_stage_run_id": "stage-0005-plan"
+  },
+  "experiment": {
+    "id": "exp-perch-baseline",
+    "title": "Perch cached-probe baseline",
+    "hypothesis": "Work item workitem-perch-baseline: Perch cached-probe baseline",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "priority": 20,
+    "work_item_id": "workitem-perch-baseline",
+    "spec_id": "spec-0001",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0001-perch-baseline",
+    "latest_decision_id": "",
+    "created_at": "2026-04-01T11:29:26+00:00",
+    "updated_at": "2026-04-01T11:29:31+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-perch-baseline:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "",
+    "idea_class": "",
+    "branch_role": "",
+    "branch_rank": 0,
+    "knowledge_card_ids": []
+  },
+  "decision": {
+    "stage": "decision",
+    "decision_type": "branch_submit",
+    "next_action": "plan",
+    "submission_recommendation": "submit_raw_probe_baseline",
+    "root_cause": "The Perch cached-probe baseline is locally validated at val ROC-AUC 0.665 with no leaderboard anchor. Submission bundle parity is the critical blocker — every downstream calibration, class-coverage expansion, and prior-fusion tuning decision is ungrounded without a Kaggle score. The 0.327 gap between training (0.992) and validation (0.665) soundscape ROC-AUC confirms domain shift or overfitting, but diagnosing it further before establishing a leaderboard baseline is premature.",
+    "why": "All positive priors converge on a single directive: ship the raw-probe submission bundle immediately with no prior fusion and no calibration. The adopt-now card (confidence 0.68) and root-cause card (confidence 0.68) both prioritize submission parity above all else. The require-tier cards (confidence 0.88) establish that holdout validation is the iteration signal and that embedding heads retain future value. The negative prior (avoid @ 0.58) explicitly vetoes any calibration or class-coverage work before the leaderboard submission. The conditional leads (class-coverage deficit 23/75 classes) are correctly gated on a post-submission leaderboard anchor. Collapsing to a single calibration sweep now would violate the veto policy and waste cycles on ungrounded tuning. The right decision is to push the raw probe baseline through the submission pipeline, then use the leaderboard delta to inform a multi-branch plan targeting the highest-value axes: class-coverage expansion and domain-shift diagnosis.",
+    "next_title": "Raw probe baseline submission bundle",
+    "next_family": "submission",
+    "next_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "priority_delta": 10,
+    "launch_mode": "foreground",
+    "requires_human": true,
+    "portfolio_intent": "anchor_baseline",
+    "portfolio_policy": {
+      "max_branches": 3,
+      "min_branches": 2,
+      "priority_axis": "class_coverage",
+      "veto_until": "leaderboard_anchor",
+      "branch_timeout_minutes": 90,
+      "require_unique_axis": true
+    },
+    "selected_policy_cards": [
+      "research-run-0001-perch-baseline-md-adopt-now",
+      "01-validated-findings-md-perch-and-embedding-findings",
+      "research-run-0001-perch-baseline-md-root-cause",
+      "01-validated-findings-md-validation-and-metric-semantics",
+      "research-run-0001-perch-baseline-md-reject",
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+    ],
+    "deprioritized_axes": [
+      "calibration_temperature_scaling",
+      "prior_fusion_tuning",
+      "architecture_changes_for_train_val_gap"
+    ],
+    "branch_memory_ids": [
+      "run-0001-perch-baseline",
+      "run-0002-0001-perch-probe-iteration"
+    ],
+    "branch_mix": [
+      {
+        "title": "Class coverage expansion probe",
+        "family": "perch_cached_probe",
+        "hypothesis": "Expanding probe head from 52 to 75 classes will close the structural coverage gap and lift val ROC-AUC by recovering signal from 23 uncovered classes",
+        "rationale": "Post-submission conditional lead identifies 31% class coverage deficit as structural bottleneck",
+        "branch_role": "primary",
+        "idea_class": "data_coverage",
+        "target_component": "probe_head",
+        "priority_delta": 15,
+        "launch_mode": "background",
+        "knowledge_card_ids": [
+          "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+        ],
+        "policy_trace": [
+          "conditional @ 0.50: class-coverage expansion gated on leaderboard anchor"
+        ],
+        "branch_memory_ids": [
+          "run-0002-0001-perch-probe-iteration"
+        ],
+        "config_overrides": []
+      },
+      {
+        "title": "Domain shift mitigation soundscape augmentation",
+        "family": "perch_cached_probe",
+        "hypothesis": "Augmenting training data with validation-distribution-like transformations will reduce the 0.327 train-val ROC-AUC gap and improve generalization",
+        "rationale": "The 0.992 vs 0.665 training-validation gap suggests domain shift in soundscape characteristics",
+        "branch_role": "secondary",
+        "idea_class": "data_augmentation",
+        "target_component": "data_pipeline",
+        "priority_delta": 10,
+        "launch_mode": "background",
+        "knowledge_card_ids": [
+          "research-run-0001-perch-baseline-md-root-cause"
+        ],
+        "policy_trace": [
+          "prefer @ 0.68: root-cause identifies train-val gap as domain shift candidate"
+        ],
+        "branch_memory_ids": [
+          "run-0001-perch-baseline"
+        ],
+        "config_overrides": []
+      },
+      {
+        "title": "Calibrated prior fusion v2",
+        "family": "perch_cached_probe",
+        "hypothesis": "Properly calibrated Bayesian prior fusion (current val 0.662 tracks raw 0.665) can add lift once the prior is tuned against a grounded leaderboard score",
+        "rationale": "Prior fusion currently adds negligible signal; leaderboard anchor enables grounded calibration",
+        "branch_role": "tertiary",
+        "idea_class": "post_processing",
+        "target_component": "prior_calibration",
+        "priority_delta": 5,
+        "launch_mode": "background",
+        "knowledge_card_ids": [
+          "research-run-0001-perch-baseline-md-root-cause"
+        ],
+        "policy_trace": [
+          "avoid @ 0.58 until leaderboard anchor, then conditional"
+        ],
+        "branch_memory_ids": [
+          "run-0001-perch-baseline"
+        ],
+        "config_overrides": []
+      }
+    ],
+    "branch_portfolio": [
+      {
+        "title": "Class coverage expansion probe",
+        "family": "perch_cached_probe",
+        "hypothesis": "Expanding probe head from 52 to 75 classes recovers signal from 23 uncovered classes",
+        "rationale": "Conditional lead identifies 31% class coverage deficit as structural bottleneck",
+        "branch_role": "primary",
+        "idea_class": "data_coverage",
+        "target_component": "probe_head",
+        "priority_delta": 15,
+        "launch_mode": "background",
+        "knowledge_card_ids": [
+          "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+        ],
+        "policy_trace": [
+          "conditional @ 0.50: class-coverage expansion gated on leaderboard anchor"
+        ],
+        "branch_memory_ids": [
+          "run-0002-0001-perch-probe-iteration"
+        ],
+        "config_overrides": []
+      },
+      {
+        "title": "Domain shift mitigation soundscape augmentation",
+        "family": "perch_cached_probe",
+        "hypothesis": "Augmenting training data with validation-distribution-like transformations reduces the 0.327 train-val ROC-AUC gap",
+        "rationale": "Training 0.992 vs validation 0.665 suggests domain shift in soundscape characteristics",
+        "branch_role": "secondary",
+        "idea_class": "data_augmentation",
+        "target_component": "data_pipeline",
+        "priority_delta": 10,
+        "launch_mode": "background",
+        "knowledge_card_ids": [
+          "research-run-0001-perch-baseline-md-root-cause"
+        ],
+        "policy_trace": [
+          "prefer @ 0.68: root-cause identifies train-val gap as domain shift candidate"
+        ],
+        "branch_memory_ids": [
+          "run-0001-perch-baseline"
+        ],
+        "config_overrides": []
+      },
+      {
+        "title": "Calibrated prior fusion v2",
+        "family": "perch_cached_probe",
+        "hypothesis": "Properly calibrated Bayesian prior fusion adds lift once tuned against a grounded leaderboard score",
+        "rationale": "Prior fusion currently adds negligible signal; leaderboard anchor enables grounded calibration",
+        "branch_role": "tertiary",
+        "idea_class": "post_processing",
+        "target_component": "prior_calibration",
+        "priority_delta": 5,
+        "launch_mode": "background",
+        "knowledge_card_ids": [
+          "research-run-0001-perch-baseline-md-root-cause"
+        ],
+        "policy_trace": [
+          "avoid @ 0.58 until leaderboard anchor, then conditional"
+        ],
+        "branch_memory_ids": [
+          "run-0001-perch-baseline"
+        ],
+        "config_overrides": []
+      }
+    ],
+    "rejected_axes": [
+      "architecture_overhaul_pre_anchor",
+      "ensemble_pre_anchor",
+      "hyperparameter_sweep_pre_anchor"
+    ]
+  },
+  "research": {
+    "stage": "research",
+    "root_cause": "The Perch cached-probe baseline (val ROC-AUC 0.665) is locally validated but has no leaderboard anchor. The critical blocker is submission bundle parity — without a Kaggle score, all calibration, class-coverage expansion, and prior-fusion tuning are ungrounded. The 0.327 gap between training soundscape (0.992) and validation soundscape (0.665) ROC-AUC confirms domain shift/overfitting, but addressing it before establishing a leaderboard baseline is premature.",
+    "queries": [
+      "perch cached probe submission bundle packaging",
+      "kaggle birdclef CPU notebook submission format",
+      "embedding probe class coverage expansion 52 to 75 classes",
+      "bayesian prior fusion calibration leaderboard anchor",
+      "domain shift training vs validation soundscape overfitting"
+    ],
+    "adopt_now": [
+      "[card:research-run-0001-perch-baseline-md-adopt-now-guidance] Ship raw-probe bundle first with no prior fusion and no calibration tweaks. The 0.665 local score is the honest baseline; a Kaggle score anchors every subsequent decision.",
+      "[card:01-validated-findings-md-validation-and-metric-semantics] Use holdout validation ROC-AUC as the primary local signal for iteration, not training soundscape metrics.",
+      "[card:01-validated-findings-md-perch-and-embedding-findings] Retain embedding-head style models as they can add complementary signal even when standalone scores are not best."
+    ],
+    "consider": [
+      "[card:research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration] After leaderboard anchor is established, investigate the class coverage deficit: model fitted 52/75 classes (31% uncovered). This is likely the structural bottleneck for score improvement, but must be deferred until raw baseline is submitted.",
+      "[card:research-run-0001-perch-baseline-md-root-cause] Post-submission, use leaderboard delta to diagnose whether the 0.992→0.665 training-validation gap is primarily domain shift or class-coverage driven, then calibrate prior fusion accordingly."
+    ],
+    "reject": [
+      "[card:research-run-0001-perch-baseline-md-reject] Any calibration, class-coverage expansion, or prior-fusion tuning before the raw-probe leaderboard submission. These are wasted cycles without a grounded Kaggle score.",
+      "Attempting to close the 0.327 training-validation ROC-AUC gap via model architecture changes before confirming the leaderboard parity of the current probe head."
+    ],
+    "knowledge_files_seen": 4,
+    "positive_priors": [
+      "[card:research-run-0001-perch-baseline-md-adopt-now-guidance] Ship raw-probe bundle with no prior fusion or calibration. 0.665 is the honest baseline. A Kaggle score anchors all future decisions.",
+      "[card:01-validated-findings-md-validation-and-metric-semantics] Holdout validation ROC-AUC is the most trustworthy local signal for iteration; do not rely on training soundscape metrics.",
+      "[card:01-validated-findings-md-perch-and-embedding-findings] Embedding-head models provide complementary signal even with non-best standalone scores; retain for future ensembling.",
+      "[card:research-run-0001-perch-baseline-md-root-cause] Submission bundle parity is the critical gap — no leaderboard score exists to ground calibration decisions."
+    ],
+    "negative_priors": [
+      "[card:research-run-0001-perch-baseline-md-reject] VETO: Any calibration or class-coverage work before raw-probe leaderboard submission. Confidence 0.58 — these cycles are wasted without a grounded Kaggle score.",
+      "VETO: Architecture changes to close the 0.327 training-validation gap before confirming leaderboard parity of the current probe head."
+    ],
+    "conditional_priors": [
+      "[card:research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration] CONDITIONAL (post-leaderboard-anchor): Class coverage deficit of 23/75 classes (31%) is the structural bottleneck. Investigate after raw baseline is on leaderboard.",
+      "[card:research-run-0001-perch-baseline-md-root-cause] CONDITIONAL (post-submission): Use leaderboard delta to diagnose whether training-validation gap is domain-shift vs class-coverage driven, then calibrate prior fusion."
+    ],
+    "policy_cards": [
+      {
+        "card_id": "research-run-0001-perch-baseline-md-root-cause",
+        "policy_type": "prefer",
+        "confidence": 0.68,
+        "component": "prior_calibration"
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-reject",
+        "policy_type": "avoid",
+        "confidence": 0.58,
+        "component": "prior_calibration"
+      },
+      {
+        "card_id": "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+        "policy_type": "conditional",
+        "confidence": 0.5,
+        "component": "probe_head"
+      },
+      {
+        "card_id": "01-validated-findings-md-perch-and-embedding-findings",
+        "policy_type": "require",
+        "confidence": 0.88,
+        "component": "probe_head"
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-adopt-now-guidance",
+        "policy_type": "prefer",
+        "confidence": 0.68,
+        "component": "probe_head"
+      },
+      {
+        "card_id": "01-validated-findings-md-validation-and-metric-semantics",
+        "policy_type": "require",
+        "confidence": 0.88,
+        "component": "backbone"
+      }
+    ],
+    "policy_trace": [
+      "require @ 0.88: Holdout validation is primary iteration signal (01-validated-findings-md-validation-and-metric-semantics)",
+      "require @ 0.88: Embedding heads retain future ensembling value (01-validated-findings-md-perch-and-embedding-findings)",
+      "prefer @ 0.68: Ship raw-probe bundle immediately for leaderboard anchor (research-run-0001-perch-baseline-md-adopt-now-guidance)",
+      "prefer @ 0.68: Submission parity is the critical gap, not calibration (research-run-0001-perch-baseline-md-root-cause)",
+      "avoid @ 0.58: No calibration or class-coverage work pre-submission (research-run-0001-perch-baseline-md-reject)",
+      "conditional @ 0.50: Class-coverage expansion post-leaderboard-anchor only (research-run-0002-*class-coverage*)"
+    ],
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause",
+      "research-run-0001-perch-baseline-md-reject",
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+      "04-submission-bar-md-example",
+      "01-validated-findings-md-perch-and-embedding-findings",
+      "research-run-0001-perch-baseline-md-adopt-now-guidance",
+      "01-validated-findings-md-validation-and-metric-semantics",
+      "research-run-0001-perch-baseline-md-current-state"
+    ]
+  },
+  "retrieved_knowledge": {
+    "problem_frame": {
+      "stage": "plan",
+      "family": "submission",
+      "title": "Raw probe baseline submission bundle",
+      "root_cause": "The Perch cached-probe baseline (val ROC-AUC 0.665) is locally validated but has no leaderboard anchor. The critical blocker is submission bundle parity — without a Kaggle score, all calibration, class-coverage expansion, and prior-fusion tuning are ungrounded. The 0.327 gap between training soundscape (0.992) and validation soundscape (0.665) ROC-AUC confirms domain shift/overfitting, but addressing it before establishing a leaderboard baseline is premature.",
+      "hypothesis": "All positive priors converge on a single directive: ship the raw-probe submission bundle immediately with no prior fusion and no calibration. The adopt-now card (confidence 0.68) and root-cause card (confidence 0.68) both prioritize submission parity above all else. The require-tier cards (confidence 0.88) establish that holdout validation is the iteration signal and that embedding heads retain future value. The negative prior (avoid @ 0.58) explicitly vetoes any calibration or class-coverage work before the leaderboard submission. The conditional leads (class-coverage deficit 23/75 classes) are correctly gated on a post-submission leaderboard anchor. Collapsing to a single calibration sweep now would violate the veto policy and waste cycles on ungrounded tuning. The right decision is to push the raw probe baseline through the submission pipeline, then use the leaderboard delta to inform a multi-branch plan targeting the highest-value axes: class-coverage expansion and domain-shift diagnosis.",
+      "objective_metric": "val_soundscape_macro_roc_auc",
+      "current_metric_value": 0.6650781420618257,
+      "focus": "",
+      "next_action": "plan",
+      "adopt_now": [
+        "[card:research-run-0001-perch-baseline-md-adopt-now-guidance] Ship raw-probe bundle first with no prior fusion and no calibration tweaks. The 0.665 local score is the honest baseline; a Kaggle score anchors every subsequent decision.",
+        "[card:01-validated-findings-md-validation-and-metric-semantics] Use holdout validation ROC-AUC as the primary local signal for iteration, not training soundscape metrics.",
+        "[card:01-validated-findings-md-perch-and-embedding-findings] Retain embedding-head style models as they can add complementary signal even when standalone scores are not best."
+      ],
+      "consider": [
+        "[card:research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration] After leaderboard anchor is established, investigate the class coverage deficit: model fitted 52/75 classes (31% uncovered). This is likely the structural bottleneck for score improvement, but must be deferred until raw baseline is submitted.",
+        "[card:research-run-0001-perch-baseline-md-root-cause] Post-submission, use leaderboard delta to diagnose whether the 0.992→0.665 training-validation gap is primarily domain shift or class-coverage driven, then calibrate prior fusion accordingly."
+      ],
+      "reject": [
+        "[card:research-run-0001-perch-baseline-md-reject] Any calibration, class-coverage expansion, or prior-fusion tuning before the raw-probe leaderboard submission. These are wasted cycles without a grounded Kaggle score.",
+        "Attempting to close the 0.327 training-validation ROC-AUC gap via model architecture changes before confirming the leaderboard parity of the current probe head."
+      ],
+      "query_terms": [
+        "submission",
+        "raw",
+        "probe",
+        "baseline",
+        "bundle",
+        "the",
+        "perch",
+        "cached",
+        "val",
+        "roc",
+        "auc",
+        "665",
+        "locally",
+        "validated",
+        "but",
+        "has",
+        "leaderboard",
+        "anchor",
+        "critical",
+        "blocker",
+        "parity",
+        "without",
+        "kaggle",
+        "score"
+      ]
+    },
+    "knowledge_files_seen": 4,
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause",
+      "research-run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring-md-current-state",
+      "research-run-0001-perch-baseline-md-policy-trace",
+      "research-run-0001-perch-baseline-md-adopt-now",
+      "research-run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring-md-adopt-now-priors",
+      "research-run-0001-perch-baseline-md-reject",
+      "research-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader-md-full-trajectory",
+      "research-run-0003-0002-prior-fusion-weight-calibration-md-branch-portfolio-summary"
+    ],
+    "branch_memory_ids": [],
+    "cards": [
+      {
+        "card_id": "research-run-0001-perch-baseline-md-root-cause",
+        "title": "Root Cause",
+        "summary": "The Perch cached-probe baseline achieved **val macro ROC-AUC 0.665** and is locally validated, but has **no leaderboard anchor**. The critical blocker is submission bundle parity. Without a Kaggle score, all downstrea...",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "positive",
+        "component": "prior_calibration",
+        "policy_type": "prefer",
+        "confidence": 0.68
+      },
+      {
+        "card_id": "research-run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring-md-current-state",
+        "title": "Current State",
+        "summary": "Run-0004 (submission bundle for workitem-0006) succeeded at **0.6709 val ROC-AUC**, a minor regression from the leader run-0002 at **0.6723**. Prior fusion remains non-functional (0.487 raw vs 0.662 val), confirming i...",
+        "source_path": "research/run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring.md",
+        "stance": "negative",
+        "component": "prior_calibration",
+        "policy_type": "avoid",
+        "confidence": 0.68
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-policy-trace",
+        "title": "Policy Trace",
+        "summary": "1. `require` @ 0.88: Holdout validation is primary iteration signal. Embedding heads retain future value.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "conditional",
+        "component": "probe_head",
+        "policy_type": "conditional",
+        "confidence": 0.5
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-adopt-now",
+        "title": "Adopt Now",
+        "summary": "1. **Ship the raw-probe submission bundle** — no prior fusion, no calibration. Card `research-run-0001-perch-baseline-md-adopt-now-guidance` establishes this as the top priority. The 0.665 score is the honest baseline.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "positive",
+        "component": "probe_head",
+        "policy_type": "prefer",
+        "confidence": 0.68
+      },
+      {
+        "card_id": "research-run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring-md-adopt-now-priors",
+        "title": "Adopt-Now Priors",
+        "summary": "1. **Ship raw-probe bundle to Kaggle** `[card:research-run-0001-perch-baseline-md-adopt-now-guidance]`. No prior fusion. The 0.6709–0.6723 local range is the best available. A leaderboard score anchors all future cali...",
+        "source_path": "research/run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring.md",
+        "stance": "positive",
+        "component": "prior_calibration",
+        "policy_type": "prefer",
+        "confidence": 0.68
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-reject",
+        "title": "Reject",
+        "summary": "1. **Any calibration or class-coverage work before the raw-probe leaderboard submission** — Card `research-run-0001-perch-baseline-md-reject` vetoes this explicitly.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "negative",
+        "component": "class_coverage",
+        "policy_type": "avoid",
+        "confidence": 0.58
+      },
+      {
+        "card_id": "research-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader-md-full-trajectory",
+        "title": "Full Trajectory",
+        "summary": "| Round | Change | Val AUC | Delta vs Leader | Outcome |",
+        "source_path": "research/run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader.md",
+        "stance": "negative",
+        "component": "probe_head",
+        "policy_type": "avoid",
+        "confidence": 0.68
+      },
+      {
+        "card_id": "research-run-0003-0002-prior-fusion-weight-calibration-md-branch-portfolio-summary",
+        "title": "Branch Portfolio Summary",
+        "summary": "| Branch | Outcome | Val ROC-AUC | Delta | Status |",
+        "source_path": "research/run-0003-0002-prior-fusion-weight-calibration.md",
+        "stance": "negative",
+        "component": "prior_calibration",
+        "policy_type": "veto",
+        "confidence": 0.78
+      }
+    ],
+    "policy_cards": [
+      {
+        "card_id": "research-run-0001-perch-baseline-md-root-cause",
+        "title": "Root Cause",
+        "summary": "The Perch cached-probe baseline achieved **val macro ROC-AUC 0.665** and is locally validated, but has **no leaderboard anchor**. The critical blocker is submission bundle parity. Without a Kaggle score, all downstrea...",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "positive",
+        "component": "prior_calibration",
+        "policy_type": "prefer",
+        "confidence": 0.68,
+        "applies_to": [
+          "prior_calibration",
+          "research",
+          "run",
+          "0001",
+          "perch"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring-md-current-state",
+        "title": "Current State",
+        "summary": "Run-0004 (submission bundle for workitem-0006) succeeded at **0.6709 val ROC-AUC**, a minor regression from the leader run-0002 at **0.6723**. Prior fusion remains non-functional (0.487 raw vs 0.662 val), confirming i...",
+        "source_path": "research/run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring.md",
+        "stance": "negative",
+        "component": "prior_calibration",
+        "policy_type": "avoid",
+        "confidence": 0.68,
+        "applies_to": [
+          "prior_calibration",
+          "research",
+          "run",
+          "0004",
+          "0006"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-policy-trace",
+        "title": "Policy Trace",
+        "summary": "1. `require` @ 0.88: Holdout validation is primary iteration signal. Embedding heads retain future value.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "conditional",
+        "component": "probe_head",
+        "policy_type": "conditional",
+        "confidence": 0.5,
+        "applies_to": [
+          "probe_head",
+          "research",
+          "run",
+          "0001",
+          "perch"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-adopt-now",
+        "title": "Adopt Now",
+        "summary": "1. **Ship the raw-probe submission bundle** — no prior fusion, no calibration. Card `research-run-0001-perch-baseline-md-adopt-now-guidance` establishes this as the top priority. The 0.665 score is the honest baseline.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "positive",
+        "component": "probe_head",
+        "policy_type": "prefer",
+        "confidence": 0.68,
+        "applies_to": [
+          "probe_head",
+          "research",
+          "run",
+          "0001",
+          "perch"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring-md-adopt-now-priors",
+        "title": "Adopt-Now Priors",
+        "summary": "1. **Ship raw-probe bundle to Kaggle** `[card:research-run-0001-perch-baseline-md-adopt-now-guidance]`. No prior fusion. The 0.6709–0.6723 local range is the best available. A leaderboard score anchors all future cali...",
+        "source_path": "research/run-0004-0006-submit-run-0002-leader-bundle-for-leaderboard-anchoring.md",
+        "stance": "positive",
+        "component": "prior_calibration",
+        "policy_type": "prefer",
+        "confidence": 0.68,
+        "applies_to": [
+          "prior_calibration",
+          "research",
+          "run",
+          "0004",
+          "0006"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-reject",
+        "title": "Reject",
+        "summary": "1. **Any calibration or class-coverage work before the raw-probe leaderboard submission** — Card `research-run-0001-perch-baseline-md-reject` vetoes this explicitly.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "negative",
+        "component": "class_coverage",
+        "policy_type": "avoid",
+        "confidence": 0.58,
+        "applies_to": [
+          "class_coverage",
+          "research",
+          "run",
+          "0001",
+          "perch"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader-md-full-trajectory",
+        "title": "Full Trajectory",
+        "summary": "| Round | Change | Val AUC | Delta vs Leader | Outcome |",
+        "source_path": "research/run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader.md",
+        "stance": "negative",
+        "component": "probe_head",
+        "policy_type": "avoid",
+        "confidence": 0.68,
+        "applies_to": [
+          "probe_head",
+          "research",
+          "run",
+          "0011",
+          "0009"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0003-0002-prior-fusion-weight-calibration-md-branch-portfolio-summary",
+        "title": "Branch Portfolio Summary",
+        "summary": "| Branch | Outcome | Val ROC-AUC | Delta | Status |",
+        "source_path": "research/run-0003-0002-prior-fusion-weight-calibration.md",
+        "stance": "negative",
+        "component": "prior_calibration",
+        "policy_type": "veto",
+        "confidence": 0.78,
+        "applies_to": [
+          "prior_calibration",
+          "research",
+          "run",
+          "0003",
+          "0002"
+        ],
+        "override_required": true
+      }
+    ],
+    "branch_memories": [],
+    "contradictions": []
+  }
+}

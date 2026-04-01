@@ -1,0 +1,175 @@
+{
+  "run": {
+    "run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "experiment_id": "exp-0002-calibrated-prior-fusion-v2",
+    "work_item_id": "workitem-0002-calibrated-prior-fusion-v2",
+    "spec_id": "spec-0003",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/train.log",
+    "started_at": "2026-04-01T11:35:41+00:00",
+    "completed_at": "2026-04-01T11:38:33+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6647655401194675,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917797885609636,
+      "padded_cmap": 0.062420468209544416,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "branch_experiment",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "evidence",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-01T11:43:54+00:00",
+    "latest_stage_run_id": "stage-0016-evidence"
+  },
+  "experiment": {
+    "id": "exp-0002-calibrated-prior-fusion-v2",
+    "title": "Calibrated prior fusion v2",
+    "hypothesis": "Work item workitem-0002-calibrated-prior-fusion-v2: Calibrated prior fusion v2",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+    "priority": 37,
+    "work_item_id": "workitem-0002-calibrated-prior-fusion-v2",
+    "spec_id": "spec-0003",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "latest_decision_id": "",
+    "created_at": "2026-04-01T11:35:41+00:00",
+    "updated_at": "2026-04-01T11:38:33+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-0002-calibrated-prior-fusion-v2:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "post_processing",
+    "branch_role": "tertiary",
+    "branch_rank": 1,
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause"
+    ]
+  },
+  "work_item": {
+    "id": "workitem-0002-calibrated-prior-fusion-v2",
+    "title": "Calibrated prior fusion v2",
+    "work_type": "experiment_iteration",
+    "family": "perch_cached_probe",
+    "priority": 37,
+    "status": "reviewing",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+    "lifecycle_template": "branch_experiment",
+    "target_run_id": "",
+    "pipeline": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "depends_on": [
+      "workitem-perch-baseline"
+    ],
+    "latest_run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "latest_stage_run_id": "stage-0016-evidence",
+    "latest_spec_id": "spec-0003",
+    "source_run_id": "run-0001-perch-baseline",
+    "source_stage_run_id": "stage-0008-validate",
+    "source_decision_id": "",
+    "dedupe_key": "plan:run-0001-perch-baseline:portfolio-run-0001-perch-baseline-perch-cached-probe:01:calibrated-prior-fusion-v2",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "parent_work_item_id": "workitem-perch-baseline",
+    "idea_class": "post_processing",
+    "branch_role": "tertiary",
+    "branch_rank": 1,
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause"
+    ],
+    "notes": [
+      "Properly calibrated Bayesian prior fusion adds lift once tuned against a grounded leaderboard score",
+      "Prior fusion currently adds negligible signal; leaderboard anchor enables grounded calibration"
+    ],
+    "policy_trace": [
+      "role:tertiary:0.0"
+    ],
+    "branch_memory_ids": [],
+    "scheduler_hints": {
+      "portfolio_cap": 1,
+      "idea_class_cap": 1,
+      "cooldown": false,
+      "dispatch_priority": 0.0
+    },
+    "created_at": "2026-04-01T11:33:58+00:00",
+    "updated_at": "2026-04-01T11:43:54+00:00"
+  },
+  "result": {
+    "experiment_name": "calibrated-prior-fusion-v2",
+    "config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6647655401194675,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917797885609636,
+      "padded_cmap": 0.062420468209544416,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "all_metrics": {
+      "soundscape_macro_roc_auc": 0.9917797885609636,
+      "padded_cmap": 0.062420468209544416,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "oof_probe_macro_roc_auc": 0.5197304144994654,
+      "val_soundscape_macro_roc_auc": 0.6647655401194675,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "artifacts": {
+      "oof_predictions": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/oof_predictions.npz",
+      "probe_bundle": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/probe_bundle.pkl",
+      "probe_metadata": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/probe_metadata.json"
+    },
+    "dataset_summary": {
+      "cache_row_count": 708,
+      "fully_labeled_windows": 708,
+      "fully_labeled_files": 59,
+      "active_class_count": 75,
+      "fitted_class_count": 52
+    },
+    "summary_markdown": "## Runtime Summary\n- Backend: sklearn_cached_probe (reference_bayesian_pipeline)\n- Cache root: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/input/perch-meta\n- Cached rows: 708\n- Fully labeled windows: 708\n- Active classes: 75\n- Fitted classes: 52\n- Probe PCA dim: 32\n- Probe min positives: 8\n- Probe C: 0.25\n- Use raw Perch scores: True\n- Probe alpha: 0.4\n- Prior lambda event: 0.4\n- Prior lambda texture: 1.0\n- Prior lambda proxy texture: 0.8\n- Smooth texture alpha: 0.35\n- prior_fusion_macro_roc_auc=0.487292\n- soundscape_macro_roc_auc=0.991780 (full-pipeline resubstitution)\n- oof_probe_macro_roc_auc=0.519730\n- padded_cmap=0.062420\n### Holdout Validation (sites: S03, S08, S13, S19)\n- Train: 47 files (564 windows)\n- Val: 12 files (144 windows)\n- val_soundscape_macro_roc_auc=0.664766\n- val_prior_fusion_macro_roc_auc=0.662212\n- Val fitted classes: 34"
+  }
+}

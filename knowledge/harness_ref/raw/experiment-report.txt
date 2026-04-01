@@ -1,0 +1,188 @@
+BirdCLEF 2026 — Experiment Report
+BirdCLEF 2026 — Experiment Report
+Generated: 2026-03-18 10:45 | 234 species | Macro ROC-AUC | Pantanal soundscape domain
+0.893
+Current Best LB Score
+Best SS Val AUC (Proxy)
+0.7755
+sed-b0-v9-asl & v9-asl-soup
+Best Holdout AUC (no leakage)
+0.9532
+sed-b0-v9-asl-soup (model soup)
+Confirmed LB Scores
+0.893
+best_ensemble
+(v5+comp+Perchx3)
+0.892
+v9_asl_soup
+(replaced v5)
+Holdout AUC Leaderboard
+# Run Name Holdout AUC SS Val AUC
+SS Val Bar Type Status
+1
+sed-b0-v12-bce-soup
+0.9722
+0.7263
+0.726
+BCE+Soup
+⚠️ Data Leakage
+2
+sed-b0-v9-asl-soup ⭐
+0.9532
+0.7755
+0.776
+ASL+Soup
+✅ Best Valid
+3
+sed-b0-v11-soft-sec-soup
+0.9487
+0.7098
+0.710
+SoftSec+Soup
+Done
+4
+sed-b0-v9-asl
+0.9467
+0.7755
+0.776
+ASL
+Done
+5
+sed-b0-v10-cutmix-soup
+0.9457
+0.7060
+0.706
+CutMix+Soup
+Done
+6
+sed-b0-v9-asl_geo-ss_soft
+0.9467
+0.7755
+0.776
+Geo ss_soft
+❌ Neutral
+7
+sed-b0-v9-asl_geo-sa_weighted
+0.9445
+0.7755
+0.776
+Geo sa_w
+❌ -0.0022
+8
+sed-b0-v10-cutmix
+0.9391
+0.7060
+CutMix
+Done
+9
+sed-b0-v11-soft-sec
+0.9359
+0.7098
+SoftSec
+Done
+—
+sed-b0-v5 (LB=0.893 anchor)
+0.9192
+0.7527
+0.753
+BCE baseline
+LB=0.893
+—
+sed-b0-v12-bce
+0.9079
+0.7263
+BCE
+Below v5
+—
+sedp-b0-v2-fusion (PCEN)
+0.6737
+0.7454
+PCEN+ASL
+Holdout fails
+—
+sed-b0-v9-asl_geo-ss_hard
+0.6088
+0.7755
+Geo ss_hard
+❌ -0.338
+SS Val AUC — Training Curves
+Perch Head Training Curves
+Active Experiments — Status
+Run GPU Ep Best SS Val ETA Status
+distill-b0-v1
+0 0/30 —
+~17:00
+⚡ Restarted (os=1)
+sed-b0-v13-asl-cutmix
+1 5/30
+0.7423
+~18:15
+🟢 Training
+GPU0 Pipeline (Remaining)
+sedp-b0-v2-fusion soup+holdout (08:51–08:59)
+Geo Filtering (ss_hard/ss_soft/sa_weighted) (09:00–09:55)
+distill-b0-v1 (os=1, 30ep) ~10:43 → ~17:00
+distill-b0-v2-full (30ep)
+Round6 pseudo-label gen → v23-r6-asl
+Round3-E: v17-dual30 → v19-freqmask → v21-rating3
+GPU1 Pipeline (Remaining)
+sed-b0-v12-bce soup+holdout (08:51–09:00)
+sed-b0-v13-asl-cutmix ep5/30 → ~18:15
+sed-b0-v14-50ep → v15-no-sec → v16-rating3
+Round3-F: v18-dual-ss10 → v20-dual-mixup08 → v22-dual-noclipmix
+Key Insights & Findings
+ASL Loss is the single most impactful change: v9-asl (0.7755 SS val) vs v5-BCE (0.7527). +0.023 SS val, +0.034 holdout AUC. Use ASL for all future experiments.
+Model Soup (top-3 ckpt avg) consistently adds +0.003~0.013 holdout AUC. Always apply soup after training. v9-asl → v9-asl-soup: +0.0065.
+v5 carries unique LB signal : replacing v5 with v9-asl-soup dropped LB 0.893→0.892. Keep v5 in ensemble. Best strategy: v5 + v9-asl-soup + competitor (triple SED).
+Geo Filtering fully abandoned : ss_hard -0.34 AUC, ss_soft neutral, sa_weighted -0.002. No geographic post-processing helps.
+PCEN hurts holdout generalization : sedp-b0-v2-fusion gets 0.7454 SS val but only 0.6737 holdout. PCEN overfits to soundscape domain, fails on train_audio holdout.
+Data Leakage in holdout : All 7037 holdout files exist in train.csv. All holdout AUCs are inflated. v12-bce-soup 0.9722 is leakage artifact (SS val only 0.7263). Use SS val as true proxy.
+Trick4 (zero prior) abandoned : LB dropped 0.893→0.890. T1/T2/T3 remain valid.
+Technique Ablation Summary
+Technique Applied In SS Val Delta Holdout Delta LB Delta Verdict
+ASL Loss (γ−=4, γ+=0) v9+ +0.023 +0.027 — ✅ ADOPT
+Model Soup (top-3 avg) v6,v9,v10,v11,v12 +0.001~0.005 +0.003~0.013 — ✅ ADOPT
+CutMix augmentation v10 -0.047 -0.007 — ❌ SKIP
+Soft secondary labels v11 -0.066 -0.007 — ❌ SKIP
+Pseudo labels (round5) v9-asl base Baseline — — ✅ Required
+PCEN frontend sedp-v2 +0.000 -0.072 — ❌ Overfits
+Geo filter ss_hard v5,v9,sedp 0 -0.31~0.34 — ❌ Harmful
+Geo filter ss_soft v5,v9,sedp 0 ±0.000 — ⚠️ Neutral
+Geo filter sa_weighted v5,v9,sedp 0 -0.001~0.002 — ⚠️ Neutral
+Trick T1 (file-max) best_ensemble — — Positive ✅ In LB=0.893
+Trick T2 (temporal smooth) best_ensemble — — Positive ✅ In LB=0.893
+Trick T3 (no peak norm) best_ensemble — — Positive ✅ In LB=0.893
+Trick T4 (zero prior) abandoned — — -0.003 ❌ Abandoned
+Perch KD (distillation) distill-v1,v2 — — 🔄 Testing ⏳ In Progress
+Submission Recommendations
+Priority Notebook SED Models Expected LB Status
+🥇 Best Safe
+best_ensemble_public_trick.ipynb
+Perch×3 + v5 + competitor + T1/T2/T3
+0.893 ✅ confirmed
+Ready to submit
+🥈 Try to beat
+best_ensemble_triple_sed_trick.ipynb
+Perch×3 + v5 + v9-asl-soup + competitor + T1/T2/T3
+> 0.893 (predicted)
+Need upload soup_v9-asl.pt
+🥉 Low priority
+v9_asl_soup_public_trick.ipynb
+Perch×3 + v9-asl-soup + competitor + T1/T2/T3
+0.892 (confirmed worse)
+Tested — LB drops
+❌ Do not use
+v12_bce_soup_public_trick.ipynb
+v12-bce-soup only
+Unknown (SS val 0.726)
+Data leakage artifact
+❌ Abandoned
+best_ensemble_t4_zero_prior.ipynb
++ Trick4
+0.890 (confirmed -0.003)
+Trick4 harmful
+Perch Teacher Heads
+Head Best Val AUC Best Epoch Total Ep Role
+nohuman-label-pseudo 0.9748 15 80 Pseudo-label generation (round5 CSV)
+nohuman-embedding-soundscape 0.9537 66 80 Soundscape embedding head
+nohuman-label-soundscape-train 0.9535 21 27 Teacher for distillation (Perch-as-Teacher)

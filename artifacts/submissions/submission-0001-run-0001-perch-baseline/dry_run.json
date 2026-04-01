@@ -1,0 +1,11 @@
+{
+  "candidate_id": "submission-0001-run-0001-perch-baseline",
+  "status": "passed",
+  "cpu_only": true,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "runtime_budget_minutes": 90,
+  "submission_csv_exists": true,
+  "stdout": "",
+  "stderr": ""
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "validation_id": "validation-0001",
+    "work_item_id": "workitem-perch-baseline",
+    "source_stage_run_id": "stage-0008-validate",
+    "spec_id": "spec-0002",
+    "status": "validated",
+    "summary": "Queued 2 deferred follow-up branches while proceeding to submission.",
+    "output_json_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/08-validate__validated/validate.json",
+    "output_md_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/08-validate__validated/validate.md",
+    "created_at": "2026-04-01T11:33:58+00:00"
+  }
+]

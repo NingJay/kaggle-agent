@@ -1,0 +1,239 @@
+{
+  "run": {
+    "run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "experiment_id": "exp-0001-class-coverage-expansion-probe",
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "spec_id": "spec-0002",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/train.log",
+    "started_at": "2026-04-01T11:35:41+00:00",
+    "completed_at": "2026-04-01T11:38:33+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6652158470291849,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917867929959876,
+      "padded_cmap": 0.06241650482062269,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "branch_experiment",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "report",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-01T11:38:33+00:00",
+    "latest_stage_run_id": "stage-0011-report"
+  },
+  "experiment": {
+    "id": "exp-0001-class-coverage-expansion-probe",
+    "title": "Class coverage expansion probe",
+    "hypothesis": "Work item workitem-0001-class-coverage-expansion-probe: Class coverage expansion probe",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "priority": 45,
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "spec_id": "spec-0002",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "latest_decision_id": "",
+    "created_at": "2026-04-01T11:35:41+00:00",
+    "updated_at": "2026-04-01T11:38:33+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-0001-class-coverage-expansion-probe:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "data_coverage",
+    "branch_role": "primary",
+    "branch_rank": 0,
+    "knowledge_card_ids": [
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+    ]
+  },
+  "work_item": {
+    "id": "workitem-0001-class-coverage-expansion-probe",
+    "title": "Class coverage expansion probe",
+    "work_type": "experiment_iteration",
+    "family": "perch_cached_probe",
+    "priority": 45,
+    "status": "reviewing",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "lifecycle_template": "branch_experiment",
+    "target_run_id": "",
+    "pipeline": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "depends_on": [
+      "workitem-perch-baseline"
+    ],
+    "latest_run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "latest_stage_run_id": "stage-0011-report",
+    "latest_spec_id": "spec-0002",
+    "source_run_id": "run-0001-perch-baseline",
+    "source_stage_run_id": "stage-0008-validate",
+    "source_decision_id": "",
+    "dedupe_key": "plan:run-0001-perch-baseline:portfolio-run-0001-perch-baseline-perch-cached-probe:00:class-coverage-expansion-probe",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "parent_work_item_id": "workitem-perch-baseline",
+    "idea_class": "data_coverage",
+    "branch_role": "primary",
+    "branch_rank": 0,
+    "knowledge_card_ids": [
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+    ],
+    "notes": [
+      "Expanding probe head from 52 to 75 classes recovers signal from 23 uncovered classes",
+      "Conditional lead identifies 31% class coverage deficit as structural bottleneck"
+    ],
+    "policy_trace": [
+      "role:primary:8.0"
+    ],
+    "branch_memory_ids": [],
+    "scheduler_hints": {
+      "portfolio_cap": 1,
+      "idea_class_cap": 1,
+      "cooldown": false,
+      "dispatch_priority": 8.0
+    },
+    "created_at": "2026-04-01T11:33:58+00:00",
+    "updated_at": "2026-04-01T11:38:33+00:00"
+  },
+  "evidence": {
+    "stage": "evidence",
+    "run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "experiment_id": "exp-0001-class-coverage-expansion-probe",
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "status": "succeeded",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6652158470291849,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917867929959876,
+      "padded_cmap": 0.06241650482062269,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "all_metrics": {
+      "soundscape_macro_roc_auc": 0.9917867929959876,
+      "padded_cmap": 0.06241650482062269,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "oof_probe_macro_roc_auc": 0.5199278184729785,
+      "val_soundscape_macro_roc_auc": 0.6652158470291849,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "dataset_summary": {
+      "cache_row_count": 708,
+      "fully_labeled_windows": 708,
+      "fully_labeled_files": 59,
+      "active_class_count": 75,
+      "fitted_class_count": 52
+    },
+    "artifacts": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/artifacts.json"
+    }
+  },
+  "recent_findings": [
+    {
+      "finding_id": "finding-0002",
+      "run_id": "run-0003-0001-class-coverage-expansion-probe",
+      "title": "Class coverage expansion probe completed",
+      "summary": "val_soundscape_macro_roc_auc=0.6652158470291849 and verdict submission-required.",
+      "severity": "medium",
+      "status": "open",
+      "dedupe_key": "run:run-0003-0001-class-coverage-expansion-probe:completed",
+      "created_at": "2026-04-01T11:38:33+00:00"
+    }
+  ],
+  "recent_issues": [],
+  "leader_run": {
+    "run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "experiment_id": "exp-0001-class-coverage-expansion-probe",
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "spec_id": "spec-0002",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/train.log",
+    "started_at": "2026-04-01T11:35:41+00:00",
+    "completed_at": "2026-04-01T11:38:33+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6652158470291849,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917867929959876,
+      "padded_cmap": 0.06241650482062269,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "branch_experiment",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "report",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-01T11:38:33+00:00",
+    "latest_stage_run_id": "stage-0011-report"
+  }
+}

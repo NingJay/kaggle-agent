@@ -1,0 +1,343 @@
+{
+  "run": {
+    "run_id": "run-0001-perch-baseline",
+    "experiment_id": "exp-perch-baseline",
+    "work_item_id": "workitem-perch-baseline",
+    "spec_id": "spec-0001",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/train.log",
+    "started_at": "2026-04-01T11:29:26+00:00",
+    "completed_at": "2026-04-01T11:29:31+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6650781420618257,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917843019958474,
+      "padded_cmap": 0.06236201378183505,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "recursive_experiment",
+    "stage_plan": [
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "codegen",
+      "critic",
+      "validate",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "research",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-01T11:30:08+00:00",
+    "latest_stage_run_id": "stage-0003-research"
+  },
+  "experiment": {
+    "id": "exp-perch-baseline",
+    "title": "Perch cached-probe baseline",
+    "hypothesis": "Work item workitem-perch-baseline: Perch cached-probe baseline",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "priority": 20,
+    "work_item_id": "workitem-perch-baseline",
+    "spec_id": "spec-0001",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0001-perch-baseline",
+    "latest_decision_id": "",
+    "created_at": "2026-04-01T11:29:26+00:00",
+    "updated_at": "2026-04-01T11:29:31+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-perch-baseline:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "",
+    "idea_class": "",
+    "branch_role": "",
+    "branch_rank": 0,
+    "knowledge_card_ids": []
+  },
+  "report": {
+    "stage": "report",
+    "headline": "Perch cached-probe baseline achieved 0.665 val ROC-AUC and needs submission bundle parity.",
+    "focus": "submission bundle packaging and calibration for the Perch baseline pipeline",
+    "best_run_id": "run-0001-perch-baseline",
+    "best_run_metric": 0.6650781420618257,
+    "primary_metric_value": 0.6650781420618257,
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live and functional, but submission bundle parity and calibration remain incomplete. The training soundscape ROC-AUC (0.992) is dramatically higher than the validation soundscape ROC-AUC (0.665), indicating potential overfitting or domain shift between training soundscapes and validation soundscapes. Prior fusion validation (0.662) closely tracks the raw validation score, suggesting the Bayesian prior is not yet adding significant lift.",
+    "verdict": "submission-required",
+    "finding_titles": [
+      "Perch cached-probe baseline completed"
+    ],
+    "issue_titles": []
+  },
+  "retrieved_knowledge": {
+    "problem_frame": {
+      "stage": "research",
+      "family": "perch_cached_probe",
+      "title": "Perch cached-probe baseline",
+      "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live and functional, but submission bundle parity and calibration remain incomplete. The training soundscape ROC-AUC (0.992) is dramatically higher than the validation soundscape ROC-AUC (0.665), indicating potential overfitting or domain shift between training soundscapes and validation soundscapes. Prior fusion validation (0.662) closely tracks the raw validation score, suggesting the Bayesian prior is not yet adding significant lift.",
+      "hypothesis": "",
+      "objective_metric": "val_soundscape_macro_roc_auc",
+      "current_metric_value": 0.6650781420618257,
+      "focus": "submission bundle packaging and calibration for the Perch baseline pipeline",
+      "next_action": "",
+      "adopt_now": [],
+      "consider": [],
+      "reject": [],
+      "query_terms": [
+        "perch_cached_probe",
+        "perch",
+        "cached",
+        "probe",
+        "baseline",
+        "the",
+        "notebook",
+        "derived",
+        "bayesian",
+        "prior",
+        "embedding",
+        "pipeline",
+        "live",
+        "and",
+        "functional",
+        "but",
+        "submission",
+        "bundle",
+        "parity",
+        "calibration",
+        "remain",
+        "incomplete",
+        "training",
+        "soundscape"
+      ]
+    },
+    "knowledge_files_seen": 4,
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause",
+      "research-run-0001-perch-baseline-md-reject",
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+      "04-submission-bar-md-example",
+      "01-validated-findings-md-perch-and-embedding-findings",
+      "research-run-0001-perch-baseline-md-adopt-now-guidance",
+      "01-validated-findings-md-validation-and-metric-semantics",
+      "research-run-0001-perch-baseline-md-current-state"
+    ],
+    "branch_memory_ids": [],
+    "cards": [
+      {
+        "card_id": "research-run-0001-perch-baseline-md-root-cause",
+        "title": "Root Cause",
+        "summary": "The Bayesian prior + embedding probe pipeline is live and validated locally. The critical gap is **submission bundle parity**: no leaderboard score exists. Without a Kaggle anchor, all future calibration and fusion wo...",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "positive",
+        "component": "prior_calibration",
+        "policy_type": "prefer",
+        "confidence": 0.68
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-reject",
+        "title": "Reject",
+        "summary": "Any calibration or class-coverage work before the raw-probe leaderboard submission.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "negative",
+        "component": "prior_calibration",
+        "policy_type": "avoid",
+        "confidence": 0.58
+      },
+      {
+        "card_id": "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+        "title": "run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+        "summary": "Perch probe iteration 2 confirms the class coverage deficit is the blocking structural issue. The model fitted only 52 classes but the active evaluation set contains 75 classes, leaving 23 classes (31% of the target) ...",
+        "source_path": "research/run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration.md",
+        "stance": "conditional",
+        "component": "probe_head",
+        "policy_type": "conditional",
+        "confidence": 0.5
+      },
+      {
+        "card_id": "04-submission-bar-md-example",
+        "title": "Example",
+        "summary": "Bad**:",
+        "source_path": "04_submission_bar.md",
+        "stance": "general",
+        "component": "probe_head",
+        "policy_type": "context",
+        "confidence": 0.6
+      },
+      {
+        "card_id": "01-validated-findings-md-perch-and-embedding-findings",
+        "title": "Perch And Embedding Findings",
+        "summary": "Embedding-head style models can add complementary signal even when their standalone score is not the best.",
+        "source_path": "01_validated_findings.md",
+        "stance": "positive",
+        "component": "probe_head",
+        "policy_type": "require",
+        "confidence": 0.88
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-adopt-now-guidance",
+        "title": "Adopt-Now Guidance",
+        "summary": "1. **Ship raw-probe bundle first** — no prior fusion, no calibration tweaks. The 0.665 local score is the honest baseline. A Kaggle score anchors every subsequent decision.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "positive",
+        "component": "probe_head",
+        "policy_type": "prefer",
+        "confidence": 0.68
+      },
+      {
+        "card_id": "01-validated-findings-md-validation-and-metric-semantics",
+        "title": "Validation And Metric Semantics",
+        "summary": "Holdout validation is the most trustworthy local signal for iteration.",
+        "source_path": "01_validated_findings.md",
+        "stance": "positive",
+        "component": "backbone",
+        "policy_type": "require",
+        "confidence": 0.88
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-current-state",
+        "title": "Current State",
+        "summary": "The Perch cached-probe baseline completed successfully with **val macro ROC-AUC 0.665**. Secondary metrics show soundscape macro ROC-AUC at 0.992 (on training soundscape) and prior-fusion val ROC-AUC at 0.662, slightl...",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "general",
+        "component": "probe_head",
+        "policy_type": "context",
+        "confidence": 0.42
+      }
+    ],
+    "policy_cards": [
+      {
+        "card_id": "research-run-0001-perch-baseline-md-root-cause",
+        "title": "Root Cause",
+        "summary": "The Bayesian prior + embedding probe pipeline is live and validated locally. The critical gap is **submission bundle parity**: no leaderboard score exists. Without a Kaggle anchor, all future calibration and fusion wo...",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "positive",
+        "component": "prior_calibration",
+        "policy_type": "prefer",
+        "confidence": 0.68,
+        "applies_to": [
+          "prior_calibration",
+          "research",
+          "run",
+          "0001",
+          "perch"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-reject",
+        "title": "Reject",
+        "summary": "Any calibration or class-coverage work before the raw-probe leaderboard submission.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "negative",
+        "component": "prior_calibration",
+        "policy_type": "avoid",
+        "confidence": 0.58,
+        "applies_to": [
+          "prior_calibration",
+          "research",
+          "run",
+          "0001",
+          "perch"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+        "title": "run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+        "summary": "Perch probe iteration 2 confirms the class coverage deficit is the blocking structural issue. The model fitted only 52 classes but the active evaluation set contains 75 classes, leaving 23 classes (31% of the target) ...",
+        "source_path": "research/run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration.md",
+        "stance": "conditional",
+        "component": "probe_head",
+        "policy_type": "conditional",
+        "confidence": 0.5,
+        "applies_to": [
+          "probe_head",
+          "research",
+          "run",
+          "0002",
+          "0001"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "01-validated-findings-md-perch-and-embedding-findings",
+        "title": "Perch And Embedding Findings",
+        "summary": "Embedding-head style models can add complementary signal even when their standalone score is not the best.",
+        "source_path": "01_validated_findings.md",
+        "stance": "positive",
+        "component": "probe_head",
+        "policy_type": "require",
+        "confidence": 0.88,
+        "applies_to": [
+          "probe_head",
+          "01_validated_findings",
+          "perch",
+          "and",
+          "embedding"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0001-perch-baseline-md-adopt-now-guidance",
+        "title": "Adopt-Now Guidance",
+        "summary": "1. **Ship raw-probe bundle first** — no prior fusion, no calibration tweaks. The 0.665 local score is the honest baseline. A Kaggle score anchors every subsequent decision.",
+        "source_path": "research/run-0001-perch-baseline.md",
+        "stance": "positive",
+        "component": "probe_head",
+        "policy_type": "prefer",
+        "confidence": 0.68,
+        "applies_to": [
+          "probe_head",
+          "research",
+          "run",
+          "0001",
+          "perch"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "01-validated-findings-md-validation-and-metric-semantics",
+        "title": "Validation And Metric Semantics",
+        "summary": "Holdout validation is the most trustworthy local signal for iteration.",
+        "source_path": "01_validated_findings.md",
+        "stance": "positive",
+        "component": "backbone",
+        "policy_type": "require",
+        "confidence": 0.88,
+        "applies_to": [
+          "backbone",
+          "01_validated_findings",
+          "validation",
+          "and",
+          "metric"
+        ],
+        "override_required": false
+      }
+    ],
+    "branch_memories": [],
+    "contradictions": []
+  }
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run Report run-0002-0002-calibrated-prior-fusion-v2</title>
+  <style>
+    body { margin: 0; font-family: Georgia, serif; background: #f5f1e8; color: #1f2937; }
+    main { max-width: 900px; margin: 0 auto; padding: 32px 20px 48px; }
+    article { background: #fffdfa; border: 1px solid #d9d1c5; border-radius: 16px; padding: 24px; }
+    pre { white-space: pre-wrap; font: 14px/1.6 "SFMono-Regular", Consolas, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <article>
+    <pre>## Report: run-0002-0002-calibrated-prior-fusion-v2
+
+**Run**: `run-0002-0002-calibrated-prior-fusion-v2`
+**Experiment**: `exp-0002-calibrated-prior-fusion-v2` — Calibrated prior fusion v2
+**Branch role**: tertiary (rank 1) in portfolio `portfolio-run-0001-perch-baseline-perch-cached-probe`
+**Idea class**: post_processing
+
+### Result
+
+| Metric | Value |
+|---|---|
+| val_soundscape_macro_roc_auc | **0.6648** |
+| soundscape_macro_roc_auc | 0.9918 |
+| padded_cmap | 0.0624 |
+| val_prior_fusion_macro_roc_auc | 0.6622 |
+| prior_fusion_macro_roc_auc | 0.4873 |
+| oof_probe_macro_roc_auc | 0.5197 |
+
+### Leaderboard Comparison
+
+| Run | val ROC-AUC | Delta |
+|---|---|---|
+| **run-0003-0001-class-coverage-expansion-probe** (leader) | 0.6652 | — |
+| run-0002-0002-calibrated-prior-fusion-v2 (this run) | 0.6648 | -0.0005 |
+
+The gap is only 0.0005 AUC. The class-coverage-expansion-probe remains the leader.
+
+### Key Observations
+
+1. **Prior fusion adds negligible signal.** The raw `prior_fusion_macro_roc_auc` on train is 0.487 — essentially random. On validation it rises to 0.662, but the val metric with fusion (0.6648) barely exceeds the val prior-fusion-only metric (0.6622). The fusion weight may be too low or the class priors are poorly estimated.
+
+2. **Dataset coverage**: 708 fully-labeled windows across 59 files, with 75 active classes but only 52 fitted. The 23 unfitted classes may be where prior fusion could help if the priors were better calibrated.
+
+3. **Verdict is submission-required.** The pipeline is functional and close to the leader. A submission would anchor the score against the leaderboard and determine if the small val difference translates to a real test-set difference.
+
+### Recommendation for Decision Stage
+
+- **Option A**: Submit this run to get a leaderboard anchor for the calibrated-prior-fusion branch, enabling grounded calibration tuning.
+- **Option B**: Skip submission — the leader (class-coverage-expansion-probe) already covers the same pipeline and the delta is too small to justify a daily submission slot.
+- **Focus area**: The decision stage should weigh the daily submission budget (5/day, 2 final) against the informational value of grounding this branch. Given the tertiary branch role and near-zero lift, the burden of proof is on demonstrating that prior fusion matters before spending a slot.
+</pre>
+  </article>
+</main>
+</body>
+</html>

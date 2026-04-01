@@ -1,0 +1,16 @@
+{
+  "stage": "submission",
+  "status": "candidate_created",
+  "candidate_id": "submission-0001-run-0001-perch-baseline",
+  "cpu_ready": true,
+  "slot_plan": {
+    "actual_submissions": 0,
+    "ready_candidates": [
+      "submission-0001-run-0001-perch-baseline"
+    ],
+    "remaining_daily_slots": 5,
+    "remaining_final_slots": 2
+  },
+  "branch_origin": "baseline",
+  "target_run_id": "run-0001-perch-baseline"
+}

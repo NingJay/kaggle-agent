@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run Report run-0001-perch-baseline</title>
+  <style>
+    body { margin: 0; font-family: Georgia, serif; background: #f5f1e8; color: #1f2937; }
+    main { max-width: 900px; margin: 0 auto; padding: 32px 20px 48px; }
+    article { background: #fffdfa; border: 1px solid #d9d1c5; border-radius: 16px; padding: 24px; }
+    pre { white-space: pre-wrap; font: 14px/1.6 "SFMono-Regular", Consolas, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <article>
+    <pre>## Report: Perch Cached-Probe Baseline
+
+**Run:** run-0001-perch-baseline  
+**Status:** succeeded  
+**Stage:** report → next: research
+
+### Primary Metric
+
+val_soundscape_macro_roc_auc = **0.6651**
+
+### Secondary Metrics
+
+| Metric | Value |
+|---|---|
+| soundscape_macro_roc_auc | 0.9918 |
+| padded_cmap | 0.0624 |
+| prior_fusion_macro_roc_auc | 0.4873 |
+| val_prior_fusion_macro_roc_auc | 0.6622 |
+| oof_probe_macro_roc_auc | 0.5198 |
+
+### Dataset Summary
+
+- 708 cache rows, 59 fully labeled files, 75 active classes, 52 fitted classes.
+
+### Key Observations
+
+1. **Large train-val gap on soundscapes.** Training soundscape ROC-AUC (0.992) vs validation (0.665) shows a ~0.33 gap. This is the dominant signal to investigate — the probe may be overfitting to training soundscape structure or the validation set may represent a different acoustic distribution.
+
+2. **Prior fusion provides minimal lift.** val_prior_fusion (0.662) is slightly below raw val_soundscape (0.665). The Bayesian prior is not yet calibrated well enough to help. The OOF probe ROC-AUC (0.520) is near random for 75 classes, confirming the probe still needs work.
+
+3. **padded_cmap is very low (0.062).** This metric is sensitive to temporal localization. The embedding-probe approach may be producing good class rankings but poor temporal resolution, or the padding scheme is penalizing predictions heavily.
+
+4. **Only 52 of 75 classes are fitted.** 23 classes lack sufficient data for the probe, which will produce default/zero predictions for those classes and hurt macro-averaged metrics.
+
+### Root Cause
+
+The pipeline is end-to-end functional but the embedding probe generalizes poorly from training to validation soundscapes. The near-random OOF probe AUC (0.520) confirms the linear probe on Perch embeddings is underfitting or the features lack discriminative power at current dimensionality. The train-val gap (0.33) is the single most important number to reduce.
+
+### Immediate Next Steps
+
+1. **Research stage:** Investigate probe architecture improvements (deeper head, class-specific thresholds), embedding normalization, and calibration methods (temperature scaling, Platt).
+2. **Address class coverage:** Strategies for the 23 unfitted classes — zero-shot transfer from Perch label space, upsampling, or pseudo-labeling.
+3. **Submission bundle parity:** Package the current pipeline into a CPU-only, internet-off notebook to establish a leaderboard baseline.
+4. **Calibration:** The prior fusion needs recalibration before it can improve over the raw probe output.
+</pre>
+  </article>
+</main>
+</body>
+</html>

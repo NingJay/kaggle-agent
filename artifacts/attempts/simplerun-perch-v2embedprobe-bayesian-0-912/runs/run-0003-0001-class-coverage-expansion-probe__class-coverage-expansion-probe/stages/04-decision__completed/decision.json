@@ -1,0 +1,116 @@
+{
+  "stage": "decision",
+  "decision_type": "branch_portfolio",
+  "next_action": "plan",
+  "submission_recommendation": "defer",
+  "root_cause": "The class-coverage-expansion-probe run (run-0003-0001) achieved val ROC-AUC 0.6652, essentially flat versus the prior baseline (0.6651). The lane leader MLP probe from run-0002-0003 holds 0.6801, which is the best score in branch. The primary bottleneck is the 0.327 train-val gap (0.992 train vs 0.665 val), indicating severe overfitting or domain shift. Padded_cmap at 0.062 confirms weak segment-level localization. Class coverage expansion alone produced no material gain. Five rounds of micro-tuning have been exhausted per the axis-exhaustion negative prior. Before packaging a submission, the higher-value move is to close the gap between the current best (0.6652) and the lane leader (0.6801) by adopting the MLP probe head configuration and then pursuing calibration and domain-shift mitigation.",
+  "why": "The research verdict says submission-required, but submitting at 0.6652 when the lane leader holds 0.6801 leaves 0.015 AUC on the table. The MLP probe head from run-0002-0003 is a positive prior at 0.68 confidence and has already demonstrated the best score. The negative prior vetoes further micro-tuning on the current head architecture, but does not veto adopting the proven MLP configuration as a baseline. A submission at 0.6801 is materially stronger than one at 0.6652. We should plan a multi-branch follow-up: (1) adopt the MLP probe head as the primary submission candidate, (2) add calibration (temperature scaling) as a parallel branch, and (3) explore domain-shift augmentation as a speculative branch. This preserves branch-search space per the decision rules rather than collapsing to a single calibration tweak.",
+  "next_title": "MLP probe head adoption + calibration + domain-shift mitigation",
+  "next_family": "perch_cached_probe",
+  "next_config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+  "priority_delta": 15,
+  "launch_mode": "background",
+  "requires_human": false,
+  "portfolio_intent": "Close the 0.015 gap between current (0.6652) and lane leader (0.6801) by adopting the proven MLP probe configuration, then calibrate and submit. Open speculative domain-shift branch for upside.",
+  "portfolio_policy": {
+    "max_parallel_branches": 3,
+    "submission_threshold_roc_auc": 0.68,
+    "fallback_submission_run_id": "run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe",
+    "calibration_method": "temperature_scaling",
+    "deprioritized_isolation_axes": [
+      "class_coverage_expansion",
+      "embedding_mixup",
+      "mlp_architecture_variants"
+    ]
+  },
+  "branch_mix": [
+    {
+      "branch_role": "primary",
+      "idea_class": "data_coverage",
+      "title": "MLP probe head adoption from run-0002-0003",
+      "hypothesis": "Adopting the lane-leader MLP probe head (0.6801) as the primary pipeline configuration will reproduce or exceed that score in the current branch context",
+      "priority_delta": 15,
+      "launch_mode": "background",
+      "rationale": "Strongest positive prior; proven score; no architectural risk"
+    },
+    {
+      "branch_role": "secondary",
+      "idea_class": "calibration",
+      "title": "Temperature scaling calibration on MLP logits",
+      "hypothesis": "Temperature scaling on the MLP probe head logits will improve ROC-AUC ranking quality by correcting the miscalibrated prior fusion weights",
+      "priority_delta": 5,
+      "launch_mode": "background",
+      "rationale": "Low-risk post-hoc calibration; prior fusion barely exceeds raw val (0.662 vs 0.665)"
+    },
+    {
+      "branch_role": "speculative",
+      "idea_class": "augmentation",
+      "title": "Domain-shift augmentation on training soundscapes",
+      "hypothesis": "Frequency-domain augmentation (specAugment, noise injection) on training soundscapes will narrow the 0.327 train-val gap and improve generalization",
+      "priority_delta": -5,
+      "launch_mode": "background",
+      "rationale": "High ceiling but uncertain; train-val gap is the fundamental blocker"
+    }
+  ],
+  "branch_portfolio": [
+    {
+      "title": "MLP probe head adoption from run-0002-0003",
+      "family": "perch_cached_probe",
+      "hypothesis": "Adopting the lane-leader MLP probe head (0.6801) as the primary pipeline configuration will reproduce or exceed that score in the current branch context",
+      "rationale": "Strongest positive prior; proven score; no architectural risk",
+      "branch_role": "primary",
+      "idea_class": "data_coverage",
+      "target_component": "probe_head",
+      "priority_delta": 15,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now"
+      ],
+      "policy_trace": [
+        "prefer @ 0.68: MLP probe head lane leader at 0.6801"
+      ],
+      "branch_memory_ids": [
+        "memory-0001"
+      ],
+      "config_overrides": [
+        {
+          "path": "model.head_type",
+          "value": "mlp"
+        },
+        {
+          "path": "model.hidden_dim",
+          "value": 256
+        }
+      ]
+    }
+  ],
+  "deprioritized_axes": [
+    "class_coverage_expansion_isolation",
+    "embedding_level_mixup",
+    "mlp_architecture_variants"
+  ],
+  "rejected_axes": [
+    "micro_tuning_exhausted_axes",
+    "class_coverage_expansion_isolation"
+  ],
+  "selected_policy_cards": [
+    "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+    "01-validated-findings-md-perch-and-embedding-findings"
+  ],
+  "knowledge_card_ids": [
+    "01-validated-findings-md-perch-and-embedding-findings",
+    "research-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state-md-axis-exhaustion-summary",
+    "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+    "03-next-experiment-priors-md-perch-probe-lane",
+    "research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed"
+  ],
+  "branch_memory_ids": [
+    "memory-0001"
+  ],
+  "problem_frame": {
+    "family": "perch_cached_probe",
+    "focus": "MLP probe head adoption and calibration for submission parity",
+    "root_cause": "Current run (0.6652) is 0.015 below lane leader (0.6801). Train-val gap of 0.327 confirms overfitting/domain shift. Padded_cmap at 0.062 indicates weak segment-level localization. Prior fusion adds negligible lift.",
+    "objective_metric": "val_soundscape_macro_roc_auc"
+  }
+}

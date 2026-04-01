@@ -1,0 +1,26 @@
+## Runtime Summary
+- Backend: sklearn_cached_probe (reference_bayesian_pipeline)
+- Cache root: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/input/perch-meta
+- Cached rows: 708
+- Fully labeled windows: 708
+- Active classes: 75
+- Fitted classes: 52
+- Probe PCA dim: 32
+- Probe min positives: 8
+- Probe C: 0.25
+- Use raw Perch scores: True
+- Probe alpha: 0.4
+- Prior lambda event: 0.4
+- Prior lambda texture: 1.0
+- Prior lambda proxy texture: 0.8
+- Smooth texture alpha: 0.35
+- prior_fusion_macro_roc_auc=0.487292
+- soundscape_macro_roc_auc=0.991784 (full-pipeline resubstitution)
+- oof_probe_macro_roc_auc=0.519833
+- padded_cmap=0.062362
+### Holdout Validation (sites: S03, S08, S13, S19)
+- Train: 47 files (564 windows)
+- Val: 12 files (144 windows)
+- val_soundscape_macro_roc_auc=0.665078
+- val_prior_fusion_macro_roc_auc=0.662212
+- Val fitted classes: 34

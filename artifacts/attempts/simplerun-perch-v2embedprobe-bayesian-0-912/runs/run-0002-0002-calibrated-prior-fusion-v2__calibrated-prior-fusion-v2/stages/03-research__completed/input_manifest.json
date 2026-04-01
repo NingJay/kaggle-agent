@@ -1,0 +1,367 @@
+{
+  "run": {
+    "run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "experiment_id": "exp-0002-calibrated-prior-fusion-v2",
+    "work_item_id": "workitem-0002-calibrated-prior-fusion-v2",
+    "spec_id": "spec-0003",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/train.log",
+    "started_at": "2026-04-01T11:35:41+00:00",
+    "completed_at": "2026-04-01T11:38:33+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6647655401194675,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917797885609636,
+      "padded_cmap": 0.062420468209544416,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "branch_experiment",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "research",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-01T11:44:40+00:00",
+    "latest_stage_run_id": "stage-0018-research"
+  },
+  "experiment": {
+    "id": "exp-0002-calibrated-prior-fusion-v2",
+    "title": "Calibrated prior fusion v2",
+    "hypothesis": "Work item workitem-0002-calibrated-prior-fusion-v2: Calibrated prior fusion v2",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+    "priority": 37,
+    "work_item_id": "workitem-0002-calibrated-prior-fusion-v2",
+    "spec_id": "spec-0003",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "latest_decision_id": "",
+    "created_at": "2026-04-01T11:35:41+00:00",
+    "updated_at": "2026-04-01T11:38:33+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-0002-calibrated-prior-fusion-v2:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "post_processing",
+    "branch_role": "tertiary",
+    "branch_rank": 1,
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause"
+    ]
+  },
+  "report": {
+    "stage": "report",
+    "headline": "Calibrated prior fusion v2 scores 0.6648 val ROC-AUC, trails leader by 0.0005.",
+    "focus": "Decide whether calibrated prior fusion warrants a submission slot or if the class-coverage-expansion-probe leader is sufficient for the next submission bundle.",
+    "best_run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "best_run_metric": 0.6652158470291849,
+    "primary_metric_value": 0.6647655401194675,
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline completed successfully. Calibrated prior fusion v2 achieved val_soundscape_macro_roc_auc=0.6648, slightly below the leader (0.6652). The prior fusion component itself shows weak signal: prior_fusion_macro_roc_auc=0.487 (near random on train) and val_prior_fusion_macro_roc_auc=0.662, suggesting calibration has not yet extracted meaningful lift. The delta to the leader is small enough that submission parity testing could confirm whether the fusion adds anything on the hidden test set.",
+    "verdict": "submission-required",
+    "finding_titles": [
+      "Calibrated prior fusion v2 completed"
+    ],
+    "issue_titles": []
+  },
+  "retrieved_knowledge": {
+    "problem_frame": {
+      "stage": "research",
+      "family": "perch_cached_probe",
+      "title": "Calibrated prior fusion v2",
+      "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline completed successfully. Calibrated prior fusion v2 achieved val_soundscape_macro_roc_auc=0.6648, slightly below the leader (0.6652). The prior fusion component itself shows weak signal: prior_fusion_macro_roc_auc=0.487 (near random on train) and val_prior_fusion_macro_roc_auc=0.662, suggesting calibration has not yet extracted meaningful lift. The delta to the leader is small enough that submission parity testing could confirm whether the fusion adds anything on the hidden test set.",
+      "hypothesis": "",
+      "objective_metric": "val_soundscape_macro_roc_auc",
+      "current_metric_value": 0.6647655401194675,
+      "focus": "Decide whether calibrated prior fusion warrants a submission slot or if the class-coverage-expansion-probe leader is sufficient for the next submission bundle.",
+      "next_action": "",
+      "adopt_now": [],
+      "consider": [],
+      "reject": [],
+      "query_terms": [
+        "perch_cached_probe",
+        "calibrated",
+        "prior",
+        "fusion",
+        "the",
+        "notebook",
+        "derived",
+        "bayesian",
+        "embedding",
+        "probe",
+        "pipeline",
+        "completed",
+        "successfully",
+        "achieved",
+        "val_soundscape_macro_roc_auc",
+        "6648",
+        "slightly",
+        "below",
+        "leader",
+        "6652",
+        "component",
+        "itself",
+        "shows",
+        "weak"
+      ]
+    },
+    "knowledge_files_seen": 7,
+    "knowledge_card_ids": [
+      "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+      "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+      "03-next-experiment-priors-md-perch-probe-lane",
+      "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+      "research-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state-md-key-metrics",
+      "research-run-0003-0001-class-coverage-expansion-probe-md-verdict-submission-required-flat",
+      "01-validated-findings-md-perch-and-embedding-findings",
+      "harness-ref-evaluation-contract-md-2-val-prior-fusion-macro-roc-auc"
+    ],
+    "branch_memory_ids": [
+      "memory-0002",
+      "memory-0001"
+    ],
+    "cards": [
+      {
+        "card_id": "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+        "title": "Adopt Now",
+        "summary": "1. **Ship run-0002-0001 raw-probe submission bundle** — it holds the local leader at 0.6651. Use raw probe output exclusively; prior fusion degrades it (0.6622). The bundle is already validated, critic-approved, and h...",
+        "source_path": "research/run-0003-0002-prior-fusion-weight-calibration.md",
+        "stance": "positive",
+        "component": "prior_calibration",
+        "policy_type": "prefer",
+        "confidence": 0.68
+      },
+      {
+        "card_id": "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+        "title": "Root Cause",
+        "summary": "Prior-fusion weight calibration (run-0003-0002) scored val_soundscape_macro_roc_auc=0.6648, a -0.003 regression vs the leader run-0002-0001 (0.6651). The fusion component itself (val_prior_fusion_macro_roc_auc=0.6622)...",
+        "source_path": "research/run-0003-0002-prior-fusion-weight-calibration.md",
+        "stance": "negative",
+        "component": "prior_calibration",
+        "policy_type": "avoid",
+        "confidence": 0.68
+      },
+      {
+        "card_id": "03-next-experiment-priors-md-perch-probe-lane",
+        "title": "Perch Probe Lane",
+        "summary": "If fitted classes lag active classes, expand coverage before micro-tuning.",
+        "source_path": "03_next_experiment_priors.md",
+        "stance": "conditional",
+        "component": "class_coverage",
+        "policy_type": "conditional",
+        "confidence": 0.66
+      },
+      {
+        "card_id": "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+        "title": "Current State",
+        "summary": "The combined coverage expansion + MLP regularization branch achieved **val_soundscape_macro_roc_auc = 0.672**, which is below:",
+        "source_path": "research/run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe.md",
+        "stance": "general",
+        "component": "probe_head",
+        "policy_type": "context",
+        "confidence": 0.42
+      },
+      {
+        "card_id": "research-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state-md-key-metrics",
+        "title": "Key Metrics",
+        "summary": "| Metric | Run-0008 (Leader) | Run-0010 (Current) | Delta |",
+        "source_path": "research/run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state.md",
+        "stance": "general",
+        "component": "probe_head",
+        "policy_type": "context",
+        "confidence": 0.42
+      },
+      {
+        "card_id": "research-run-0003-0001-class-coverage-expansion-probe-md-verdict-submission-required-flat",
+        "title": "Verdict: submission-required (flat)",
+        "summary": "Run run-0003-0001 achieved val ROC-AUC **0.6652**, essentially flat against the prior run (0.6651, memory-0001). The coverage expansion from 52→75 active classes with 708 cache rows did not materially move the primary...",
+        "source_path": "research/run-0003-0001-class-coverage-expansion-probe.md",
+        "stance": "general",
+        "component": "class_coverage",
+        "policy_type": "context",
+        "confidence": 0.42
+      },
+      {
+        "card_id": "01-validated-findings-md-perch-and-embedding-findings",
+        "title": "Perch And Embedding Findings",
+        "summary": "Embedding-head style models can add complementary signal even when their standalone score is not the best.",
+        "source_path": "01_validated_findings.md",
+        "stance": "positive",
+        "component": "probe_head",
+        "policy_type": "require",
+        "confidence": 0.88
+      },
+      {
+        "card_id": "harness-ref-evaluation-contract-md-2-val-prior-fusion-macro-roc-auc",
+        "title": "2. `val_prior_fusion_macro_roc_auc`",
+        "summary": "Meaning: holdout score for the prior-fusion baseline on the same validation split.",
+        "source_path": "harness_ref/evaluation_contract.md",
+        "stance": "general",
+        "component": "probe_head",
+        "policy_type": "context",
+        "confidence": 0.42
+      }
+    ],
+    "policy_cards": [
+      {
+        "card_id": "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+        "title": "Adopt Now",
+        "summary": "1. **Ship run-0002-0001 raw-probe submission bundle** — it holds the local leader at 0.6651. Use raw probe output exclusively; prior fusion degrades it (0.6622). The bundle is already validated, critic-approved, and h...",
+        "source_path": "research/run-0003-0002-prior-fusion-weight-calibration.md",
+        "stance": "positive",
+        "component": "prior_calibration",
+        "policy_type": "prefer",
+        "confidence": 0.68,
+        "applies_to": [
+          "prior_calibration",
+          "research",
+          "run",
+          "0003",
+          "0002"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+        "title": "Root Cause",
+        "summary": "Prior-fusion weight calibration (run-0003-0002) scored val_soundscape_macro_roc_auc=0.6648, a -0.003 regression vs the leader run-0002-0001 (0.6651). The fusion component itself (val_prior_fusion_macro_roc_auc=0.6622)...",
+        "source_path": "research/run-0003-0002-prior-fusion-weight-calibration.md",
+        "stance": "negative",
+        "component": "prior_calibration",
+        "policy_type": "avoid",
+        "confidence": 0.68,
+        "applies_to": [
+          "prior_calibration",
+          "research",
+          "run",
+          "0003",
+          "0002"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "03-next-experiment-priors-md-perch-probe-lane",
+        "title": "Perch Probe Lane",
+        "summary": "If fitted classes lag active classes, expand coverage before micro-tuning.",
+        "source_path": "03_next_experiment_priors.md",
+        "stance": "conditional",
+        "component": "class_coverage",
+        "policy_type": "conditional",
+        "confidence": 0.66,
+        "applies_to": [
+          "class_coverage",
+          "03_next_experiment_priors",
+          "perch",
+          "probe",
+          "lane"
+        ],
+        "override_required": false
+      },
+      {
+        "card_id": "01-validated-findings-md-perch-and-embedding-findings",
+        "title": "Perch And Embedding Findings",
+        "summary": "Embedding-head style models can add complementary signal even when their standalone score is not the best.",
+        "source_path": "01_validated_findings.md",
+        "stance": "positive",
+        "component": "probe_head",
+        "policy_type": "require",
+        "confidence": 0.88,
+        "applies_to": [
+          "probe_head",
+          "01_validated_findings",
+          "perch",
+          "and",
+          "embedding"
+        ],
+        "override_required": false
+      }
+    ],
+    "branch_memories": [
+      {
+        "memory_id": "memory-0002",
+        "run_id": "run-0003-0001-class-coverage-expansion-probe",
+        "family": "perch_cached_probe",
+        "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+        "idea_class": "data_coverage",
+        "branch_role": "primary",
+        "branch_rank": 0,
+        "status": "succeeded",
+        "outcome": "leader",
+        "summary": "primary data_coverage -> leader; val_soundscape_macro_roc_auc=0.665216; delta=+0.000138; critic=approved; validate=not_required",
+        "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live with expanded class coverage (52→75 active classes, 708 cache rows). The probe head recovered signal from 23 previously uncovered classes, but the gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) indicates overfitting or domain shift. Prior fusion validation metric (0.662) closely tracks the primary metric, suggesting the Bayesian prior adds marginal improvement at this stage. The padded_cmap remains very low (0.062), pointing to weak segment-level localization. Next steps are submission bundle parity and calibration.",
+        "metric_name": "val_soundscape_macro_roc_auc",
+        "metric_value": 0.6652158470291849,
+        "metric_delta": 0.000137704967359209,
+        "signal_score": 3.0,
+        "critic_status": "approved",
+        "validation_status": "not_required",
+        "submission_status": "skipped",
+        "policy_tags": [
+          "outcome:leader",
+          "role:primary",
+          "idea:data_coverage"
+        ],
+        "knowledge_card_ids": [
+          "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+        ],
+        "created_at": "2026-04-01T11:43:54+00:00"
+      },
+      {
+        "memory_id": "memory-0001",
+        "run_id": "run-0001-perch-baseline",
+        "family": "perch_cached_probe",
+        "portfolio_id": "",
+        "idea_class": "",
+        "branch_role": "",
+        "branch_rank": 0,
+        "status": "succeeded",
+        "outcome": "flat",
+        "summary": "branch perch_cached_probe -> flat; val_soundscape_macro_roc_auc=0.665078; delta=-0.000138; critic=approved; validate=validated",
+        "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live and functional, but submission bundle parity and calibration remain incomplete. The training soundscape ROC-AUC (0.992) is dramatically higher than the validation soundscape ROC-AUC (0.665), indicating potential overfitting or domain shift between training soundscapes and validation soundscapes. Prior fusion validation (0.662) closely tracks the raw validation score, suggesting the Bayesian prior is not yet adding significant lift.",
+        "metric_name": "val_soundscape_macro_roc_auc",
+        "metric_value": 0.6650781420618257,
+        "metric_delta": -0.000137704967359209,
+        "signal_score": 0.5,
+        "critic_status": "approved",
+        "validation_status": "validated",
+        "submission_status": "candidate_created",
+        "policy_tags": [
+          "outcome:flat"
+        ],
+        "knowledge_card_ids": [],
+        "created_at": "2026-04-01T11:33:58+00:00"
+      }
+    ],
+    "contradictions": []
+  }
+}

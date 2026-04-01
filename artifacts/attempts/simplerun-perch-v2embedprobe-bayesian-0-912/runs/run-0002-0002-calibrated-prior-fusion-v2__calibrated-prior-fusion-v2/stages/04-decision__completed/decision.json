@@ -1,0 +1,81 @@
+{
+  "stage": "decision",
+  "decision_type": "branch_exhaustion",
+  "next_action": "plan",
+  "submission_recommendation": "ship_leader_bundle",
+  "root_cause": "Calibrated prior fusion v2 (run-0002-0002) scored 0.6648 val ROC-AUC, a -0.0005 regression vs the leader run-0003-0001 (0.6652). The prior fusion component is near-random on train (0.487) and below raw probe on validation (0.662), confirming Bayesian prior calibration extracts no meaningful signal. The prior fusion branch is exhausted after two failed attempts (run-0003-0002 and run-0002-0002).",
+  "why": "The prior fusion post-processing lane has been tested twice with consistent negative results. Both negative vetoes at confidence 0.68 confirm this axis should be closed. The immediate priority is shipping the critic-approved raw-probe leader bundle (run-0003-0001 at 0.6652) to secure a submission slot. After that, plan should target high-value axes: probe-head architecture improvements (MLP regularization without prior fusion) and revised class-coverage strategies, since brute-force 52→75 expansion was flat. Collapsing to another calibration tweak would waste experiment capacity with no signal basis.",
+  "next_title": "Probe-head architecture and revised coverage strategy",
+  "next_family": "perch_cached_probe",
+  "next_config_path": "BirdCLEF-2026-Codebase/configs/generated/probe-head-arch-v1.yaml",
+  "priority_delta": 10,
+  "launch_mode": "background",
+  "requires_human": false,
+  "portfolio_intent": "Close prior fusion (tertiary, exhausted). Ship primary data_coverage leader. Open probe-head architecture as next experimental axis.",
+  "portfolio_policy": {
+    "max_parallel_branches": 3,
+    "submission_budget_remaining": 4,
+    "exhausted_axes": [
+      "prior_fusion",
+      "bayesian_calibration"
+    ],
+    "active_axes": [
+      "probe_head_architecture",
+      "class_coverage_revised"
+    ],
+    "leader_run": "run-0003-0001-class-coverage-expansion-probe",
+    "leader_metric": 0.6652
+  },
+  "branch_mix": [
+    {
+      "branch_role": "primary",
+      "run_id": "run-0003-0001-class-coverage-expansion-probe",
+      "metric": 0.6652,
+      "action": "submission_bundle",
+      "idea_class": "data_coverage"
+    },
+    {
+      "branch_role": "secondary",
+      "run_id": "run-0001-perch-baseline",
+      "metric": 0.6651,
+      "action": "fallback_submission",
+      "idea_class": "baseline"
+    },
+    {
+      "branch_role": "tertiary",
+      "run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+      "metric": 0.6648,
+      "action": "exhausted",
+      "idea_class": "post_processing"
+    }
+  ],
+  "deprioritized_axes": [
+    "prior_fusion",
+    "bayesian_prior_calibration",
+    "fusion_weight_grid_search",
+    "brute_force_coverage_expansion"
+  ],
+  "problem_frame": {
+    "family": "perch_cached_probe",
+    "focus": "Ship the raw-probe leader submission bundle and open a probe-head architecture experiment axis. Prior fusion is exhausted.",
+    "root_cause": "Prior fusion has been tested twice with negative results; the Bayesian prior adds no signal. The leader at 0.6652 is critic-approved and ready for submission. Next gains likely come from probe-head architecture rather than post-processing.",
+    "objective_metric": "val_soundscape_macro_roc_auc"
+  },
+  "knowledge_card_ids": [
+    "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+    "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+    "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+    "01-validated-findings-md-perch-and-embedding-findings",
+    "03-next-experiment-priors-md-perch-probe-lane"
+  ],
+  "branch_memory_ids": [
+    "memory-0002",
+    "memory-0001"
+  ],
+  "selected_policy_cards": [
+    "research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now",
+    "research-run-0003-0002-prior-fusion-weight-calibration-md-root-cause",
+    "01-validated-findings-md-perch-and-embedding-findings",
+    "03-next-experiment-priors-md-perch-probe-lane"
+  ]
+}

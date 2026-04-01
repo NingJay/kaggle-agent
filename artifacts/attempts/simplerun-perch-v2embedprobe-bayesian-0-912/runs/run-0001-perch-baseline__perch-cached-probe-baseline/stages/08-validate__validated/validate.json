@@ -1,0 +1,84 @@
+{
+  "stage": "validate",
+  "status": "validated",
+  "summary": "Queued 2 deferred follow-up branches while proceeding to submission.",
+  "plan_status": "submission_candidate",
+  "spec_id": "spec-0002",
+  "queued_work_item_id": "workitem-0001-class-coverage-expansion-probe",
+  "branch_count": 2,
+  "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+  "dispatch_summary": [
+    {
+      "branch_rank": 0,
+      "branch_role": "primary",
+      "idea_class": "data_coverage",
+      "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+      "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+      "spec_id": "spec-0002",
+      "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+      "lifecycle_template": "branch_experiment",
+      "stage_plan": [
+        "codegen",
+        "critic",
+        "validate",
+        "execute",
+        "evidence",
+        "report",
+        "research",
+        "decision",
+        "plan",
+        "submission"
+      ],
+      "target_run_id": "",
+      "knowledge_card_ids": [
+        "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+      ],
+      "policy_trace": [
+        "role:primary:8.0"
+      ],
+      "branch_memory_ids": [],
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "cooldown": false,
+        "dispatch_priority": 8.0
+      }
+    },
+    {
+      "branch_rank": 1,
+      "branch_role": "tertiary",
+      "idea_class": "post_processing",
+      "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+      "work_item_id": "workitem-0002-calibrated-prior-fusion-v2",
+      "spec_id": "spec-0003",
+      "config_path": "BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+      "lifecycle_template": "branch_experiment",
+      "stage_plan": [
+        "codegen",
+        "critic",
+        "validate",
+        "execute",
+        "evidence",
+        "report",
+        "research",
+        "decision",
+        "plan",
+        "submission"
+      ],
+      "target_run_id": "",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-root-cause"
+      ],
+      "policy_trace": [
+        "role:tertiary:0.0"
+      ],
+      "branch_memory_ids": [],
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "cooldown": false,
+        "dispatch_priority": 0.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+  "run_label": "run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2",
+  "lifecycle_template": "branch_experiment",
+  "status": "succeeded",
+  "current_cursor": "complete",
+  "note": "Stage directory prefixes keep canonical stage ids. Actual execution order follows `stage_plan` below.",
+  "steps": [
+    {
+      "sequence": 1,
+      "stage_name": "codegen",
+      "canonical_dir_hint": "06-codegen__*",
+      "status": "noop",
+      "artifact_label": "06-codegen__noop",
+      "artifact_dir": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/06-codegen__noop",
+      "artifact_json": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/06-codegen__noop/codegen.json",
+      "artifact_md": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/06-codegen__noop/codegen.md"
+    },
+    {
+      "sequence": 2,
+      "stage_name": "critic",
+      "canonical_dir_hint": "07-critic__*",
+      "status": "approved",
+      "artifact_label": "07-critic__approved",
+      "artifact_dir": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/07-critic__approved",
+      "artifact_json": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/07-critic__approved/critic.json",
+      "artifact_md": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/07-critic__approved/critic.md"
+    },
+    {
+      "sequence": 3,
+      "stage_name": "validate",
+      "canonical_dir_hint": "08-validate__*",
+      "status": "not-required",
+      "artifact_label": "08-validate__not-required",
+      "artifact_dir": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/08-validate__not-required",
+      "artifact_json": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/08-validate__not-required/validate.json",
+      "artifact_md": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/08-validate__not-required/validate.md"
+    },
+    {
+      "sequence": 4,
+      "stage_name": "execute",
+      "canonical_dir_hint": "execute",
+      "status": "completed",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 5,
+      "stage_name": "evidence",
+      "canonical_dir_hint": "01-evidence__*",
+      "status": "succeeded",
+      "artifact_label": "01-evidence__succeeded",
+      "artifact_dir": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/01-evidence__succeeded",
+      "artifact_json": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/01-evidence__succeeded/evidence.json",
+      "artifact_md": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/01-evidence__succeeded/evidence.md"
+    },
+    {
+      "sequence": 6,
+      "stage_name": "report",
+      "canonical_dir_hint": "02-report__*",
+      "status": "completed",
+      "artifact_label": "02-report__completed",
+      "artifact_dir": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/02-report__completed",
+      "artifact_json": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/02-report__completed/report.json",
+      "artifact_md": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/02-report__completed/report.md"
+    },
+    {
+      "sequence": 7,
+      "stage_name": "research",
+      "canonical_dir_hint": "03-research__*",
+      "status": "completed",
+      "artifact_label": "03-research__completed",
+      "artifact_dir": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/03-research__completed",
+      "artifact_json": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/03-research__completed/research.json",
+      "artifact_md": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/03-research__completed/research.md"
+    },
+    {
+      "sequence": 8,
+      "stage_name": "decision",
+      "canonical_dir_hint": "04-decision__*",
+      "status": "completed",
+      "artifact_label": "04-decision__completed",
+      "artifact_dir": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/04-decision__completed",
+      "artifact_json": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/04-decision__completed/decision.json",
+      "artifact_md": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/04-decision__completed/decision.md"
+    },
+    {
+      "sequence": 9,
+      "stage_name": "plan",
+      "canonical_dir_hint": "05-plan__*",
+      "status": "planned",
+      "artifact_label": "05-plan__planned",
+      "artifact_dir": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/05-plan__planned",
+      "artifact_json": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/05-plan__planned/plan.json",
+      "artifact_md": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/05-plan__planned/plan.md"
+    },
+    {
+      "sequence": 10,
+      "stage_name": "submission",
+      "canonical_dir_hint": "09-submission__*",
+      "status": "skipped",
+      "artifact_label": "09-submission__skipped",
+      "artifact_dir": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/09-submission__skipped",
+      "artifact_json": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/09-submission__skipped/submission.json",
+      "artifact_md": "artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/09-submission__skipped/submission.md"
+    }
+  ],
+  "latest_stage_label": "09-submission__skipped"
+}

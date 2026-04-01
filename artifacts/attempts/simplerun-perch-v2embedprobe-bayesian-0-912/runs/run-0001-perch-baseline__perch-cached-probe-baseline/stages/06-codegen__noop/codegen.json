@@ -1,0 +1,45 @@
+{
+  "stage": "codegen",
+  "status": "noop",
+  "reason": "plan_status=submission_candidate",
+  "generated_config_path": "",
+  "run_bundle_path": "",
+  "patch_path": "",
+  "code_state_ref": "",
+  "verify_artifacts_ref": "",
+  "verify_command": "",
+  "verify_status": "skipped",
+  "verify_summary": "Codegen provider was not invoked because the plan is `submission_candidate`.",
+  "worktree_path": "",
+  "base_commit": "",
+  "head_commit": "",
+  "changed_files": [],
+  "provider_runtime": "deterministic-skip",
+  "allowed_edit_roots": [
+    "train_sed.py",
+    "BirdCLEF-2026-Codebase/configs",
+    "BirdCLEF-2026-Codebase/src",
+    "BirdCLEF-2026-Codebase/train.py",
+    "BirdCLEF-2026-Codebase/inference.py",
+    "BirdCLEF-2026-Codebase/scripts"
+  ],
+  "smoke_status": "skipped",
+  "smoke_summary": "Codegen provider was not invoked because the plan is `submission_candidate`.",
+  "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+  "branch_role": "primary",
+  "idea_class": "data_coverage",
+  "knowledge_card_ids": [
+    "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+  ],
+  "policy_trace": [
+    "role:primary:8.0"
+  ],
+  "branch_memory_ids": [],
+  "scheduler_hints": {
+    "portfolio_cap": 1,
+    "idea_class_cap": 1,
+    "cooldown": false,
+    "dispatch_priority": 8.0
+  },
+  "motivation_summary": "Conditional lead identifies 31% class coverage deficit as structural bottleneck"
+}

@@ -1,0 +1,478 @@
+SED Improvement Plan — BirdCLEF 2026
+SED Improvement Plan: From LB 0.862 to LB 0.90+
+Date: 2026-03-16
+Baseline: sed-b0-v5 (EfficientNet-B0, BCE, ep4/20)
+Reference: Competitor SED — holdout 0.9883 / LB 0.862
+Top Target: BirdCLEF 2025 1st place — LB 0.930 (private)
+2025 Top Solutions
+Gap Analysis
+Phase 1: Inference
+Phase 2: Training v6
+Phase 3: Backbone
+Phase 4: Pseudo-Label
+Phase 5: Ensemble
+Roadmap
+Our Best LB
+0.849
+→
+Competitor LB
+0.862
+→
+Phase 1–2 Target
+0.880
+→
+Phase 4 Target
+0.910
+→
+2025 1st Place
+0.930
+2025 Research
+BirdCLEF 2025 Top Solution Deep Dive
+1
+Nikita Babych — "Multi-Iterative Noisy Student Is All You Need"
+Public 0.933 · Private 0.930
+Backbones EfficientNet-L0, B4, B3, RegNetY-016/008, B0 (insects)
+Loss CrossEntropy → SoftAUCLoss
+Key trick PowerTransform pseudo-labels × 4 rounds
+Extra data 5,489 Xeno-Canto + 17,197 insect/amphibian
+Augmentation MixUp + StochasticDepth
+Inference OpenVINO CPU + TTA shifts
+2
+VSydorskyy / Gonçalves — "Transfer Learning + Semi-Supervised Distillation"
+Public 0.925 · Private 0.928
+Backbones eca_nfnet_l0 + tf_efficientnetv2_s_in21k
+Loss BCE + Focal, label smoothing α=0.05
+Key trick Pretrain on 819K recordings / 7,489 species
+Pseudo OOF 3-round, threshold 0.5, soft labels
+Pooling GeM (Generalized Mean) across frequency
+Augmentation MixUp (audio) + SpecAugment + RandomFiltering
+Postproc TopN(N=1) × file-level max multiplication
+Ensemble 15 models (3 experiments × 5 folds), Optuna
+1st Place — Score Progression
+Baseline
+0.872
+EfficientNet-0 + RegNetY + CE
++ Pseudo I + MixUp
+0.898
+10 models, StochasticDepth
++ PowerTransform × 4
+0.930
+Power-scaled pseudo-labels, 4 rounds
++ Insect/Amphibian
+0.933
+Dedicated B0 sub-pipeline
+2nd Place — Score Progression (Private)
+NFNet-L0 Base
+0.868
+No extras
++ Enhancements
+0.875
+Label smooth, balancing
++ EfficientNetV2-S
+0.889
+in21k pretrain
++ Pseudo × 3
+0.913
+OOF pseudo-labels
++ TopN + Ensemble
+0.928
+Optuna weights, 15 models
+1st Place Details
+Nikita Babych — Key Technical Insights
+Core Innovation: PowerTransform Pseudo-Labeling
+After generating pseudo-label probabilities from the ensemble "teacher", apply a power transform pʸ (power scaling) to sharpen/recalibrate the soft labels before the next student training round. This prevents probability collapse across 4 iterations and maintains discriminative signal. Combined with MixUp, StochasticDepth regularization creates a robust noisy student framework.
+SoftAUCLoss KEY
+Direct AUC
+Computes pairwise probability differences and applies log-loss. Directly optimizes the competition metric (macro ROC-AUC) instead of a proxy. Supports soft pseudo-labels. Resistant to overfitting in later training rounds.
+# Pairwise AUC approximation
+# loss = E[log(sigmoid(p_pos - p_neg))]
+# Works with soft label targets
+2025 1st & 4th place
+PowerTransform on Pseudo-Labels KEY
++0.032 LB
+After generating ensemble pseudo probabilities, apply power transform p^γ to sharpen predictions. γ>1 sharpens, γ<1 softens. Applied iteratively across 4 pseudo-labeling rounds to prevent probability collapse.
+# Sharpen pseudo-label probabilities
+pseudo_probs = pseudo_probs ** gamma
+# Re-normalize to sum=1 if needed
+pseudo_probs /= pseudo_probs. sum (axis= 1 , keepdims= True )
+2025 1st place (core innovation)
+StochasticDepth Regularization NEW
+regularization
+Randomly drop entire residual blocks during training (survival probability p_s). Acts as strong regularizer during pseudo-label training where overfitting risk is high. Implemented via timm's drop_path_rate .
+# timm config
+model = timm. create_model (
+'tf_efficientnet_b2' ,
+drop_path_rate= 0.2 , # StochasticDepth
+pretrained= True
+)
+2025 1st place
+Separate Non-Bird Pipeline NEW
++0.003 LB
+Dedicated EfficientNet-B0 models trained exclusively on amphibian and insect species (17,197 extra entries from Xeno-Canto). Separate because bird/non-bird feature distributions differ significantly.
+2025 1st place (BirdCLEF 2026 has amphibians too!)
+SED for Frame-Level Annotation
+annotation quality
+Use SED models to refine weak (clip-level) labels to strong (frame-level) pseudo-labels on soundscapes. Identifies precise temporal event boundaries within 5s clips, enabling more accurate pseudo-label targets.
+2025 1st place
+Model Soup NEW
+stability
+Weight averaging across multiple checkpoints (different epochs or random seeds) before inference. Free performance boost with no additional compute at inference time. Can combine last-N epoch checkpoints.
+# Average weights of last 3 checkpoints
+soup_state = {}
+for k in ckpt1.keys():
+soup_state[k] = (ckpt1[k]+ckpt2[k]+ckpt3[k])/ 3
+2025 1st & 3rd place
+2nd Place Details
+VSydorskyy — Key Technical Insights
+MixUp in Audio Domain KEY
++0.036 Private!
+Mix two raw waveforms before mel extraction (not in spectrogram domain). Targets combined as element-wise maximum. Ablation: Private LB 0.835 → 0.871 without vs with MixUp — massive gap.
+# Audio-domain MixUp (50% probability)
+if random() 0.5 :
+lam = Beta( 0.5 , 0.5 ). sample ()
+audio = lam*audio1 + ( 1 -lam)*audio2
+target = max (target1, target2) # elem-wise
+2025 2nd place (confirmed +3.6% Private)
+RandomFiltering Augmentation NEW
++~1% Private
+Simplified random equalizer simulating channel/microphone distortions. Apply random IIR/FIR frequency response to audio before mel extraction. Improves robustness to recording device variation across soundscapes.
+# Random frequency response simulation
+# Apply random biquad filter to waveform
+b, a = random_biquad_coeffs ()
+audio = scipy.signal. lfilter (b, a, audio)
+2025 2nd place
+ESC-50 Background Noise Mixing NEW
+domain robustness
+Mix in background noise from ESC-50 dataset + prior-year competition soundscapes at 50% probability. Drawn equally from both sources. Helps model ignore non-bird environmental sounds.
+# Background noise mixing
+if random() 0.5 :
+bg = load_random_bg () # ESC-50 or soundscape
+snr = uniform( 5 , 20 ) # dB
+audio = audio + bg * snr_scale (snr)
+2025 2nd place
+OOF Pseudo-Labeling KEY
++0.024 Private
+Out-of-Fold pseudo-labeling: each fold's held-out model generates pseudo-labels for a subset, then refreshes every round . Avoids label leakage vs. full-dataset pseudo-labeling. 3 iterations.
+# Iteration structure
+# Iter 1: 4,430 files → 19,405 chunks
+# Iter 2: 483 files → 3,750 chunks
+# Iter 3: 1,437 files → 4,108 chunks
+# Refresh labels each round with stronger model
+2025 2nd place
+TopN Postprocessing NEW
++0.011 LB
+For each species in a segment, multiply by the top-1 probability of that species across all segments in the same audio file. Boosts consistent species, suppresses spurious detections.
+# TopN (N=1) postprocessing
+# prob[audio, segment, class]
+top1 = prob. max (axis= 1 , keepdims= True ) # per audio, per class
+postproc = prob * top1
+2025 2nd place (confirmed +1.1 LB)
+819K-Recording Pretraining NEW
++0.014 LB
+Collected all previous BirdCLEF competition taxonomies → 16,607 unique species → downloaded 819,032 recordings. Excluded 2025 target species. Pretrained CNN backbone for 50 epochs, then replaced head for fine-tuning.
+2025 2nd place (backbone pretrain before fine-tune)
+Confirmed Spectrogram Parameters (2nd Place Paper — Appendix B)
+Parameter 2025 2nd Place Our sed-b0-v5 Verdict
+Sample rate 32,000 Hz 32,000 Hz ✓ same
+n_mels 128 224 △ we use 224 — more detail but heavier
+f_min 20 Hz 0 Hz △ try f_min=20 (removes DC noise)
+n_fft 2,048 2,048 ✓ same
+hop_length 512 512 ✓ same
+top_db 80 80 ✓ same
+Normalization [0,1] per clip [0,1] per clip ✓ same
+Library nnAudio (GPU) torchaudio equivalent
+Gap Analysis
+What Separates Us from Top Solutions
+🥇 2025 Top Solutions
+Loss: SoftAUCLoss / CE — direct metric optimization
+Pseudo: 3–4 rounds with OOF refresh + PowerTransform
+Pretrain: 819K recordings / 7,489 species (2nd place)
+Augment: Audio-domain MixUp + RandomFiltering + ESC-50 BG
+Pooling: GeM pooling (2nd place)
+Postproc: TopN(N=1) file-level multiplication
+Backbone: NFNet-L0, EfficientNetV2-S, RegNetY-016
+Regularize: StochasticDepth during pseudo-label training
+Ensemble: 15 models, Optuna-selected weights
+🔵 Our Current Pipeline
+Loss: BCE only (FocalBCE had issues)
+Pseudo: Round 1 Perch only, no soundscape pseudo-labels yet
+Pretrain: Standard ImageNet (ns_jft_in1k)
+Augment: Time masking + mixup + gain — no freq mask, no BG mixing
+Pooling: GEMFreqPool ✓ (already have this)
+Postproc: Simple threshold 0.02
+Backbone: EfficientNet-B0 (5.3M params)
+Regularize: Dropout only
+Ensemble: 3 Perch + 1 SED (4 models total)
+What We Already Have Right: GEMFreqPool ✓ · Dual clip+frame SED loss ✓ · File-level soundscape split (no leak) ✓ · Human voice removal (Silero VAD, used by 5th place too) ✓ · 3-model Perch ensemble for pseudo-label cross-validation ✓
+Phase 1
+Quick Wins — Inference Improvements (No Retraining)
+Applies directly to sed-b0-v5 checkpoint. <1 hour each. Combined potential: +0.025–0.040 LB
+1.1 TTA: 2.5s Temporal Shifts
++0.012 LB
+Run each 5s clip 3 times (no shift, −2.5s, +2.5s) then average predictions.
+shifts = [ 0 , -CLIP_SAMPLES// 2 , +CLIP_SAMPLES// 2 ]
+preds = [ model (get_clip(audio, start+s)) for s in shifts]
+final = np. mean (preds, axis= 0 )
+2025 2nd place confirmed
+1.2 Temporal Smoothing
++0.010 LB
+Apply Gaussian-like kernel across adjacent clip predictions in a soundscape file.
+kernel = np. array ([ 0.1 , 0.2 , 0.4 , 0.2 , 0.1 ])
+for c in range(num_classes):
+preds[:,c] = np. convolve (preds[:,c], kernel, 'same' )
+2024 3rd place confirmed
+1.3 TopN Postprocessing NEW
++0.011 LB
+Multiply each segment's probability by the file-level max of that class. Confirmed +1.1 LB by 2025 2nd place. Easy to add to inference_sed.py.
+# preds: (n_clips, n_classes)
+file_max = preds. max (axis= 0 , keepdims= True ) # (1, C)
+preds_pp = preds * file_max
+# Use preds_pp for submission
+2025 2nd place confirmed +1.1 LB
+1.4 10s Context Windows
++0.015 LB
+Concatenate adjacent 5s clips (10s total), run model, use attention output for target window.
+chunk = audio[
+start - CLIP_SAMPLES// 2 :
+start + CLIP_SAMPLES * 3 // 2 ]
+# extract target-5s attention output
+2024 1st place confirmed
+1.5 Model Soup NEW
+free stability
+Average the weights of last 3–5 epoch checkpoints. Zero inference cost. Reduces checkpoint selection sensitivity. Can apply to sed-b0-v5 if multiple epoch checkpoints are saved.
+# Average last 3 checkpoints
+states = [torch. load (f) for f in [ep18, ep19, ep20]]
+soup = {k: sum (s[k] for s in states)/ 3
+for k in states[ 0 ]}
+2025 1st & 3rd place
+Phase 2
+Training Improvements — sed-b0-v6
+2.1 CrossEntropyLoss → SoftAUCLoss Progression KEY
+Start with CE loss (step 1), then switch to SoftAUCLoss in later rounds (step 2). This matches what 2025 1st place did.
+Step 1 (sed-b0-v6): CrossEntropy with label smoothing 0.05 — known +0.044 over BCE (2024 1st place)
+Step 2 (sed-b0-v7+): Switch to SoftAUCLoss for pseudo-label rounds — directly optimizes competition metric
+# Phase 1: CE with label smoothing
+loss = F. cross_entropy (logits, hard_labels, label_smoothing= 0.05 )
+# Phase 2: SoftAUC for later rounds (pseudo-label training)
+def soft_auc_loss (pred, target, margin= 1.0 ):
+# Pairwise positive-negative difference → log-sigmoid loss
+pos = pred[target > 0.5 ]; neg = pred[target 0.5 ]
+diffs = pos. unsqueeze ( 1 ) - neg. unsqueeze ( 0 )
+return -F. logsigmoid (diffs * margin). mean ()
+⚠ CE Risk: Most 5s clips in BirdCLEF are single-species dominant — CE works here. But test on holdout before committing. If CE hurts, fall back to BCE+Focal combo (2nd place approach).
+2.2 Audio-Domain MixUp KEY
+Mix in waveform domain before mel extraction (not spectrogram domain). 2025 2nd place confirmed massive +3.6% Private LB advantage. Target: element-wise max of both labels.
+# Audio-domain MixUp (current: spectrogram domain)
+if torch.rand( 1 ) 0.5 :
+lam = torch. distributions . Beta ( 0.5 , 0.5 ). sample ()
+audio = lam * audio1 + ( 1 - lam) * audio2
+target = torch. max (target1, target2) # elem-wise max
+mel = mel_transform (audio) # then extract spectrogram
+2.3 SpecAugment: Frequency Masking NEW
+Add frequency masking to existing time masking. +0.013 LB combined (2024 1st place). Our current config has time_masking only.
+mel = torchaudio.transforms. FrequencyMasking (freq_mask_param= 30 )(mel)
+mel = torchaudio.transforms. TimeMasking (time_mask_param= 40 )(mel)
+2.4 Background Noise Mixing (ESC-50) NEW
+Mix ESC-50 environmental sounds + prior competition soundscapes into training audio. Improves robustness to recording environment variation. 2nd place used 50% probability.
+# Add to augment.py
+if self.use_bg_mixing and random() 0.5 :
+bg = self. load_random_background () # ESC-50 or soundscape
+snr_db = uniform( 10 , 30 )
+bg_scale = audio. abs (). mean () / (bg. abs (). mean () * 10 **(snr_db/ 20 ))
+audio = audio + bg * bg_scale
+2.5 RandomFiltering Augmentation NEW
+Simulates microphone/channel frequency response variation. Confirmed +~1% Private LB (2nd place). Simple to add: random biquad filter on waveform.
+import torchaudio.functional as F_audio
+def random_filtering (audio, prob= 0.5 ):
+if random() > prob: return audio
+# Random biquad EQ: random center freq, gain ±6dB
+central_freq = uniform( 200 , 8000 )
+gain = uniform( -6 , 6 )
+return F_audio. equalizer_biquad (audio, 32000 , central_freq, gain)
+2.6 StochasticDepth During Pseudo-Label Training NEW
+Add drop_path_rate=0.2 during pseudo-label training rounds (sed-b0-v6+). Prevents overfitting to noisy pseudo-labels. Used by 2025 1st place specifically in pseudo-labeling stages.
+model = timm. create_model (
+'tf_efficientnet_b2.ns_jft_in1k' ,
+drop_path_rate= 0.2 , # StochasticDepth — NEW for pseudo rounds
+pretrained= True
+)
+2.7 Square-Root Class Balancing + RAdam for NFNet
+2nd place used: NFNet → RAdam LR=1e-3 · EfficientNetV2 → AdamW LR=1e-4 · class weight γ=−0.5. Rare species upsampled to minimum 100 samples.
+class_counts = train_df[ 'primary_label' ]. value_counts ()
+weights = (class_counts / class_counts. sum ()) ** (- 0.5 )
+# Upsample classes with
+rare = class_counts[class_counts 100 ].index
+train_df = upsample_rare (train_df, rare, min_count= 100 )
+Recommended sed-b0-v6 Config:
+experiment:
+name: sed-b0-v6
+training:
+epochs: 30
+loss: ce # CrossEntropy (+0.044 over BCE)
+label_smoothing: 0.05 # Matches 2025 2nd place
+mixup_alpha: 0.5
+mixup_domain: audio # Audio-domain MixUp (NEW)
+augmentation:
+freq_masking: true # NEW: +0.013 combined
+freq_mask_param: 30 # NEW
+time_masking: true
+time_mask_ratio: 0.15
+bg_mixing: true # NEW: ESC-50 + soundscapes
+bg_snr_range: [10, 30] # NEW
+random_filtering: true # NEW: microphone variation
+random_filter_prob: 0.5
+Phase 3
+Backbone Upgrade — sed-b2-v1 / sed-nfnet-v1
+3.1 Backbone Comparison
+Backbone Params 2025 Usage Notes
+tf_efficientnet_b0.ns_jft_in1k 5.3M Our current Fast, good baseline
+tf_efficientnet_b2.ns_jft_in1k 9.1M 2025 1st/3rd ⭐ Recommended step-up, CPU-feasible
+tf_efficientnetv2_s.in21k 24M 2025 2nd ⭐ Best accuracy, slower inference
+eca_nfnet_l0 24M 2025 2nd ⭐ Top performer, uses RAdam LR=1e-3
+regnetY_016 11M 2025 1st Complementary to EfficientNet family
+Recommended path: B2 first (same family, manageable risk) → EfficientNetV2-S (bigger jump, requires more GPU time) → NFNet-L0 (complementary for ensemble diversity)
+Phase 4
+Multi-Round Pseudo-Labeling — Highest Total Impact
+The #1 technique in all 2025 top solutions. 2025 1st: 0.872 → 0.930 over 4 rounds. Expected: +0.04–0.06 LB
+✓
+Round 1 (DONE): Perch pseudo-labels on individual recordings — 2,421 extra clips
+↓
+2
+Round 2 (NEXT): SED + Perch ensemble pseudo-labels on all 66 training soundscapes → OOF filtering
+↓
+3
+Round 3: Retrain with round-2 pseudo → PowerTransform → re-label soundscapes + expand to external XC data
+↓
+4
+Round 4: Final SoftAUCLoss training on full pseudo corpus with StochasticDepth regularization
+4.1 OOF Pseudo-Labeling Strategy (2025 2nd Place) NEW
+Generate pseudo-labels using out-of-fold models to avoid label leakage. Refresh labels every round with the stronger model.
+# OOF pseudo-labeling loop
+for fold in range( 5 ):
+val_model = load_model (fold_checkpoint[fold])
+val_soundscapes = soundscapes_for_fold[fold]
+preds = val_model. predict (val_soundscapes)
+# Filter: max prob >= 0.5, suppress
+mask = preds. max (axis= 1 ) >= 0.5
+preds[preds 0.1 ] = 0
+pseudo_labels[fold] = preds[mask] # soft targets
+4.2 PowerTransform Before Each Round (2025 1st Place) KEY
+Apply power scaling to pseudo probabilities before feeding as targets in next round. Prevents probability collapse across iterations.
+# After generating pseudo-label probs from ensemble teacher:
+gamma = 2.0 # sharpen: values > 0.5 increase,
+pseudo_probs = pseudo_probs ** gamma
+# Sampling strategy (2nd place): for each training sample,
+# if class exists in pseudo set, sample pseudo with 40% prob
+if class_in_pseudo and random() 0.4 :
+use_pseudo_sample = True
+4.3 Multi-Model Agreement Filtering (Our Strategy)
+Accept labels where both Perch ensemble AND SED agree (IoU > 0.5 on top-3 species)
+Discard disagreements — our Perch holdout=0.9780 is a strong cross-validator
+Apply PowerTransform before each SED training round
+Phase 5
+Ensemble Strategy Upgrade
+5.1 Ensemble Diversity (Key Insight from 2025 Top Teams)
+All top solutions used architecturally diverse ensembles. Target: 3–4 distinct backbone families.
+label-pseudo
+1.0×
+holdout 0.9453
+label-soundscape
+1.0×
+holdout 0.9550
+embedding-soundscape
+1.0×
+holdout 0.9537
+SED (EfficientNet-B0→B2)
+2.0×
+holdout TBD
+5.2 TopN Postprocessing on Ensemble Output NEW
+Apply TopN(N=1) after ensemble averaging. Confirmed +0.011 LB from 2025 2nd place. Apply to the averaged ensemble predictions, not per-model.
+# After averaging all model predictions per soundscape file:
+# ensemble_preds: (n_clips, n_classes)
+file_top1 = ensemble_preds. max (axis= 0 , keepdims= True ) # (1, C)
+final_preds = ensemble_preds * file_top1
+# Submit final_preds
+5.3 Optuna Ensemble Weight Search NEW
+Use Optuna to find optimal per-model weights on holdout set. 2025 2nd place used this for their 15-model ensemble. Simple to implement with existing holdout eval.
+import optuna
+def objective (trial):
+w_perch1 = trial. suggest_float ( 'w_perch1' , 0.5 , 2.0 )
+w_perch2 = trial. suggest_float ( 'w_perch2' , 0.5 , 2.0 )
+w_sed = trial. suggest_float ( 'w_sed' , 1.0 , 4.0 )
+ensemble = (w_perch1*p1 + w_perch2*p2 + w_sed*p_sed) / (w_perch1+w_perch2+w_sed)
+return roc_auc_score (y_holdout, ensemble)
+study = optuna. create_study (direction= 'maximize' )
+study. optimize (objective, n_trials= 200 )
+5.4 min() vs mean() Ensemble
+For CE-trained models, min() over model predictions outperforms mean() (2024 1st place). Penalizes uncertain predictions more aggressively.
+# CE-trained models: try min() instead of mean()
+final_pred = np. stack ([pred_sed1, pred_sed2, pred_sed3]). min (axis= 0 )
+Roadmap
+Implementation Priority & Timeline
+Priority Task Est. LB Gain GPU Est. Time
+🔴 NOW
+Wait for sed-b0-v5 holdout AUC (watcher active, ~4h)
+— — ~4h
+🔴 HIGH
+Add TTA + TopN postprocessing to inference_sed.py
++0.012–0.023 CPU 2h
+🔴 HIGH
+Temporal smoothing across clips in inference_sed.py
++0.010 CPU 1h
+🟡 NEXT
+Train sed-b0-v6: CE + freq mask + audio MixUp + bg noise + RandomFiltering + 30ep
++0.04–0.06 GPU1 9h
+🟡 NEXT
+OOF SED pseudo-labels on 66 soundscapes (threshold=0.5, soft targets)
++0.01–0.02 GPU0 2h
+🟡 NEXT
+Implement TopN postprocessing + Optuna ensemble weights
++0.011–0.015 CPU 2h
+🟠 LATER
+Upgrade to EfficientNet-B2 (sed-b2-v1) + StochasticDepth
++0.01–0.02 GPU1 12h
+🟠 LATER
+Multi-round noisy student (rounds 2–4) + PowerTransform
++0.03–0.05 Both days
+🟠 LATER
+SoftAUCLoss for final pseudo-label training round
++0.01–0.02 GPU1 10h
+🟠 LATER
+Separate amphibian/insect sub-pipeline (if BirdCLEF 2026 includes them)
++0.003 GPU0 6h
+Expected Cumulative LB Progression
+Now
+0.849
+3-model Perch ensemble best
++TTA+TopN+Smooth
+~0.875
+Phase 1 inference wins
++sed-b0-v6
+~0.890
+CE + all augments + 30ep
++Pseudo round 2
+~0.905
+OOF soundscape pseudo
++Pseudo rounds 3–4
+~0.920
+PowerTransform + SoftAUC
+References
+BirdCLEF 2025 1st Place (Public 0.933)
+Nikita Babych — "Multi-Iterative Noisy Student Is All You Need"
+PowerTransform pseudo-labeling × 4 rounds, SoftAUCLoss, separate non-bird pipeline
+BirdCLEF 2025 2nd Place (Private 0.928)
+VSydorskyy & Gonçalves — "Transfer Learning + Semi-Supervised Distillation"
+github.com/VSydorskyy/BirdCLEF_2025_2nd_place
+NFNet-L0 + EfficientNetV2-S-in21k, OOF pseudo × 3, TopN postproc, 819K pretrain
+BirdCLEF 2025 5th Place
+myso1987 — "Self-Distillation Is All You Need"
+GitHub repo
+Silero VAD + 13-model ensemble (EfficientNetV2-S/B3/B0)
+CLEF Working Notes 2025 — Paper 256
+VSydorskyy & Gonçalves — Full paper with ablation tables and Appendix B spectrogram params
+ceur-ws.org/Vol-4038/paper_256.pdf
+BirdCLEF 2024 1st Place
+CE loss (+0.044 over BCE) + 10s context windows + min() ensemble
+BirdCLEF 2024 3rd Place
+2-level cascade pseudo-labeling + temporal smoothing across clips
+BirdCLEF 2026 — SED Improvement Plan · Research: 2025 Top-5 Solutions · Generated 2026-03-16

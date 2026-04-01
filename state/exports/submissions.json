@@ -1,0 +1,28 @@
+[
+  {
+    "id": "submission-0001-run-0001-perch-baseline",
+    "source_run_id": "run-0001-perch-baseline",
+    "experiment_id": "exp-perch-baseline",
+    "status": "cpu_ready",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6650781420618257,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917843019958474,
+      "padded_cmap": 0.06236201378183505,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "predicted_public_lb": 0.6650781420618257,
+    "predicted_public_lb_std": 0.03,
+    "rationale": "Candidate built from run-0001-perch-baseline after local validation.",
+    "notebook_dir": "artifacts/submissions/submission-0001-run-0001-perch-baseline",
+    "candidate_json_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/submissions/submission-0001-run-0001-perch-baseline/candidate_manifest.json",
+    "candidate_md_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/submissions/submission-0001-run-0001-perch-baseline/candidate.md",
+    "dry_run_json_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/submissions/submission-0001-run-0001-perch-baseline/dry_run.json",
+    "calibration_json_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/submissions/submission-0001-run-0001-perch-baseline/calibration.json",
+    "cpu_ready": true,
+    "created_at": "2026-04-01T11:33:58+00:00",
+    "updated_at": "2026-04-01T11:33:58+00:00",
+    "dedupe_key": "submission_candidate:run-0001-perch-baseline"
+  }
+]

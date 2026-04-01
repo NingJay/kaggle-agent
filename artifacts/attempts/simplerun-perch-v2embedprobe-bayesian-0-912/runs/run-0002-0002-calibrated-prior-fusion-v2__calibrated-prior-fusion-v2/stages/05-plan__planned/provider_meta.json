@@ -1,0 +1,19 @@
+{
+  "provider": "claude_code",
+  "model": "",
+  "schema_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/schemas/plan.schema.json",
+  "raw_stdout_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/05-plan__planned/raw_stdout.txt",
+  "raw_stderr_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/05-plan__planned/raw_stderr.txt",
+  "raw_event_log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/05-plan__planned/events.jsonl",
+  "session_id": "a4de4fb2-a4f6-4d40-b9d8-48bd5151fc51",
+  "thread_id": "a4de4fb2-a4f6-4d40-b9d8-48bd5151fc51",
+  "exit_code": 0,
+  "started_at": "2026-04-01T11:46:54+00:00",
+  "completed_at": "2026-04-01T11:49:01+00:00",
+  "materialization_mode": "structured",
+  "provider_runtime": "claude_code mode:structured",
+  "stage_workspace_root": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/plan/05-plan__running/workspace",
+  "stage_workspace_storage_root": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/plan/05-plan__running",
+  "stage_workspace_mode": "snapshot-repo",
+  "spec_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/05-plan__planned/spec.yaml"
+}

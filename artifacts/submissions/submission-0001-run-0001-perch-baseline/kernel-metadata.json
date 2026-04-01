@@ -1,0 +1,16 @@
+{
+  "id": "your-kaggle-username/birdclef-2026-research-os",
+  "title": "Birdclef 2026 Research Os",
+  "code_file": "notebook.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "competition_sources": [
+    "birdclef-2026"
+  ],
+  "dataset_sources": [
+    "your-kaggle-username/birdclef2026-model"
+  ]
+}

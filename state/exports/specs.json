@@ -1,0 +1,69 @@
+[
+  {
+    "spec_id": "spec-0001",
+    "work_item_id": "workitem-perch-baseline",
+    "source_stage_run_id": "",
+    "spec_type": "experiment",
+    "title": "Perch cached-probe baseline",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "payload_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "status": "validated",
+    "dedupe_key": "seed:workitem-perch-baseline:spec",
+    "portfolio_id": "",
+    "idea_class": "",
+    "branch_role": "",
+    "branch_rank": 0,
+    "knowledge_card_ids": [],
+    "created_at": "2026-04-01T11:29:26+00:00",
+    "updated_at": "2026-04-01T11:29:26+00:00"
+  },
+  {
+    "spec_id": "spec-0002",
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "source_stage_run_id": "stage-0008-validate",
+    "spec_type": "experiment",
+    "title": "Class coverage expansion probe",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "payload_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/08-validate__validated/validate.json",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "status": "validated",
+    "dedupe_key": "plan:run-0001-perch-baseline:portfolio-run-0001-perch-baseline-perch-cached-probe:00:class-coverage-expansion-probe",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "data_coverage",
+    "branch_role": "primary",
+    "branch_rank": 0,
+    "knowledge_card_ids": [
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+    ],
+    "created_at": "2026-04-01T11:33:58+00:00",
+    "updated_at": "2026-04-01T11:33:58+00:00"
+  },
+  {
+    "spec_id": "spec-0003",
+    "work_item_id": "workitem-0002-calibrated-prior-fusion-v2",
+    "source_stage_run_id": "stage-0008-validate",
+    "spec_type": "experiment",
+    "title": "Calibrated prior fusion v2",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/calibrated-prior-fusion-v2.yaml",
+    "payload_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/08-validate__validated/validate.json",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "status": "validated",
+    "dedupe_key": "plan:run-0001-perch-baseline:portfolio-run-0001-perch-baseline-perch-cached-probe:01:calibrated-prior-fusion-v2",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "post_processing",
+    "branch_role": "tertiary",
+    "branch_rank": 1,
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause"
+    ],
+    "created_at": "2026-04-01T11:33:58+00:00",
+    "updated_at": "2026-04-01T11:33:58+00:00"
+  }
+]

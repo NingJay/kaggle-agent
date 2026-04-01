@@ -1,0 +1,207 @@
+{
+  "run": {
+    "run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "experiment_id": "exp-0001-class-coverage-expansion-probe",
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "spec_id": "spec-0002",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/train.log",
+    "started_at": "2026-04-01T11:35:41+00:00",
+    "completed_at": "2026-04-01T11:38:33+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6652158470291849,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917867929959876,
+      "padded_cmap": 0.06241650482062269,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "branch_experiment",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "decision",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-01T11:40:46+00:00",
+    "latest_stage_run_id": "stage-0013-decision"
+  },
+  "experiment": {
+    "id": "exp-0001-class-coverage-expansion-probe",
+    "title": "Class coverage expansion probe",
+    "hypothesis": "Work item workitem-0001-class-coverage-expansion-probe: Class coverage expansion probe",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "priority": 45,
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "spec_id": "spec-0002",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "latest_decision_id": "",
+    "created_at": "2026-04-01T11:35:41+00:00",
+    "updated_at": "2026-04-01T11:38:33+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-0001-class-coverage-expansion-probe:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "data_coverage",
+    "branch_role": "primary",
+    "branch_rank": 0,
+    "knowledge_card_ids": [
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+    ]
+  },
+  "report": {
+    "stage": "report",
+    "headline": "Class coverage expansion probe achieved val ROC-AUC 0.665 and requests submission.",
+    "focus": "Submission bundle packaging for class-coverage-expansion-probe pipeline",
+    "best_run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "best_run_metric": 0.6652158470291849,
+    "primary_metric_value": 0.6652158470291849,
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live with expanded class coverage (52→75 active classes, 708 cache rows). The probe head recovered signal from 23 previously uncovered classes, but the gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) indicates overfitting or domain shift. Prior fusion validation metric (0.662) closely tracks the primary metric, suggesting the Bayesian prior adds marginal improvement at this stage. The padded_cmap remains very low (0.062), pointing to weak segment-level localization. Next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "finding_titles": [
+      "Class coverage expansion probe completed"
+    ],
+    "issue_titles": []
+  },
+  "research": {
+    "stage": "research",
+    "root_cause": "The class-coverage-expansion-probe pipeline achieved val ROC-AUC 0.6652, essentially flat versus the prior run (0.6651). The coverage expansion from 52→75 active classes with 708 cache rows did not materially move the primary metric. The train-val gap (0.992 train vs 0.665 val) confirms overfitting or domain shift. Padded_cmap remains very low (0.062). Prior fusion (0.662) tracks the raw validation score closely, indicating the Bayesian prior adds negligible lift. The lane leader MLP probe from run-0002-0003 holds 0.6801, still the best in branch. The blocking issue is now submission bundle parity and calibration rather than class coverage expansion.",
+    "queries": [
+      "perch_cached_probe submission bundle packaging calibration",
+      "MLP probe head 0.6801 lane leader run-0002-0003",
+      "padded_cmap segment localization improvement",
+      "train val overfitting domain shift birdclef 2026",
+      "prior fusion bayesian calibration temperature scaling"
+    ],
+    "adopt_now": [
+      "[require @ 0.88] Use embedding-head style models as complementary signal — card:01-validated-findings-md-perch-and-embedding-findings",
+      "[prefer @ 0.68] Adopt MLP probe head from run-0002-0003 as baseline configuration; lane leader at 0.6801 — card:research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+      "Package current best configuration (run-0003-0001, val ROC-AUC 0.6652) as submission bundle; verdict is submission-required",
+      "Calibrate Bayesian prior fusion weights — current prior fusion val metric (0.662) barely exceeds raw val (0.665), indicating miscalibrated temperature or weighting"
+    ],
+    "consider": [
+      "[conditional @ 0.66] If fitted classes still lag active classes after submission, re-expand coverage before micro-tuning — card:03-next-experiment-priors-md-perch-probe-lane",
+      "[conditional @ 0.50] Remaining 8-class gap (67/75 fitted) is still a structural blocker for future iterations — card:research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed",
+      "[conditional @ 0.50] Post-submission, revisit class coverage verification — card:research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+      "Investigate padded_cmap improvement (currently 0.062) as a secondary axis — weak segment-level localization may cap ROC-AUC gains",
+      "Explore domain-shift mitigation: augment training soundscapes or apply frequency-domain augmentation to narrow the 0.992→0.665 train-val gap",
+      "Temperature scaling or isotonic calibration on the probe head logits before submission to improve ROC-AUC ranking quality"
+    ],
+    "reject": [
+      "[avoid @ 0.68] Five rounds of micro-tuning (embedding-level mixup, augmentation variants) have regressed from the run-0002 baseline. Three distinct axes are exhausted — card:research-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state-md-axis-exhaustion-summary",
+      "Do not re-run class coverage expansion in isolation — this run proved it yields flat metric movement (0.6651→0.6652)",
+      "Do not pursue further MLP head architecture variants without first establishing submission parity and calibration"
+    ],
+    "knowledge_files_seen": 7,
+    "knowledge_card_ids": [
+      "01-validated-findings-md-perch-and-embedding-findings",
+      "research-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state-md-axis-exhaustion-summary",
+      "research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed",
+      "03-next-experiment-priors-md-perch-probe-lane",
+      "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+      "research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-adopt-now",
+      "research-run-0001-perch-baseline-md-consider-post-submission"
+    ],
+    "branch_memory_ids": [
+      "memory-0001"
+    ],
+    "positive_priors": [
+      "[require @ 0.88] Embedding-head models add complementary signal even when standalone score is not best — card:01-validated-findings-md-perch-and-embedding-findings",
+      "[prefer @ 0.68] MLP probe head from run-0002-0003 holds lane leader at 0.6801 — card:research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now"
+    ],
+    "negative_priors": [
+      "[avoid @ 0.68] Three micro-tuning axes exhausted over five rounds; all regressed from run-0002 baseline — card:research-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state-md-axis-exhaustion-summary",
+      "Class coverage expansion alone yields flat metric movement (0.6651→0.6652); do not re-run in isolation"
+    ],
+    "conditional_priors": [
+      "[conditional @ 0.66] Expand coverage before micro-tuning if fitted classes still lag active — card:03-next-experiment-priors-md-perch-probe-lane",
+      "[conditional @ 0.50] 8-class coverage gap (67/75) remains structural blocker for future iterations — card:research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed",
+      "[conditional @ 0.50] Post-submission class coverage verification and calibration — card:research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+      "[context @ 0.42] Class coverage deficit (23/75 uncovered) is the structural bottleneck identified from baseline — card:research-run-0001-perch-baseline-md-consider-post-submission"
+    ],
+    "policy_cards": [
+      {
+        "card_id": "01-validated-findings-md-perch-and-embedding-findings",
+        "policy_type": "require",
+        "confidence": 0.88,
+        "component": "probe_head",
+        "summary": "Embedding-head models add complementary signal"
+      },
+      {
+        "card_id": "research-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state-md-axis-exhaustion-summary",
+        "policy_type": "avoid",
+        "confidence": 0.68,
+        "component": "probe_head",
+        "summary": "Five rounds regressed; three axes exhausted"
+      },
+      {
+        "card_id": "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+        "policy_type": "prefer",
+        "confidence": 0.68,
+        "component": "probe_head",
+        "summary": "MLP probe head lane leader at 0.6801"
+      },
+      {
+        "card_id": "03-next-experiment-priors-md-perch-probe-lane",
+        "policy_type": "conditional",
+        "confidence": 0.66,
+        "component": "class_coverage",
+        "summary": "Expand coverage before micro-tuning if gap exists"
+      },
+      {
+        "card_id": "research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed",
+        "policy_type": "conditional",
+        "confidence": 0.5,
+        "component": "probe_head",
+        "summary": "8-class gap still structural blocker"
+      }
+    ],
+    "branch_memories": [
+      {
+        "memory_id": "memory-0001",
+        "run_id": "run-0001-perch-baseline",
+        "family": "perch_cached_probe",
+        "outcome": "flat",
+        "metric_value": 0.6650781420618257,
+        "metric_delta": -0.000137704967359209,
+        "critic_status": "approved",
+        "validation_status": "validated",
+        "submission_status": "candidate_created",
+        "root_cause": "Bayesian prior + embedding probe pipeline live; train-val gap 0.992→0.665 indicates overfitting/domain shift; prior fusion adds negligible lift (0.662)"
+      }
+    ],
+    "contradictions": []
+  }
+}

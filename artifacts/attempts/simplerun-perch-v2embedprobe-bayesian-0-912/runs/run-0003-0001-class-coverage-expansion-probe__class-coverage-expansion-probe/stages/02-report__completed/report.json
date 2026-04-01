@@ -1,0 +1,14 @@
+{
+  "stage": "report",
+  "headline": "Class coverage expansion probe achieved val ROC-AUC 0.665 and requests submission.",
+  "focus": "Submission bundle packaging for class-coverage-expansion-probe pipeline",
+  "best_run_id": "run-0003-0001-class-coverage-expansion-probe",
+  "best_run_metric": 0.6652158470291849,
+  "primary_metric_value": 0.6652158470291849,
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live with expanded class coverage (52→75 active classes, 708 cache rows). The probe head recovered signal from 23 previously uncovered classes, but the gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) indicates overfitting or domain shift. Prior fusion validation metric (0.662) closely tracks the primary metric, suggesting the Bayesian prior adds marginal improvement at this stage. The padded_cmap remains very low (0.062), pointing to weak segment-level localization. Next steps are submission bundle parity and calibration.",
+  "verdict": "submission-required",
+  "finding_titles": [
+    "Class coverage expansion probe completed"
+  ],
+  "issue_titles": []
+}

@@ -1,0 +1,19 @@
+{
+  "stage": "critic",
+  "status": "approved",
+  "concerns": [],
+  "warnings": [
+    "Critic provider was not invoked because the plan is `submission_candidate`."
+  ],
+  "required_fixes": [],
+  "branch_quality": {
+    "branch_role": "primary",
+    "idea_class": "data_coverage",
+    "verify_status": "skipped",
+    "plan_status": "submission_candidate"
+  },
+  "branch_memory_ids": [],
+  "reusable_judgments": [
+    "Critic short-circuited because this run is following the `submission_candidate` route rather than an experiment materialization route."
+  ]
+}

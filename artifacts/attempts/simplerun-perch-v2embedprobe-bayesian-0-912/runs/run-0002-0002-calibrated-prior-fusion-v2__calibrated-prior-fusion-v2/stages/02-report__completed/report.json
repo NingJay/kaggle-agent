@@ -1,0 +1,14 @@
+{
+  "stage": "report",
+  "headline": "Calibrated prior fusion v2 scores 0.6648 val ROC-AUC, trails leader by 0.0005.",
+  "focus": "Decide whether calibrated prior fusion warrants a submission slot or if the class-coverage-expansion-probe leader is sufficient for the next submission bundle.",
+  "best_run_id": "run-0003-0001-class-coverage-expansion-probe",
+  "best_run_metric": 0.6652158470291849,
+  "primary_metric_value": 0.6647655401194675,
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline completed successfully. Calibrated prior fusion v2 achieved val_soundscape_macro_roc_auc=0.6648, slightly below the leader (0.6652). The prior fusion component itself shows weak signal: prior_fusion_macro_roc_auc=0.487 (near random on train) and val_prior_fusion_macro_roc_auc=0.662, suggesting calibration has not yet extracted meaningful lift. The delta to the leader is small enough that submission parity testing could confirm whether the fusion adds anything on the hidden test set.",
+  "verdict": "submission-required",
+  "finding_titles": [
+    "Calibrated prior fusion v2 completed"
+  ],
+  "issue_titles": []
+}

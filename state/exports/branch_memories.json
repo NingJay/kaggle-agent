@@ -1,0 +1,103 @@
+[
+  {
+    "memory_id": "memory-0001",
+    "run_id": "run-0001-perch-baseline",
+    "work_item_id": "workitem-perch-baseline",
+    "experiment_id": "exp-perch-baseline",
+    "family": "perch_cached_probe",
+    "portfolio_id": "",
+    "idea_class": "",
+    "branch_role": "",
+    "branch_rank": 0,
+    "source_stage_run_id": "stage-0009-submission",
+    "status": "succeeded",
+    "outcome": "flat",
+    "summary": "branch perch_cached_probe -> flat; val_soundscape_macro_roc_auc=0.665078; delta=-0.000138; critic=approved; validate=validated",
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live and functional, but submission bundle parity and calibration remain incomplete. The training soundscape ROC-AUC (0.992) is dramatically higher than the validation soundscape ROC-AUC (0.665), indicating potential overfitting or domain shift between training soundscapes and validation soundscapes. Prior fusion validation (0.662) closely tracks the raw validation score, suggesting the Bayesian prior is not yet adding significant lift.",
+    "metric_name": "val_soundscape_macro_roc_auc",
+    "metric_value": 0.6650781420618257,
+    "metric_delta": -0.000137704967359209,
+    "verify_status": "skipped",
+    "critic_status": "approved",
+    "validation_status": "validated",
+    "submission_status": "candidate_created",
+    "signal_score": 0.5,
+    "policy_tags": [
+      "outcome:flat"
+    ],
+    "knowledge_card_ids": [],
+    "contradiction_ids": [],
+    "created_at": "2026-04-01T11:33:58+00:00",
+    "updated_at": "2026-04-01T11:49:04+00:00"
+  },
+  {
+    "memory_id": "memory-0002",
+    "run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "experiment_id": "exp-0001-class-coverage-expansion-probe",
+    "family": "perch_cached_probe",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "data_coverage",
+    "branch_role": "primary",
+    "branch_rank": 0,
+    "source_stage_run_id": "stage-0015-submission",
+    "status": "succeeded",
+    "outcome": "leader",
+    "summary": "primary data_coverage -> leader; val_soundscape_macro_roc_auc=0.665216; delta=+0.000138; critic=approved; validate=not_required",
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live with expanded class coverage (52→75 active classes, 708 cache rows). The probe head recovered signal from 23 previously uncovered classes, but the gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) indicates overfitting or domain shift. Prior fusion validation metric (0.662) closely tracks the primary metric, suggesting the Bayesian prior adds marginal improvement at this stage. The padded_cmap remains very low (0.062), pointing to weak segment-level localization. Next steps are submission bundle parity and calibration.",
+    "metric_name": "val_soundscape_macro_roc_auc",
+    "metric_value": 0.6652158470291849,
+    "metric_delta": 0.000137704967359209,
+    "verify_status": "skipped",
+    "critic_status": "approved",
+    "validation_status": "not_required",
+    "submission_status": "skipped",
+    "signal_score": 3.0,
+    "policy_tags": [
+      "outcome:leader",
+      "role:primary",
+      "idea:data_coverage"
+    ],
+    "knowledge_card_ids": [
+      "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+    ],
+    "contradiction_ids": [],
+    "created_at": "2026-04-01T11:43:54+00:00",
+    "updated_at": "2026-04-01T11:49:04+00:00"
+  },
+  {
+    "memory_id": "memory-0003",
+    "run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "work_item_id": "workitem-0002-calibrated-prior-fusion-v2",
+    "experiment_id": "exp-0002-calibrated-prior-fusion-v2",
+    "family": "perch_cached_probe",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "post_processing",
+    "branch_role": "tertiary",
+    "branch_rank": 1,
+    "source_stage_run_id": "stage-0021-submission",
+    "status": "succeeded",
+    "outcome": "flat",
+    "summary": "tertiary post_processing -> flat; val_soundscape_macro_roc_auc=0.664766; delta=-0.000313; critic=approved; validate=not_required",
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline completed successfully. Calibrated prior fusion v2 achieved val_soundscape_macro_roc_auc=0.6648, slightly below the leader (0.6652). The prior fusion component itself shows weak signal: prior_fusion_macro_roc_auc=0.487 (near random on train) and val_prior_fusion_macro_roc_auc=0.662, suggesting calibration has not yet extracted meaningful lift. The delta to the leader is small enough that submission parity testing could confirm whether the fusion adds anything on the hidden test set.",
+    "metric_name": "val_soundscape_macro_roc_auc",
+    "metric_value": 0.6647655401194675,
+    "metric_delta": -0.0003126019423581594,
+    "verify_status": "skipped",
+    "critic_status": "approved",
+    "validation_status": "not_required",
+    "submission_status": "skipped",
+    "signal_score": 0.5,
+    "policy_tags": [
+      "outcome:flat",
+      "role:tertiary",
+      "idea:post_processing"
+    ],
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause"
+    ],
+    "contradiction_ids": [],
+    "created_at": "2026-04-01T11:49:01+00:00",
+    "updated_at": "2026-04-01T11:49:04+00:00"
+  }
+]

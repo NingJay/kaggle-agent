@@ -1,0 +1,5 @@
+{
+  "predicted_public_lb": 0.6650781420618257,
+  "predicted_public_lb_std": 0.03,
+  "anchor_basis": "local_primary_metric"
+}

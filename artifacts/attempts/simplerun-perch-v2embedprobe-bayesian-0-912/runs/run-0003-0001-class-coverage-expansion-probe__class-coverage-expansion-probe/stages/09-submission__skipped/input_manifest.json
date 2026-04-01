@@ -1,0 +1,867 @@
+{
+  "run": {
+    "run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "experiment_id": "exp-0001-class-coverage-expansion-probe",
+    "work_item_id": "workitem-0001-class-coverage-expansion-probe",
+    "spec_id": "spec-0002",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/train.log",
+    "started_at": "2026-04-01T11:35:41+00:00",
+    "completed_at": "2026-04-01T11:38:33+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6652158470291849,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917867929959876,
+      "padded_cmap": 0.06241650482062269,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "branch_experiment",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0001-class-coverage-expansion-probe__class-coverage-expansion-probe/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "submission",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-01T11:43:54+00:00",
+    "latest_stage_run_id": "stage-0015-submission"
+  },
+  "decision": {
+    "stage": "decision",
+    "decision_type": "branch_portfolio",
+    "next_action": "plan",
+    "submission_recommendation": "defer",
+    "root_cause": "The class-coverage-expansion-probe run (run-0003-0001) achieved val ROC-AUC 0.6652, essentially flat versus the prior baseline (0.6651). The lane leader MLP probe from run-0002-0003 holds 0.6801, which is the best score in branch. The primary bottleneck is the 0.327 train-val gap (0.992 train vs 0.665 val), indicating severe overfitting or domain shift. Padded_cmap at 0.062 confirms weak segment-level localization. Class coverage expansion alone produced no material gain. Five rounds of micro-tuning have been exhausted per the axis-exhaustion negative prior. Before packaging a submission, the higher-value move is to close the gap between the current best (0.6652) and the lane leader (0.6801) by adopting the MLP probe head configuration and then pursuing calibration and domain-shift mitigation.",
+    "why": "The research verdict says submission-required, but submitting at 0.6652 when the lane leader holds 0.6801 leaves 0.015 AUC on the table. The MLP probe head from run-0002-0003 is a positive prior at 0.68 confidence and has already demonstrated the best score. The negative prior vetoes further micro-tuning on the current head architecture, but does not veto adopting the proven MLP configuration as a baseline. A submission at 0.6801 is materially stronger than one at 0.6652. We should plan a multi-branch follow-up: (1) adopt the MLP probe head as the primary submission candidate, (2) add calibration (temperature scaling) as a parallel branch, and (3) explore domain-shift augmentation as a speculative branch. This preserves branch-search space per the decision rules rather than collapsing to a single calibration tweak.",
+    "next_title": "MLP probe head adoption + calibration + domain-shift mitigation",
+    "next_family": "perch_cached_probe",
+    "next_config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+    "priority_delta": 15,
+    "launch_mode": "background",
+    "requires_human": false,
+    "portfolio_intent": "Close the 0.015 gap between current (0.6652) and lane leader (0.6801) by adopting the proven MLP probe configuration, then calibrate and submit. Open speculative domain-shift branch for upside.",
+    "portfolio_policy": {
+      "max_parallel_branches": 3,
+      "submission_threshold_roc_auc": 0.68,
+      "fallback_submission_run_id": "run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe",
+      "calibration_method": "temperature_scaling",
+      "deprioritized_isolation_axes": [
+        "class_coverage_expansion",
+        "embedding_mixup",
+        "mlp_architecture_variants"
+      ]
+    },
+    "branch_mix": [
+      {
+        "branch_role": "primary",
+        "idea_class": "data_coverage",
+        "title": "MLP probe head adoption from run-0002-0003",
+        "hypothesis": "Adopting the lane-leader MLP probe head (0.6801) as the primary pipeline configuration will reproduce or exceed that score in the current branch context",
+        "priority_delta": 15,
+        "launch_mode": "background",
+        "rationale": "Strongest positive prior; proven score; no architectural risk"
+      },
+      {
+        "branch_role": "secondary",
+        "idea_class": "calibration",
+        "title": "Temperature scaling calibration on MLP logits",
+        "hypothesis": "Temperature scaling on the MLP probe head logits will improve ROC-AUC ranking quality by correcting the miscalibrated prior fusion weights",
+        "priority_delta": 5,
+        "launch_mode": "background",
+        "rationale": "Low-risk post-hoc calibration; prior fusion barely exceeds raw val (0.662 vs 0.665)"
+      },
+      {
+        "branch_role": "speculative",
+        "idea_class": "augmentation",
+        "title": "Domain-shift augmentation on training soundscapes",
+        "hypothesis": "Frequency-domain augmentation (specAugment, noise injection) on training soundscapes will narrow the 0.327 train-val gap and improve generalization",
+        "priority_delta": -5,
+        "launch_mode": "background",
+        "rationale": "High ceiling but uncertain; train-val gap is the fundamental blocker"
+      }
+    ],
+    "branch_portfolio": [
+      {
+        "title": "MLP probe head adoption from run-0002-0003",
+        "family": "perch_cached_probe",
+        "hypothesis": "Adopting the lane-leader MLP probe head (0.6801) as the primary pipeline configuration will reproduce or exceed that score in the current branch context",
+        "rationale": "Strongest positive prior; proven score; no architectural risk",
+        "branch_role": "primary",
+        "idea_class": "data_coverage",
+        "target_component": "probe_head",
+        "priority_delta": 15,
+        "launch_mode": "background",
+        "knowledge_card_ids": [
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now"
+        ],
+        "policy_trace": [
+          "prefer @ 0.68: MLP probe head lane leader at 0.6801"
+        ],
+        "branch_memory_ids": [
+          "memory-0001"
+        ],
+        "config_overrides": [
+          {
+            "path": "model.head_type",
+            "value": "mlp"
+          },
+          {
+            "path": "model.hidden_dim",
+            "value": 256
+          }
+        ]
+      }
+    ],
+    "deprioritized_axes": [
+      "class_coverage_expansion_isolation",
+      "embedding_level_mixup",
+      "mlp_architecture_variants"
+    ],
+    "rejected_axes": [
+      "micro_tuning_exhausted_axes",
+      "class_coverage_expansion_isolation"
+    ],
+    "selected_policy_cards": [
+      "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+      "01-validated-findings-md-perch-and-embedding-findings"
+    ],
+    "knowledge_card_ids": [
+      "01-validated-findings-md-perch-and-embedding-findings",
+      "research-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state-md-axis-exhaustion-summary",
+      "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+      "03-next-experiment-priors-md-perch-probe-lane",
+      "research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed"
+    ],
+    "branch_memory_ids": [
+      "memory-0001"
+    ],
+    "problem_frame": {
+      "family": "perch_cached_probe",
+      "focus": "MLP probe head adoption and calibration for submission parity",
+      "root_cause": "Current run (0.6652) is 0.015 below lane leader (0.6801). Train-val gap of 0.327 confirms overfitting/domain shift. Padded_cmap at 0.062 indicates weak segment-level localization. Prior fusion adds negligible lift.",
+      "objective_metric": "val_soundscape_macro_roc_auc"
+    }
+  },
+  "plan": {
+    "stage": "plan",
+    "plan_status": "planned",
+    "source_run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "reason": "The class-coverage-expansion run (0.6652) is flat versus the prior baseline. The lane leader MLP probe from run-0002-0003 holds 0.6801. The decision directs a multi-branch portfolio: adopt the proven MLP probe head as primary, add temperature-scaling calibration as secondary, and open a speculative domain-shift augmentation branch. No submission packaging is warranted yet — we need to first close the 0.015 gap to the lane leader.",
+    "title": "MLP probe head adoption from run-0002-0003",
+    "family": "perch_cached_probe",
+    "hypothesis": "Adopting the lane-leader MLP probe head (0.6801) as the primary configuration, then applying temperature scaling calibration, will close the 0.015 AUC gap before submission packaging. A speculative domain-shift augmentation branch may further narrow the 0.327 train-val gap.",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/mlp-probe-head-adoption-from-run-0002-0003.yaml",
+    "priority": 60,
+    "depends_on": [
+      "workitem-0001-class-coverage-expansion-probe"
+    ],
+    "tags": [
+      "perch_cached_probe",
+      "planned",
+      "branch-search",
+      "primary",
+      "data-coverage"
+    ],
+    "launch_mode": "background",
+    "dedupe_key": "plan:run-0003-0001-class-coverage-expansion-probe:portfolio-run-0003-0001-class-coverage-expansion-probe-perch-cached-probe:00:mlp-probe-head-adoption-from-run-0002-0003",
+    "work_type": "experiment_iteration",
+    "lifecycle_template": "branch_experiment",
+    "target_run_id": "",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "portfolio_id": "portfolio-run-0003-0001-class-coverage-expansion-probe-perch-cached-probe",
+    "knowledge_card_ids": [
+      "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+      "research-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader-md-full-trajectory",
+      "research-run-0003-0004-fix-prior-fusion-training-time-scoring-bug-md-consider",
+      "research-run-0003-0001-class-coverage-expansion-probe-md-verdict-submission-required-flat",
+      "research-run-0003-0001-class-coverage-expansion-probe-md-key-observations",
+      "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+      "research-run-0001-perch-baseline-md-root-cause",
+      "experiment-conclusions-md-run-0001-perch-baseline"
+    ],
+    "problem_frame": {
+      "stage": "plan",
+      "family": "perch_cached_probe",
+      "title": "MLP probe head adoption + calibration + domain-shift mitigation",
+      "root_cause": "The class-coverage-expansion-probe pipeline achieved val ROC-AUC 0.6652, essentially flat versus the prior run (0.6651). The coverage expansion from 52→75 active classes with 708 cache rows did not materially move the primary metric. The train-val gap (0.992 train vs 0.665 val) confirms overfitting or domain shift. Padded_cmap remains very low (0.062). Prior fusion (0.662) tracks the raw validation score closely, indicating the Bayesian prior adds negligible lift. The lane leader MLP probe from run-0002-0003 holds 0.6801, still the best in branch. The blocking issue is now submission bundle parity and calibration rather than class coverage expansion.",
+      "hypothesis": "The research verdict says submission-required, but submitting at 0.6652 when the lane leader holds 0.6801 leaves 0.015 AUC on the table. The MLP probe head from run-0002-0003 is a positive prior at 0.68 confidence and has already demonstrated the best score. The negative prior vetoes further micro-tuning on the current head architecture, but does not veto adopting the proven MLP configuration as a baseline. A submission at 0.6801 is materially stronger than one at 0.6652. We should plan a multi-branch follow-up: (1) adopt the MLP probe head as the primary submission candidate, (2) add calibration (temperature scaling) as a parallel branch, and (3) explore domain-shift augmentation as a speculative branch. This preserves branch-search space per the decision rules rather than collapsing to a single calibration tweak.",
+      "objective_metric": "val_soundscape_macro_roc_auc",
+      "current_metric_value": 0.6652158470291849,
+      "focus": "",
+      "next_action": "plan",
+      "adopt_now": [
+        "[require @ 0.88] Use embedding-head style models as complementary signal — card:01-validated-findings-md-perch-and-embedding-findings",
+        "[prefer @ 0.68] Adopt MLP probe head from run-0002-0003 as baseline configuration; lane leader at 0.6801 — card:research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+        "Package current best configuration (run-0003-0001, val ROC-AUC 0.6652) as submission bundle; verdict is submission-required",
+        "Calibrate Bayesian prior fusion weights — current prior fusion val metric (0.662) barely exceeds raw val (0.665), indicating miscalibrated temperature or weighting"
+      ],
+      "consider": [
+        "[conditional @ 0.66] If fitted classes still lag active classes after submission, re-expand coverage before micro-tuning — card:03-next-experiment-priors-md-perch-probe-lane",
+        "[conditional @ 0.50] Remaining 8-class gap (67/75 fitted) is still a structural blocker for future iterations — card:research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed",
+        "[conditional @ 0.50] Post-submission, revisit class coverage verification — card:research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration",
+        "Investigate padded_cmap improvement (currently 0.062) as a secondary axis — weak segment-level localization may cap ROC-AUC gains",
+        "Explore domain-shift mitigation: augment training soundscapes or apply frequency-domain augmentation to narrow the 0.992→0.665 train-val gap",
+        "Temperature scaling or isotonic calibration on the probe head logits before submission to improve ROC-AUC ranking quality"
+      ],
+      "reject": [
+        "[avoid @ 0.68] Five rounds of micro-tuning (embedding-level mixup, augmentation variants) have regressed from the run-0002 baseline. Three distinct axes are exhausted — card:research-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state-md-axis-exhaustion-summary",
+        "Do not re-run class coverage expansion in isolation — this run proved it yields flat metric movement (0.6651→0.6652)",
+        "Do not pursue further MLP head architecture variants without first establishing submission parity and calibration"
+      ],
+      "query_terms": [
+        "perch_cached_probe",
+        "mlp",
+        "probe",
+        "head",
+        "adoption",
+        "calibration",
+        "domain",
+        "shift",
+        "mitigation",
+        "the",
+        "class",
+        "coverage",
+        "expansion",
+        "pipeline",
+        "achieved",
+        "val",
+        "roc",
+        "auc",
+        "6652",
+        "essentially",
+        "flat",
+        "versus",
+        "prior",
+        "run"
+      ]
+    },
+    "candidate_branches": [
+      {
+        "branch_role": "primary",
+        "title": "MLP probe head adoption from run-0002-0003",
+        "idea_class": "data_coverage",
+        "policy_score": 8.0,
+        "reason_kept": "Strongest positive prior; lane leader at 0.6801; no architectural risk",
+        "policy_trace": [
+          "role:primary:8.0"
+        ],
+        "branch_memory_ids": [],
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 8.0
+        }
+      },
+      {
+        "title": "MLP probe head adoption from run-0002-0003",
+        "family": "perch_cached_probe",
+        "hypothesis": "Adopting the lane-leader MLP probe head (val 0.6801) as the primary pipeline configuration will reproduce or exceed that score in the current branch context, closing the 0.015 gap versus run-0003-0001.",
+        "reason": "Strongest positive prior at 0.68 confidence; proven score; no architectural risk. The negative prior vetoes further micro-tuning on the current head, but does not veto adopting the proven MLP configuration.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 60,
+        "depends_on": [],
+        "tags": [
+          "mlp_probe_head",
+          "primary_branch",
+          "v2"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0003-0001:mlp-probe-adoption",
+        "work_type": "ablation_terminal",
+        "branch_role": "primary",
+        "idea_class": "data_coverage",
+        "branch_rank": 0,
+        "knowledge_card_ids": [
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+          "experiment-conclusions-md-run-0001-perch-baseline"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:primary:8.0"
+        ],
+        "config_overrides": [
+          {
+            "path": "model.head_type",
+            "value": "mlp"
+          },
+          {
+            "path": "model.hidden_dim",
+            "value": 256
+          }
+        ],
+        "policy_score": 8.0,
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 8.0
+        }
+      },
+      {
+        "branch_role": "speculative",
+        "title": "Domain-shift augmentation on training soundscapes",
+        "idea_class": "augmentation",
+        "policy_score": 0.0,
+        "reason_kept": "Addresses root cause (0.327 train-val gap); high ceiling; not vetoed by negative priors",
+        "policy_trace": [
+          "role:speculative:0.0"
+        ],
+        "branch_memory_ids": [],
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        }
+      },
+      {
+        "title": "Domain-shift augmentation on training soundscapes",
+        "family": "perch_cached_probe",
+        "hypothesis": "Frequency-domain augmentation (specAugment, noise injection) on training soundscapes will narrow the 0.327 train-val gap and improve generalization to validation soundscapes.",
+        "reason": "The 0.327 train-val gap is the fundamental blocker. All other axes have been exhausted. Augmentation directly targets the root cause (overfitting/domain shift) rather than symptoms. Not vetoed by any negative prior.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 40,
+        "depends_on": [],
+        "tags": [
+          "augmentation",
+          "domain_shift",
+          "speculative_branch",
+          "v2"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0003-0001:domain-shift-augmentation",
+        "work_type": "ablation_terminal",
+        "branch_role": "speculative",
+        "idea_class": "augmentation",
+        "branch_rank": 2,
+        "knowledge_card_ids": [
+          "research-run-0003-0001-class-coverage-expansion-probe-md-key-observations"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:speculative:0.0"
+        ],
+        "config_overrides": [
+          {
+            "path": "model.head_type",
+            "value": "mlp"
+          },
+          {
+            "path": "model.hidden_dim",
+            "value": 256
+          },
+          {
+            "path": "augmentation.spec_augment.enabled",
+            "value": true
+          },
+          {
+            "path": "augmentation.noise_injection.enabled",
+            "value": true
+          }
+        ],
+        "policy_score": 0.0,
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        }
+      },
+      {
+        "branch_role": "secondary",
+        "title": "Temperature scaling calibration on MLP logits",
+        "idea_class": "calibration",
+        "policy_score": 0.0,
+        "reason_kept": "Low-risk post-hoc calibration targeting miscalibrated prior fusion; not vetoed",
+        "policy_trace": [
+          "role:secondary:0.0"
+        ],
+        "branch_memory_ids": [],
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        }
+      },
+      {
+        "title": "Temperature scaling calibration on MLP logits",
+        "family": "perch_cached_probe",
+        "hypothesis": "Temperature scaling on the MLP probe head logits will improve ROC-AUC ranking quality by correcting the miscalibrated prior fusion weights (val prior fusion 0.662 vs raw val 0.665).",
+        "reason": "Low-risk post-hoc calibration; prior fusion adds negligible lift. Temperature scaling is a single-parameter adjustment that cannot regress ranking quality below the uncalibrated baseline.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 50,
+        "depends_on": [],
+        "tags": [
+          "calibration",
+          "temperature_scaling",
+          "secondary_branch",
+          "v2"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0003-0001:temperature-scaling-calibration",
+        "work_type": "ablation_terminal",
+        "branch_role": "secondary",
+        "idea_class": "calibration",
+        "branch_rank": 1,
+        "knowledge_card_ids": [
+          "research-run-0001-perch-baseline-md-root-cause",
+          "research-run-0003-0004-fix-prior-fusion-training-time-scoring-bug-md-consider"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:secondary:0.0"
+        ],
+        "config_overrides": [
+          {
+            "path": "model.head_type",
+            "value": "mlp"
+          },
+          {
+            "path": "model.hidden_dim",
+            "value": 256
+          },
+          {
+            "path": "calibration.method",
+            "value": "temperature_scaling"
+          },
+          {
+            "path": "calibration.enabled",
+            "value": true
+          }
+        ],
+        "policy_score": 0.0,
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        }
+      }
+    ],
+    "branch_plans": [
+      {
+        "title": "MLP probe head adoption from run-0002-0003",
+        "family": "perch_cached_probe",
+        "hypothesis": "Adopting the lane-leader MLP probe head (0.6801) as the primary configuration, then applying temperature scaling calibration, will close the 0.015 AUC gap before submission packaging. A speculative domain-shift augmentation branch may further narrow the 0.327 train-val gap.",
+        "reason": "The class-coverage-expansion run (0.6652) is flat versus the prior baseline. The lane leader MLP probe from run-0002-0003 holds 0.6801. The decision directs a multi-branch portfolio: adopt the proven MLP probe head as primary, add temperature-scaling calibration as secondary, and open a speculative domain-shift augmentation branch. No submission packaging is warranted yet — we need to first close the 0.015 gap to the lane leader.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/mlp-probe-head-adoption-from-run-0002-0003.yaml",
+        "priority": 60,
+        "depends_on": [
+          "workitem-0001-class-coverage-expansion-probe"
+        ],
+        "tags": [
+          "perch_cached_probe",
+          "planned",
+          "branch-search",
+          "primary",
+          "data-coverage"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0003-0001-class-coverage-expansion-probe:portfolio-run-0003-0001-class-coverage-expansion-probe-perch-cached-probe:00:mlp-probe-head-adoption-from-run-0002-0003",
+        "work_type": "experiment_iteration",
+        "lifecycle_template": "branch_experiment",
+        "target_run_id": "",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "execute",
+          "evidence",
+          "report",
+          "research",
+          "decision",
+          "plan",
+          "submission"
+        ],
+        "portfolio_id": "portfolio-run-0003-0001-class-coverage-expansion-probe-perch-cached-probe",
+        "idea_class": "data_coverage",
+        "branch_role": "primary",
+        "branch_rank": 0,
+        "knowledge_card_ids": [
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+          "research-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader-md-full-trajectory",
+          "research-run-0003-0004-fix-prior-fusion-training-time-scoring-bug-md-consider",
+          "research-run-0003-0001-class-coverage-expansion-probe-md-verdict-submission-required-flat",
+          "research-run-0003-0001-class-coverage-expansion-probe-md-key-observations",
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+          "research-run-0001-perch-baseline-md-root-cause",
+          "experiment-conclusions-md-run-0001-perch-baseline"
+        ],
+        "policy_trace": [
+          "role:primary:8.0"
+        ],
+        "branch_memory_ids": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 8.0
+        },
+        "policy_score": 8.0,
+        "config_overrides": []
+      },
+      {
+        "title": "Domain-shift augmentation on training soundscapes",
+        "family": "perch_cached_probe",
+        "hypothesis": "Adopting the lane-leader MLP probe head (0.6801) as the primary configuration, then applying temperature scaling calibration, will close the 0.015 AUC gap before submission packaging. A speculative domain-shift augmentation branch may further narrow the 0.327 train-val gap.",
+        "reason": "The class-coverage-expansion run (0.6652) is flat versus the prior baseline. The lane leader MLP probe from run-0002-0003 holds 0.6801. The decision directs a multi-branch portfolio: adopt the proven MLP probe head as primary, add temperature-scaling calibration as secondary, and open a speculative domain-shift augmentation branch. No submission packaging is warranted yet — we need to first close the 0.015 gap to the lane leader.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/domain-shift-augmentation-on-training-soundscapes.yaml",
+        "priority": 62,
+        "depends_on": [
+          "workitem-0001-class-coverage-expansion-probe"
+        ],
+        "tags": [
+          "perch_cached_probe",
+          "planned",
+          "branch-search",
+          "speculative",
+          "augmentation"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0003-0001-class-coverage-expansion-probe:portfolio-run-0003-0001-class-coverage-expansion-probe-perch-cached-probe:01:domain-shift-augmentation-on-training-soundscapes",
+        "work_type": "experiment_iteration",
+        "lifecycle_template": "branch_experiment",
+        "target_run_id": "",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "execute",
+          "evidence",
+          "report",
+          "research",
+          "decision",
+          "plan",
+          "submission"
+        ],
+        "portfolio_id": "portfolio-run-0003-0001-class-coverage-expansion-probe-perch-cached-probe",
+        "idea_class": "augmentation",
+        "branch_role": "speculative",
+        "branch_rank": 1,
+        "knowledge_card_ids": [
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+          "research-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader-md-full-trajectory",
+          "research-run-0003-0004-fix-prior-fusion-training-time-scoring-bug-md-consider",
+          "research-run-0003-0001-class-coverage-expansion-probe-md-verdict-submission-required-flat",
+          "research-run-0003-0001-class-coverage-expansion-probe-md-key-observations",
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+          "research-run-0001-perch-baseline-md-root-cause",
+          "experiment-conclusions-md-run-0001-perch-baseline"
+        ],
+        "policy_trace": [
+          "role:speculative:0.0"
+        ],
+        "branch_memory_ids": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "policy_score": 0.0,
+        "config_overrides": []
+      },
+      {
+        "title": "Temperature scaling calibration on MLP logits",
+        "family": "perch_cached_probe",
+        "hypothesis": "Adopting the lane-leader MLP probe head (0.6801) as the primary configuration, then applying temperature scaling calibration, will close the 0.015 AUC gap before submission packaging. A speculative domain-shift augmentation branch may further narrow the 0.327 train-val gap.",
+        "reason": "The class-coverage-expansion run (0.6652) is flat versus the prior baseline. The lane leader MLP probe from run-0002-0003 holds 0.6801. The decision directs a multi-branch portfolio: adopt the proven MLP probe head as primary, add temperature-scaling calibration as secondary, and open a speculative domain-shift augmentation branch. No submission packaging is warranted yet — we need to first close the 0.015 gap to the lane leader.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/temperature-scaling-calibration-on-mlp-logits.yaml",
+        "priority": 64,
+        "depends_on": [
+          "workitem-0001-class-coverage-expansion-probe"
+        ],
+        "tags": [
+          "perch_cached_probe",
+          "planned",
+          "branch-search",
+          "secondary",
+          "calibration"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0003-0001-class-coverage-expansion-probe:portfolio-run-0003-0001-class-coverage-expansion-probe-perch-cached-probe:02:temperature-scaling-calibration-on-mlp-logits",
+        "work_type": "experiment_iteration",
+        "lifecycle_template": "branch_experiment",
+        "target_run_id": "",
+        "stage_plan": [
+          "codegen",
+          "critic",
+          "validate",
+          "execute",
+          "evidence",
+          "report",
+          "research",
+          "decision",
+          "plan",
+          "submission"
+        ],
+        "portfolio_id": "portfolio-run-0003-0001-class-coverage-expansion-probe-perch-cached-probe",
+        "idea_class": "calibration",
+        "branch_role": "secondary",
+        "branch_rank": 2,
+        "knowledge_card_ids": [
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+          "research-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader-md-full-trajectory",
+          "research-run-0003-0004-fix-prior-fusion-training-time-scoring-bug-md-consider",
+          "research-run-0003-0001-class-coverage-expansion-probe-md-verdict-submission-required-flat",
+          "research-run-0003-0001-class-coverage-expansion-probe-md-key-observations",
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-current-state",
+          "research-run-0001-perch-baseline-md-root-cause",
+          "experiment-conclusions-md-run-0001-perch-baseline"
+        ],
+        "policy_trace": [
+          "role:secondary:0.0"
+        ],
+        "branch_memory_ids": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "policy_score": 0.0,
+        "config_overrides": []
+      }
+    ],
+    "pruned_branches": [
+      {
+        "title": "MLP probe head adoption from run-0002-0003",
+        "family": "perch_cached_probe",
+        "hypothesis": "Adopting the lane-leader MLP probe head (val 0.6801) as the primary pipeline configuration will reproduce or exceed that score in the current branch context, closing the 0.015 gap versus run-0003-0001.",
+        "reason": "Strongest positive prior at 0.68 confidence; proven score; no architectural risk. The negative prior vetoes further micro-tuning on the current head, but does not veto adopting the proven MLP configuration.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 60,
+        "depends_on": [],
+        "tags": [
+          "mlp_probe_head",
+          "primary_branch",
+          "v2"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0003-0001:mlp-probe-adoption",
+        "work_type": "ablation_terminal",
+        "branch_role": "primary",
+        "idea_class": "data_coverage",
+        "branch_rank": 0,
+        "knowledge_card_ids": [
+          "research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now",
+          "experiment-conclusions-md-run-0001-perch-baseline"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:primary:8.0"
+        ],
+        "config_overrides": [
+          {
+            "path": "model.head_type",
+            "value": "mlp"
+          },
+          {
+            "path": "model.hidden_dim",
+            "value": 256
+          }
+        ],
+        "policy_score": 8.0,
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 8.0
+        },
+        "pruned_reason": "portfolio_budget"
+      },
+      {
+        "title": "Domain-shift augmentation on training soundscapes",
+        "family": "perch_cached_probe",
+        "hypothesis": "Frequency-domain augmentation (specAugment, noise injection) on training soundscapes will narrow the 0.327 train-val gap and improve generalization to validation soundscapes.",
+        "reason": "The 0.327 train-val gap is the fundamental blocker. All other axes have been exhausted. Augmentation directly targets the root cause (overfitting/domain shift) rather than symptoms. Not vetoed by any negative prior.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 40,
+        "depends_on": [],
+        "tags": [
+          "augmentation",
+          "domain_shift",
+          "speculative_branch",
+          "v2"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0003-0001:domain-shift-augmentation",
+        "work_type": "ablation_terminal",
+        "branch_role": "speculative",
+        "idea_class": "augmentation",
+        "branch_rank": 2,
+        "knowledge_card_ids": [
+          "research-run-0003-0001-class-coverage-expansion-probe-md-key-observations"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:speculative:0.0"
+        ],
+        "config_overrides": [
+          {
+            "path": "model.head_type",
+            "value": "mlp"
+          },
+          {
+            "path": "model.hidden_dim",
+            "value": 256
+          },
+          {
+            "path": "augmentation.spec_augment.enabled",
+            "value": true
+          },
+          {
+            "path": "augmentation.noise_injection.enabled",
+            "value": true
+          }
+        ],
+        "policy_score": 0.0,
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "pruned_reason": "portfolio_budget"
+      },
+      {
+        "title": "Temperature scaling calibration on MLP logits",
+        "family": "perch_cached_probe",
+        "hypothesis": "Temperature scaling on the MLP probe head logits will improve ROC-AUC ranking quality by correcting the miscalibrated prior fusion weights (val prior fusion 0.662 vs raw val 0.665).",
+        "reason": "Low-risk post-hoc calibration; prior fusion adds negligible lift. Temperature scaling is a single-parameter adjustment that cannot regress ranking quality below the uncalibrated baseline.",
+        "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-expansion-probe.yaml",
+        "priority": 50,
+        "depends_on": [],
+        "tags": [
+          "calibration",
+          "temperature_scaling",
+          "secondary_branch",
+          "v2"
+        ],
+        "launch_mode": "background",
+        "dedupe_key": "plan:run-0003-0001:temperature-scaling-calibration",
+        "work_type": "ablation_terminal",
+        "branch_role": "secondary",
+        "idea_class": "calibration",
+        "branch_rank": 1,
+        "knowledge_card_ids": [
+          "research-run-0001-perch-baseline-md-root-cause",
+          "research-run-0003-0004-fix-prior-fusion-training-time-scoring-bug-md-consider"
+        ],
+        "branch_memory_ids": [],
+        "policy_trace": [
+          "role:secondary:0.0"
+        ],
+        "config_overrides": [
+          {
+            "path": "model.head_type",
+            "value": "mlp"
+          },
+          {
+            "path": "model.hidden_dim",
+            "value": 256
+          },
+          {
+            "path": "calibration.method",
+            "value": "temperature_scaling"
+          },
+          {
+            "path": "calibration.enabled",
+            "value": true
+          }
+        ],
+        "policy_score": 0.0,
+        "override_reason": "",
+        "veto_reasons": [],
+        "scheduler_hints": {
+          "portfolio_cap": 1,
+          "idea_class_cap": 1,
+          "cooldown": false,
+          "dispatch_priority": 0.0
+        },
+        "pruned_reason": "portfolio_budget"
+      }
+    ],
+    "overridden_branches": [],
+    "policy_trace": [
+      "card:01-validated-findings-md-perch-and-embedding-findings:require",
+      "card:research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now:prefer",
+      "card:experiment-conclusions-md-run-0001-perch-baseline:prefer",
+      "card:research-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state-md-axis-exhaustion-summary:avoid",
+      "card:research-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader-md-full-trajectory:avoid",
+      "card:research-run-0001-perch-baseline-md-root-cause:prefer",
+      "role:primary:8.0",
+      "role:speculative:0.0",
+      "role:secondary:0.0"
+    ],
+    "scheduler_hints": {
+      "per_portfolio_cap": 1,
+      "per_idea_class_cap": 1,
+      "target_branch_count": 3,
+      "dispatch_strategy": "prefer-diverse-frontier-before-follow-on-support"
+    },
+    "created_at": "2026-04-01T11:43:54+00:00"
+  },
+  "validation": {
+    "stage": "validate",
+    "status": "not_required",
+    "summary": "No follow-up experiment required.",
+    "plan_status": "hold",
+    "spec_id": "",
+    "queued_work_item_id": "",
+    "branch_count": 0,
+    "portfolio_id": "",
+    "dispatch_summary": []
+  }
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "finding_id": "finding-0001",
+    "run_id": "run-0001-perch-baseline",
+    "title": "Perch cached-probe baseline completed",
+    "summary": "val_soundscape_macro_roc_auc=0.6650781420618257 and verdict submission-required.",
+    "severity": "medium",
+    "status": "open",
+    "dedupe_key": "run:run-0001-perch-baseline:completed",
+    "created_at": "2026-04-01T11:29:31+00:00"
+  },
+  {
+    "finding_id": "finding-0002",
+    "run_id": "run-0003-0001-class-coverage-expansion-probe",
+    "title": "Class coverage expansion probe completed",
+    "summary": "val_soundscape_macro_roc_auc=0.6652158470291849 and verdict submission-required.",
+    "severity": "medium",
+    "status": "open",
+    "dedupe_key": "run:run-0003-0001-class-coverage-expansion-probe:completed",
+    "created_at": "2026-04-01T11:38:33+00:00"
+  },
+  {
+    "finding_id": "finding-0003",
+    "run_id": "run-0002-0002-calibrated-prior-fusion-v2",
+    "title": "Calibrated prior fusion v2 completed",
+    "summary": "val_soundscape_macro_roc_auc=0.6647655401194675 and verdict submission-required.",
+    "severity": "medium",
+    "status": "open",
+    "dedupe_key": "run:run-0002-0002-calibrated-prior-fusion-v2:completed",
+    "created_at": "2026-04-01T11:43:55+00:00"
+  }
+]

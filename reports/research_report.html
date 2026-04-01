@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Report</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --card: #fffdf9;
+      --ink: #1f2937;
+      --line: #d6cec2;
+      --accent: #0f766e;
+    }
+    body { margin: 0; background: linear-gradient(135deg, #f7f2e9, #ece3d4); color: var(--ink); font-family: Georgia, serif; }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px 18px 48px; }
+    h1 { margin: 0 0 20px; }
+    .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+    th { background: #faf6ee; }
+    code { font-family: Consolas, monospace; }
+    ul { margin: 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Research Report</h1>
+  <div class="grid"><section class='card'><h2>Research Notes</h2><ul><li>Research summary for run-0001-perch-baseline | adopt_now | [card:research-run-0001-perch-baseline-md-adopt-now-guidance] Ship raw-probe bundle first with no prior fusion and no calibration tweaks. The 0.665 local score is the honest baseline; a Kaggle score anchors every subsequent decision.; [card:01-validated-findings-md-validation-and-metric-semantics] Use holdout validation ROC-AUC as the primary local signal for iteration, not training soundscape metrics.; [card:01-validated-findings-md-perch-and-embedding-findings] Retain embedding-head style models as they can add complementary signal even when standalone scores are not best.</li><li>Research summary for run-0003-0001-class-coverage-expansion-probe | adopt_now | [require @ 0.88] Use embedding-head style models as complementary signal — card:01-validated-findings-md-perch-and-embedding-findings; [prefer @ 0.68] Adopt MLP probe head from run-0002-0003 as baseline configuration; lane leader at 0.6801 — card:research-run-0002-0003-coverage-mlp-combined-full-75-class-mlp-probe-md-adopt-now; Package current best configuration (run-0003-0001, val ROC-AUC 0.6652) as submission bundle; verdict is submission-required; Calibrate Bayesian prior fusion weights — current prior fusion val metric (0.662) barely exceeds raw val (0.665), indicating miscalibrated temperature or weighting</li><li>Research summary for run-0002-0002-calibrated-prior-fusion-v2 | adopt_now | [card:research-run-0003-0002-prior-fusion-weight-calibration-md-adopt-now] Ship run-0003-0001 (leader at 0.6652) or run-0002-0001 raw-probe submission bundle. Use raw probe output exclusively — prior fusion degrades it (0.6622). The bundle is already validated and critic-approved.; [card:01-validated-findings-md-perch-and-embedding-findings] Embedding-head style models can add complementary signal even when their standalone score is not the best (require @ 0.88). Keep the perch embedding probe as the primary signal source.; [memory:memory-0002] Primary data_coverage branch is the leader at 0.665216 with critic=approved. This is the submission candidate to bundle first.</li></ul></section>
+<section class='card'><h2>Branch Memories</h2><ul><li>run-0001-perch-baseline | flat | branch perch_cached_probe -&gt; flat; val_soundscape_macro_roc_auc=0.665078; delta=-0.000138; critic=approved; validate=validated</li><li>run-0003-0001-class-coverage-expansion-probe | leader | primary data_coverage -&gt; leader; val_soundscape_macro_roc_auc=0.665216; delta=+0.000138; critic=approved; validate=not_required</li><li>run-0002-0002-calibrated-prior-fusion-v2 | flat | tertiary post_processing -&gt; flat; val_soundscape_macro_roc_auc=0.664766; delta=-0.000313; critic=approved; validate=not_required</li></ul></section></div>
+</main>
+</body>
+</html>

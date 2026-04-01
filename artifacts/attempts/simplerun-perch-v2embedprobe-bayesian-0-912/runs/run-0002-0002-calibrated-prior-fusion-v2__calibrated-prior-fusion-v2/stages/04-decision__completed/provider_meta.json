@@ -1,0 +1,15 @@
+{
+  "provider": "claude",
+  "model": "",
+  "schema_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/schemas/decision.schema.json",
+  "raw_stdout_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/04-decision__completed/raw_stdout.txt",
+  "raw_stderr_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0002-calibrated-prior-fusion-v2__calibrated-prior-fusion-v2/stages/04-decision__completed/raw_stderr.txt",
+  "raw_event_log_path": "",
+  "session_id": "2ab694df-0c8f-41e9-a4de-fb3237f446bb",
+  "thread_id": "",
+  "exit_code": 0,
+  "started_at": "2026-04-01T11:46:07+00:00",
+  "completed_at": "2026-04-01T11:46:53+00:00",
+  "materialization_mode": "structured",
+  "provider_runtime": ""
+}

@@ -1,0 +1,175 @@
+{
+  "stage": "decision",
+  "decision_type": "branch_submit",
+  "next_action": "plan",
+  "submission_recommendation": "submit_raw_probe_baseline",
+  "root_cause": "The Perch cached-probe baseline is locally validated at val ROC-AUC 0.665 with no leaderboard anchor. Submission bundle parity is the critical blocker — every downstream calibration, class-coverage expansion, and prior-fusion tuning decision is ungrounded without a Kaggle score. The 0.327 gap between training (0.992) and validation (0.665) soundscape ROC-AUC confirms domain shift or overfitting, but diagnosing it further before establishing a leaderboard baseline is premature.",
+  "why": "All positive priors converge on a single directive: ship the raw-probe submission bundle immediately with no prior fusion and no calibration. The adopt-now card (confidence 0.68) and root-cause card (confidence 0.68) both prioritize submission parity above all else. The require-tier cards (confidence 0.88) establish that holdout validation is the iteration signal and that embedding heads retain future value. The negative prior (avoid @ 0.58) explicitly vetoes any calibration or class-coverage work before the leaderboard submission. The conditional leads (class-coverage deficit 23/75 classes) are correctly gated on a post-submission leaderboard anchor. Collapsing to a single calibration sweep now would violate the veto policy and waste cycles on ungrounded tuning. The right decision is to push the raw probe baseline through the submission pipeline, then use the leaderboard delta to inform a multi-branch plan targeting the highest-value axes: class-coverage expansion and domain-shift diagnosis.",
+  "next_title": "Raw probe baseline submission bundle",
+  "next_family": "submission",
+  "next_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+  "priority_delta": 10,
+  "launch_mode": "foreground",
+  "requires_human": true,
+  "portfolio_intent": "anchor_baseline",
+  "portfolio_policy": {
+    "max_branches": 3,
+    "min_branches": 2,
+    "priority_axis": "class_coverage",
+    "veto_until": "leaderboard_anchor",
+    "branch_timeout_minutes": 90,
+    "require_unique_axis": true
+  },
+  "selected_policy_cards": [
+    "research-run-0001-perch-baseline-md-adopt-now",
+    "01-validated-findings-md-perch-and-embedding-findings",
+    "research-run-0001-perch-baseline-md-root-cause",
+    "01-validated-findings-md-validation-and-metric-semantics",
+    "research-run-0001-perch-baseline-md-reject",
+    "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+  ],
+  "deprioritized_axes": [
+    "calibration_temperature_scaling",
+    "prior_fusion_tuning",
+    "architecture_changes_for_train_val_gap"
+  ],
+  "branch_memory_ids": [
+    "run-0001-perch-baseline",
+    "run-0002-0001-perch-probe-iteration"
+  ],
+  "branch_mix": [
+    {
+      "title": "Class coverage expansion probe",
+      "family": "perch_cached_probe",
+      "hypothesis": "Expanding probe head from 52 to 75 classes will close the structural coverage gap and lift val ROC-AUC by recovering signal from 23 uncovered classes",
+      "rationale": "Post-submission conditional lead identifies 31% class coverage deficit as structural bottleneck",
+      "branch_role": "primary",
+      "idea_class": "data_coverage",
+      "target_component": "probe_head",
+      "priority_delta": 15,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+      ],
+      "policy_trace": [
+        "conditional @ 0.50: class-coverage expansion gated on leaderboard anchor"
+      ],
+      "branch_memory_ids": [
+        "run-0002-0001-perch-probe-iteration"
+      ],
+      "config_overrides": []
+    },
+    {
+      "title": "Domain shift mitigation soundscape augmentation",
+      "family": "perch_cached_probe",
+      "hypothesis": "Augmenting training data with validation-distribution-like transformations will reduce the 0.327 train-val ROC-AUC gap and improve generalization",
+      "rationale": "The 0.992 vs 0.665 training-validation gap suggests domain shift in soundscape characteristics",
+      "branch_role": "secondary",
+      "idea_class": "data_augmentation",
+      "target_component": "data_pipeline",
+      "priority_delta": 10,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-root-cause"
+      ],
+      "policy_trace": [
+        "prefer @ 0.68: root-cause identifies train-val gap as domain shift candidate"
+      ],
+      "branch_memory_ids": [
+        "run-0001-perch-baseline"
+      ],
+      "config_overrides": []
+    },
+    {
+      "title": "Calibrated prior fusion v2",
+      "family": "perch_cached_probe",
+      "hypothesis": "Properly calibrated Bayesian prior fusion (current val 0.662 tracks raw 0.665) can add lift once the prior is tuned against a grounded leaderboard score",
+      "rationale": "Prior fusion currently adds negligible signal; leaderboard anchor enables grounded calibration",
+      "branch_role": "tertiary",
+      "idea_class": "post_processing",
+      "target_component": "prior_calibration",
+      "priority_delta": 5,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-root-cause"
+      ],
+      "policy_trace": [
+        "avoid @ 0.58 until leaderboard anchor, then conditional"
+      ],
+      "branch_memory_ids": [
+        "run-0001-perch-baseline"
+      ],
+      "config_overrides": []
+    }
+  ],
+  "branch_portfolio": [
+    {
+      "title": "Class coverage expansion probe",
+      "family": "perch_cached_probe",
+      "hypothesis": "Expanding probe head from 52 to 75 classes recovers signal from 23 uncovered classes",
+      "rationale": "Conditional lead identifies 31% class coverage deficit as structural bottleneck",
+      "branch_role": "primary",
+      "idea_class": "data_coverage",
+      "target_component": "probe_head",
+      "priority_delta": 15,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+      ],
+      "policy_trace": [
+        "conditional @ 0.50: class-coverage expansion gated on leaderboard anchor"
+      ],
+      "branch_memory_ids": [
+        "run-0002-0001-perch-probe-iteration"
+      ],
+      "config_overrides": []
+    },
+    {
+      "title": "Domain shift mitigation soundscape augmentation",
+      "family": "perch_cached_probe",
+      "hypothesis": "Augmenting training data with validation-distribution-like transformations reduces the 0.327 train-val ROC-AUC gap",
+      "rationale": "Training 0.992 vs validation 0.665 suggests domain shift in soundscape characteristics",
+      "branch_role": "secondary",
+      "idea_class": "data_augmentation",
+      "target_component": "data_pipeline",
+      "priority_delta": 10,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-root-cause"
+      ],
+      "policy_trace": [
+        "prefer @ 0.68: root-cause identifies train-val gap as domain shift candidate"
+      ],
+      "branch_memory_ids": [
+        "run-0001-perch-baseline"
+      ],
+      "config_overrides": []
+    },
+    {
+      "title": "Calibrated prior fusion v2",
+      "family": "perch_cached_probe",
+      "hypothesis": "Properly calibrated Bayesian prior fusion adds lift once tuned against a grounded leaderboard score",
+      "rationale": "Prior fusion currently adds negligible signal; leaderboard anchor enables grounded calibration",
+      "branch_role": "tertiary",
+      "idea_class": "post_processing",
+      "target_component": "prior_calibration",
+      "priority_delta": 5,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-root-cause"
+      ],
+      "policy_trace": [
+        "avoid @ 0.58 until leaderboard anchor, then conditional"
+      ],
+      "branch_memory_ids": [
+        "run-0001-perch-baseline"
+      ],
+      "config_overrides": []
+    }
+  ],
+  "rejected_axes": [
+    "architecture_overhaul_pre_anchor",
+    "ensemble_pre_anchor",
+    "hyperparameter_sweep_pre_anchor"
+  ]
+}

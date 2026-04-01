@@ -1,0 +1,16 @@
+metric_id,run_id,metric_name,value,split,trust_level,is_primary
+metric-0001,run-0001-perch-baseline,val_soundscape_macro_roc_auc,0.665078,local_proxy,clean,True
+metric-0002,run-0001-perch-baseline,padded_cmap,0.062362,local_proxy,clean,False
+metric-0003,run-0001-perch-baseline,prior_fusion_macro_roc_auc,0.487292,local_proxy,clean,False
+metric-0004,run-0001-perch-baseline,soundscape_macro_roc_auc,0.991784,local_proxy,clean,False
+metric-0005,run-0001-perch-baseline,val_prior_fusion_macro_roc_auc,0.662212,local_proxy,clean,False
+metric-0006,run-0003-0001-class-coverage-expansion-probe,val_soundscape_macro_roc_auc,0.665216,local_proxy,clean,True
+metric-0007,run-0003-0001-class-coverage-expansion-probe,padded_cmap,0.062417,local_proxy,clean,False
+metric-0008,run-0003-0001-class-coverage-expansion-probe,prior_fusion_macro_roc_auc,0.487292,local_proxy,clean,False
+metric-0009,run-0003-0001-class-coverage-expansion-probe,soundscape_macro_roc_auc,0.991787,local_proxy,clean,False
+metric-0010,run-0003-0001-class-coverage-expansion-probe,val_prior_fusion_macro_roc_auc,0.662212,local_proxy,clean,False
+metric-0011,run-0002-0002-calibrated-prior-fusion-v2,val_soundscape_macro_roc_auc,0.664766,local_proxy,clean,True
+metric-0012,run-0002-0002-calibrated-prior-fusion-v2,padded_cmap,0.062420,local_proxy,clean,False
+metric-0013,run-0002-0002-calibrated-prior-fusion-v2,prior_fusion_macro_roc_auc,0.487292,local_proxy,clean,False
+metric-0014,run-0002-0002-calibrated-prior-fusion-v2,soundscape_macro_roc_auc,0.991780,local_proxy,clean,False
+metric-0015,run-0002-0002-calibrated-prior-fusion-v2,val_prior_fusion_macro_roc_auc,0.662212,local_proxy,clean,False
