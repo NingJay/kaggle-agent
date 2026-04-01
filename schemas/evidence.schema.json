@@ -1,0 +1,50 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stage",
+    "run_id",
+    "experiment_id",
+    "work_item_id",
+    "status",
+    "primary_metric_name",
+    "primary_metric_value",
+    "root_cause",
+    "verdict",
+    "artifacts",
+    "markdown"
+  ],
+  "properties": {
+    "stage": { "type": "string", "enum": ["evidence"] },
+    "run_id": { "type": "string" },
+    "experiment_id": { "type": "string" },
+    "work_item_id": { "type": "string" },
+    "status": { "type": "string" },
+    "primary_metric_name": { "type": "string" },
+    "primary_metric_value": { "type": ["number", "null"] },
+    "secondary_metrics": { "type": "object", "additionalProperties": { "type": "number" } },
+    "all_metrics": { "type": "object", "additionalProperties": true },
+    "root_cause": { "type": "string" },
+    "verdict": { "type": "string" },
+    "dataset_summary": { "type": "object", "additionalProperties": true },
+    "artifacts": { "type": "object", "additionalProperties": { "type": "string" } },
+    "metric_deltas": { "type": "object", "additionalProperties": { "type": ["number", "null"] } },
+    "anomalies": { "type": "array", "items": { "type": "string" } },
+    "promotion_candidates": { "type": "array", "items": { "type": "string" } },
+    "demotion_candidates": { "type": "array", "items": { "type": "string" } },
+    "open_questions": { "type": "array", "items": { "type": "string" } },
+    "observation_atoms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "session_memory": { "type": "object", "additionalProperties": true },
+    "memory_ops": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "markdown": { "type": "string" }
+  }
+}

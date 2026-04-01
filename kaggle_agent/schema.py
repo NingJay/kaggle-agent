@@ -199,6 +199,18 @@ class WorkspaceConfig:
             base = base / category
         return base / name if name else base
 
+    def knowledge_memory_root(self) -> Path:
+        return self.knowledge_root() / "memory"
+
+    def capability_pack_root(self) -> Path:
+        return self.knowledge_root() / "capability_packs"
+
+    def session_memory_json_path(self) -> Path:
+        return self.state_root() / "session_memory.json"
+
+    def session_memory_markdown_path(self) -> Path:
+        return self.state_root() / "session_memory.md"
+
     def generated_config_root(self) -> Path:
         return self.root / self.runtime.generated_config_dir
 
@@ -418,6 +430,306 @@ class BranchMemoryRecord(_Serializable):
     updated_at: str = ""
 
 
+@dataclass(frozen=True)
+class CapabilityPack(_Serializable):
+    pack_id: str
+    title: str
+    when_to_use: str
+    returns: str
+    applies_to: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    priority_hint: float = 0.0
+    source_path: str = ""
+
+
+@dataclass(frozen=True)
+class SessionMemory(_Serializable):
+    current_objective: str
+    current_leader_run_id: str = ""
+    current_leader_metric_name: str = ""
+    current_leader_metric_value: float | None = None
+    active_portfolios: list[str] = field(default_factory=list)
+    top_positive_priors: list[str] = field(default_factory=list)
+    top_negative_vetoes: list[str] = field(default_factory=list)
+    unresolved_questions: list[str] = field(default_factory=list)
+    current_bottlenecks: list[str] = field(default_factory=list)
+    pending_decisions: list[str] = field(default_factory=list)
+    selected_memory_files: list[str] = field(default_factory=list)
+    selected_capability_packs: list[str] = field(default_factory=list)
+    knowledge_card_ids: list[str] = field(default_factory=list)
+    source_stage: str = ""
+    run_id: str = ""
+    updated_at: str = ""
+
+
+@dataclass(frozen=True)
+class MemoryOp(_Serializable):
+    op: str
+    target: str
+    summary: str
+    memory_kind: str = "issues"
+    details: str = ""
+    reason: str = ""
+    source_stage: str = ""
+    run_id: str = ""
+    evidence_ids: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PolicyMutation(_Serializable):
+    policy_id: str
+    action: str
+    summary: str
+    planner_effect: str = ""
+    evidence_ids: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ContradictionRepair(_Serializable):
+    contradiction_id: str
+    repair_action: str
+    summary: str
+    scope_change: str = ""
+    evidence_ids: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RetrievalRequest(_Serializable):
+    request_id: str
+    kind: str
+    target: str
+    query: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class ScopeVector(_Serializable):
+    family: str = ""
+    backbone: str = ""
+    teacher: str = ""
+    data_regime: str = ""
+    split: str = ""
+    metric: str = ""
+    evaluation_domain: str = ""
+    condition_tags: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ClaimKey(_Serializable):
+    subject: str
+    predicate: str
+    scope_vector: dict[str, Any] = field(default_factory=dict)
+    metric_key: str = ""
+
+
+@dataclass(frozen=True)
+class SearchEnvelope(_Serializable):
+    turn_id: str
+    family: str
+    grounded_branch_slots: int = 0
+    novel_branch_slots: int = 0
+    slot_budget: int = 0
+    cost_budget: float = 0.0
+    max_budget_share: float = 0.0
+    forbidden_patterns: list[str] = field(default_factory=list)
+    required_patterns: list[str] = field(default_factory=list)
+    idea_class_caps: dict[str, int] = field(default_factory=dict)
+    cost_caps: dict[str, float] = field(default_factory=dict)
+    smoke_only_first: bool = False
+    canary_eval_required: bool = False
+    auto_kill_threshold: float = 0.0
+
+
+@dataclass
+class ObservationAtomRecord(_Serializable):
+    observation_id: str
+    run_id: str
+    stage_name: str
+    family: str
+    component: str
+    metric_name: str = ""
+    comparator: str = ""
+    value: float | None = None
+    direction: str = ""
+    axis_tags: list[str] = field(default_factory=list)
+    summary: str = ""
+    source_type: str = ""
+    source_ref: str = ""
+    created_at: str = ""
+
+
+@dataclass
+class ClaimRecord(_Serializable):
+    claim_id: str
+    family: str
+    component: str
+    stance: str
+    summary: str
+    subject: str = ""
+    predicate: str = ""
+    metric_key: str = ""
+    claim_key: dict[str, Any] = field(default_factory=dict)
+    scope_vector: dict[str, Any] = field(default_factory=dict)
+    title: str = ""
+    source_type: str = ""
+    source_tier: str = ""
+    source_ref: str = ""
+    scope_key: str = ""
+    claim_kind: str = ""
+    claim_status: str = "active"
+    confidence: float = 0.0
+    empirical_support_count: int = 0
+    empirical_contradict_count: int = 0
+    seed_support_count: int = 0
+    seed_contradict_count: int = 0
+    support_ids: list[str] = field(default_factory=list)
+    contradict_ids: list[str] = field(default_factory=list)
+    scope_tags: list[str] = field(default_factory=list)
+    override_required: bool = False
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass
+class PolicyRuleRecord(_Serializable):
+    rule_id: str
+    family: str
+    component: str
+    policy_type: str
+    summary: str
+    rationale: str = ""
+    confidence: float = 0.0
+    status: str = "active"
+    override_required: bool = False
+    claim_ids: list[str] = field(default_factory=list)
+    contradiction_ids: list[str] = field(default_factory=list)
+    scope_tags: list[str] = field(default_factory=list)
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass
+class ConstraintRecord(_Serializable):
+    constraint_id: str
+    run_id: str
+    stage_run_id: str
+    family: str
+    scope: str
+    constraint_type: str
+    summary: str
+    value: dict[str, Any] = field(default_factory=dict)
+    status: str = "active"
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass
+class CapabilityInvocationRecord(_Serializable):
+    invocation_id: str
+    run_id: str
+    stage_name: str
+    pack_id: str
+    input_summary: str
+    output_summary: str
+    payload: dict[str, Any] = field(default_factory=dict)
+    created_at: str = ""
+
+
+@dataclass
+class EvidenceLinkRecord(_Serializable):
+    link_id: str
+    claim_id: str
+    run_id: str
+    stage_name: str
+    source_type: str
+    source_ref: str
+    polarity: str
+    summary: str = ""
+    source_tier: str = ""
+    created_at: str = ""
+
+
+@dataclass
+class SearchEnvelopeRecord(_Serializable):
+    envelope_id: str
+    run_id: str
+    stage_run_id: str
+    family: str
+    turn_id: str
+    envelope: dict[str, Any] = field(default_factory=dict)
+    status: str = "active"
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass
+class BranchTypingRecord(_Serializable):
+    typing_id: str
+    run_id: str
+    stage_run_id: str
+    title: str
+    family: str
+    config_path: str
+    typing_signature: str
+    idea_class: str
+    typing_signature_json: str = ""
+    axis_tags: list[str] = field(default_factory=list)
+    change_surface: list[str] = field(default_factory=list)
+    novelty_score: float = 0.0
+    expected_information_gain: float = 0.0
+    low_information_flag: bool = False
+    requires_override: bool = False
+    grounding_mode: str = "grounded"
+    unsupported_claims: list[str] = field(default_factory=list)
+    required_evidence: list[str] = field(default_factory=list)
+    created_at: str = ""
+
+
+@dataclass
+class ProposalTypingRecord(_Serializable):
+    proposal_typing_id: str
+    run_id: str
+    stage_run_id: str
+    title: str
+    family: str
+    config_path: str
+    typing_signature: str
+    typing_payload: dict[str, Any] = field(default_factory=dict)
+    created_at: str = ""
+
+
+@dataclass
+class RealizedTypingRecord(_Serializable):
+    realized_typing_id: str
+    run_id: str
+    stage_run_id: str
+    title: str
+    family: str
+    config_path: str
+    typing_signature: str
+    typing_payload: dict[str, Any] = field(default_factory=dict)
+    proposal_typing_id: str = ""
+    drift_summary: list[str] = field(default_factory=list)
+    created_at: str = ""
+
+
+@dataclass
+class InfoGainEstimateRecord(_Serializable):
+    estimate_id: str
+    run_id: str
+    stage_run_id: str
+    title: str
+    family: str
+    idea_class: str
+    grounding_mode: str = "grounded"
+    novelty_score: float = 0.0
+    estimated_gain: float = 0.0
+    cost_tier: str = "medium"
+    rationale: list[str] = field(default_factory=list)
+    created_at: str = ""
+
+
 @dataclass
 class MetricObservation(_Serializable):
     metric_id: str
@@ -544,3 +856,14 @@ class WorkspaceState(_Serializable):
     submission_results: list[SubmissionResult]
     runtime: RuntimeState
     branch_memories: list[BranchMemoryRecord] = field(default_factory=list)
+    observations: list[ObservationAtomRecord] = field(default_factory=list)
+    claims: list[ClaimRecord] = field(default_factory=list)
+    evidence_links: list[EvidenceLinkRecord] = field(default_factory=list)
+    policy_rules: list[PolicyRuleRecord] = field(default_factory=list)
+    constraints: list[ConstraintRecord] = field(default_factory=list)
+    search_envelopes: list[SearchEnvelopeRecord] = field(default_factory=list)
+    capability_invocations: list[CapabilityInvocationRecord] = field(default_factory=list)
+    branch_typings: list[BranchTypingRecord] = field(default_factory=list)
+    proposal_typings: list[ProposalTypingRecord] = field(default_factory=list)
+    realized_typings: list[RealizedTypingRecord] = field(default_factory=list)
+    info_gain_estimates: list[InfoGainEstimateRecord] = field(default_factory=list)

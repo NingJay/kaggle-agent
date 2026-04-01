@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
+import yaml
+
+from kaggle_agent.branch_typing import compile_realized_typing, persist_realized_typing
 from kaggle_agent.decision.helpers import (
     begin_stage_run,
     complete_stage_run,
@@ -89,10 +93,66 @@ def _decorate_codegen_payload(payload: dict[str, object], plan: dict[str, object
     payload.setdefault("policy_trace", [str(item) for item in branch.get("policy_trace", [])] or [str(item) for item in plan.get("policy_trace", [])])
     payload.setdefault("branch_memory_ids", [str(item) for item in branch.get("branch_memory_ids", [])])
     payload.setdefault("scheduler_hints", dict(branch.get("scheduler_hints", {})) if isinstance(branch.get("scheduler_hints"), dict) else dict(plan.get("scheduler_hints", {})))
+    payload.setdefault("proposal_typing", dict(branch.get("proposal_typing", {})) if isinstance(branch.get("proposal_typing"), dict) else {})
+    payload.setdefault("proposal_typing_id", str(branch.get("proposal_typing_id") or ""))
+    payload.setdefault("info_gain_estimate", dict(branch.get("info_gain_estimate", {})) if isinstance(branch.get("info_gain_estimate"), dict) else {})
+    payload.setdefault("info_gain_estimate_id", str(branch.get("info_gain_estimate_id") or ""))
+    payload.setdefault("source_config_path", str(branch.get("source_config_path") or plan.get("source_config_path") or ""))
     payload.setdefault(
         "motivation_summary",
         str(branch.get("reason") or branch.get("hypothesis") or plan.get("reason") or ""),
     )
+    return payload
+
+
+def _resolved_path(config: WorkspaceConfig, value: str) -> Path | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    path = Path(text)
+    if not path.is_absolute():
+        path = config.root / path
+    return path
+
+
+def _load_config_payload(path: Path | None) -> dict[str, Any]:
+    if path is None or not path.exists():
+        return {}
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _attach_realized_typing(
+    config: WorkspaceConfig,
+    state: WorkspaceState,
+    stage_run,
+    plan: dict[str, object],
+    payload: dict[str, object],
+) -> dict[str, object]:
+    branch = _primary_branch(plan)
+    proposal_typing = dict(payload.get("proposal_typing", {})) if isinstance(payload.get("proposal_typing"), dict) else {}
+    source_config_path = _resolved_path(config, str(payload.get("source_config_path", "") or branch.get("source_config_path") or plan.get("source_config_path") or ""))
+    generated_config_path = _resolved_path(config, str(payload.get("generated_config_path", "") or ""))
+    realized_typing = compile_realized_typing(
+        run_id=str(stage_run.run_id),
+        stage_run_id=str(stage_run.stage_run_id),
+        family=str(branch.get("family") or plan.get("family") or ""),
+        title=str(branch.get("title") or plan.get("title") or stage_run.run_id),
+        branch_input=branch,
+        proposal_typing=proposal_typing,
+        source_config_path=str(source_config_path) if source_config_path is not None else "",
+        fallback_source_config=_load_config_payload(source_config_path),
+        generated_config_path=str(generated_config_path) if generated_config_path is not None else "",
+        changed_files=[str(item) for item in payload.get("changed_files", []) if str(item)],
+    )
+    persist_realized_typing(state, realized_typing)
+    payload["proposal_typing"] = proposal_typing
+    payload["proposal_typing_id"] = str(proposal_typing.get("proposal_typing_id", "") or payload.get("proposal_typing_id", ""))
+    payload["realized_typing"] = realized_typing
+    payload["realized_typing_id"] = str(realized_typing.get("realized_typing_id", ""))
     return payload
 
 
@@ -133,6 +193,15 @@ def _append_codegen_context_markdown(markdown: str, plan: dict[str, object], pay
                 *(f"- {key}: `{value}`" for key, value in scheduler_hints.items()),
             ]
         )
+    if payload.get("proposal_typing_id") or payload.get("realized_typing_id"):
+        context_lines.extend(
+            [
+                "",
+                "## Typing",
+                f"- proposal_typing_id: `{payload.get('proposal_typing_id', '') or 'n/a'}`",
+                f"- realized_typing_id: `{payload.get('realized_typing_id', '') or 'n/a'}`",
+            ]
+        )
     suffix = "\n".join(context_lines).strip()
     return markdown.rstrip() + ("\n\n" + suffix if suffix else "")
 
@@ -149,7 +218,12 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         input_ref=run.latest_stage_run_id or run.run_id,
     )
     plan_status = str(plan.get("plan_status", "hold"))
-    if plan_status != "planned":
+    has_branch_portfolio = isinstance(plan.get("branch_plans"), list) and any(
+        isinstance(item, dict) for item in plan.get("branch_plans", [])
+    )
+    if plan_status not in {"planned", "submission_candidate"} or (
+        plan_status == "submission_candidate" and not has_branch_portfolio
+    ):
         write_input_manifest(
             input_manifest_path,
             {
@@ -181,6 +255,7 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "smoke_summary": f"Codegen provider was not invoked because the plan is `{plan_status}`.",
         }
         payload = _decorate_codegen_payload(payload, plan)
+        payload = _attach_realized_typing(config, state, stage_run, plan, payload)
         markdown = stage_markdown(
             f"Codegen {run_id}",
             [
@@ -195,9 +270,12 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
         return stage_run
 
+    skip_provider = plan_status == "submission_candidate" and has_branch_portfolio
     previous_payload: dict[str, object] | None = None
     previous_markdown = ""
     for attempt_number in range(1, CODEGEN_MAX_REPAIR_ATTEMPTS + 1):
+        if skip_provider:
+            break
         write_input_manifest(
             input_manifest_path,
             _codegen_retry_manifest(
@@ -219,6 +297,7 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             break
         payload, markdown = adapted
         payload = _decorate_codegen_payload(payload, plan)
+        payload = _attach_realized_typing(config, state, stage_run, plan, payload)
         markdown = _append_codegen_context_markdown(markdown, plan, payload)
         previous_payload = payload
         previous_markdown = markdown
@@ -271,6 +350,7 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         "smoke_summary": "Deterministic fallback does not produce an isolated code snapshot.",
     }
     payload = _decorate_codegen_payload(payload, plan)
+    payload = _attach_realized_typing(config, state, stage_run, plan, payload)
     markdown = stage_markdown(
         f"Codegen {run_id}",
         [

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -12,42 +13,18 @@ from kaggle_agent.decision.helpers import (
     stage_markdown,
     write_input_manifest,
 )
+from kaggle_agent.knowledge import apply_knowledge_stage_outputs
+from kaggle_agent.knowledge_reducer import record_constraints_from_decision, record_search_envelope
 from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import slugify
 
 
-ROLE_ORDER = ("primary", "hedge", "explore", "support")
-COMPONENT_TEMPLATES = {
-    "class_coverage": {
-        "title": "coverage-first branch",
-        "hypothesis": "Improve holdout ROC-AUC by fixing class coverage and long-tail support before calibration-only tuning.",
-        "rationale": "Knowledge and recent failures both say coverage is the limiting factor.",
-        "target_component": "class_coverage",
-    },
-    "probe_head": {
-        "title": "probe-head capacity branch",
-        "hypothesis": "Improve holdout ROC-AUC by changing the probe representation surface after protecting class coverage.",
-        "rationale": "Representation-level adjustments are still open and structurally distinct from calibration.",
-        "target_component": "probe_head",
-    },
-    "pseudo_label": {
-        "title": "pseudo-label expansion branch",
-        "hypothesis": "Improve holdout ROC-AUC by increasing teacher-signal coverage rather than retuning post-processing only.",
-        "rationale": "Pseudo-label coverage remains a high-value axis.",
-        "target_component": "pseudo_label",
-    },
-    "optimization": {
-        "title": "schedule-recovery branch",
-        "hypothesis": "Improve holdout ROC-AUC by changing schedule or LR only when the current branch still looks underfit.",
-        "rationale": "Training dynamics remain a secondary hedge branch.",
-        "target_component": "optimization",
-    },
-    "prior_calibration": {
-        "title": "calibration hedge branch",
-        "hypothesis": "Test calibration only as a hedge after higher-value training and coverage axes are represented.",
-        "rationale": "Calibration should not dominate the portfolio unless stronger axes are exhausted.",
-        "target_component": "prior_calibration",
-    },
+REQUIRED_PATTERN_BY_COMPONENT = {
+    "class_coverage": "coverage_first",
+    "pseudo_label": "pseudo_label_expansion",
+    "probe_head": "probe_training_change",
+    "optimization": "schedule_recovery",
+    "backbone": "conditional_backbone_recovery",
 }
 
 
@@ -62,124 +39,117 @@ def _submission_threshold(config: WorkspaceConfig, config_path: str) -> float:
     return float(metrics.get("submission_candidate_threshold", 0.75))
 
 
-def _component_priority(research: dict[str, object]) -> list[str]:
-    cards = [item for item in research.get("policy_cards", []) if isinstance(item, dict)]
-    negative_axes = {
-        str(item.get("component", ""))
-        for item in cards
-        if str(item.get("policy_type", "")) in {"veto", "avoid"}
-    }
-    order: list[str] = []
-    for policy_type in ("require", "prefer", "conditional"):
-        for card in cards:
-            component = str(card.get("component", ""))
-            if not component or component == "general" or component in negative_axes:
-                continue
-            if str(card.get("policy_type", "")) != policy_type:
-                continue
-            if component not in order:
-                order.append(component)
-    for memory in research.get("branch_memories", []):
-        if not isinstance(memory, dict):
+def _rule_components(policy_rules: list[dict[str, Any]], kinds: set[str]) -> list[str]:
+    ordered: list[str] = []
+    for item in policy_rules:
+        if str(item.get("policy_type", "")) not in kinds:
             continue
-        component = str(memory.get("idea_class", ""))
-        if not component or component in negative_axes or component in order:
-            continue
-        if str(memory.get("outcome", "")) in {"leader", "improved", "submission_candidate"}:
-            order.append(component)
-    return order or ["class_coverage", "probe_head", "optimization"]
+        component = str(item.get("component", "") or "").strip()
+        if component and component not in ordered:
+            ordered.append(component)
+    return ordered
 
 
-def _cooldown_idea_classes(research: dict[str, object]) -> list[str]:
-    weak_counts: dict[str, int] = {}
-    for memory in research.get("branch_memories", []):
-        if not isinstance(memory, dict):
-            continue
-        idea_class = str(memory.get("idea_class", ""))
-        if not idea_class:
-            continue
-        if str(memory.get("outcome", "")) in {"regressed", "critic_rejected", "run_failed", "validate_failed"}:
-            weak_counts[idea_class] = weak_counts.get(idea_class, 0) + 1
-    return [idea for idea, count in weak_counts.items() if count >= 2]
-
-
-def _portfolio_policy(config: WorkspaceConfig, run, experiment, research: dict[str, object]) -> dict[str, object]:
-    components = _component_priority(research)
-    cards = [item for item in research.get("policy_cards", []) if isinstance(item, dict)]
-    deprioritized_axes = [
-        str(item.get("component", ""))
-        for item in cards
-        if str(item.get("policy_type", "")) in {"veto", "avoid"} and str(item.get("component", ""))
-    ]
-    cooldown_axes = _cooldown_idea_classes(research)
-    target_branch_count = min(3, max(2, len(components[:3])))
-    branch_mix = [
-        {"branch_role": role, "target_component": components[index] if index < len(components) else components[-1]}
-        for index, role in enumerate(ROLE_ORDER[:target_branch_count])
-    ]
+def _portfolio_policy(config: WorkspaceConfig, research: dict[str, Any], family: str, run_id: str) -> dict[str, Any]:
+    policy_rules = [item for item in research.get("policy_rules", []) if isinstance(item, dict)]
+    capability_results = research.get("capability_results", {}) if isinstance(research.get("capability_results"), dict) else {}
+    diversifier = capability_results.get("branch_diversifier", {})
+    if isinstance(diversifier, dict) and diversifier.get("recommended_components"):
+        components = [str(item) for item in diversifier.get("recommended_components", []) if str(item)]
+    else:
+        components = _rule_components(policy_rules, {"require", "prefer", "conditional"})
+    negative_axes = _rule_components(policy_rules, {"veto", "avoid"})
+    components = [item for item in components if item not in negative_axes] or ["class_coverage", "probe_head", "optimization"]
+    branch_mix = (
+        [item for item in diversifier.get("recommended_branch_mix", []) if isinstance(item, dict)]
+        if isinstance(diversifier, dict)
+        else []
+    )
+    if not branch_mix:
+        roles = ["primary", "hedge", "explore"]
+        branch_mix = [
+            {"branch_role": roles[index], "target_component": component}
+            for index, component in enumerate(components[: len(roles)])
+        ]
+    target_branch_count = int(diversifier.get("target_branch_count", 0) or 0) if isinstance(diversifier, dict) else 0
+    if target_branch_count <= 0:
+        target_branch_count = min(3, max(2, len(branch_mix)))
     return {
-        "portfolio_id": f"portfolio-{run.run_id}-{slugify(experiment.family)}",
+        "portfolio_id": f"portfolio-{run_id}-{slugify(family)}",
         "target_branch_count": target_branch_count,
-        "branch_mix": branch_mix,
+        "branch_mix": branch_mix[:target_branch_count],
         "per_portfolio_cap": 1 if config.automation.max_active_runs <= 3 else 2,
         "per_idea_class_cap": 1,
         "dispatch_strategy": "prefer-diverse-frontier-before-follow-on-support",
-        "selected_policy_cards": [str(item.get("card_id", "")) for item in cards[:6]],
+        "selected_policy_cards": [str(item.get("rule_id", "")) for item in policy_rules[:6]],
+        "deprioritized_axes": negative_axes,
         "branch_memory_ids": [str(item) for item in research.get("branch_memory_ids", [])][:6],
-        "deprioritized_axes": list(dict.fromkeys([item for item in deprioritized_axes if item] + cooldown_axes)),
-        "cooldown_idea_classes": cooldown_axes,
     }
 
 
-def _portfolio_intent(experiment, research: dict[str, object], policy: dict[str, object]) -> str:
-    top_component = ""
-    branch_mix = policy.get("branch_mix", [])
-    if isinstance(branch_mix, list) and branch_mix:
-        top_component = str(branch_mix[0].get("target_component", ""))
-    if top_component:
-        return f"Search a compact branch portfolio around {top_component} first, while keeping one structurally distinct hedge."
-    adopt_now = [str(item) for item in research.get("adopt_now", []) if str(item).strip()]
-    return adopt_now[0] if adopt_now else f"Keep a compact branch portfolio open for {experiment.family}."
+def _forbidden_patterns(research: dict[str, Any], policy: dict[str, Any]) -> list[str]:
+    capability_results = research.get("capability_results", {}) if isinstance(research.get("capability_results"), dict) else {}
+    veto_checker = capability_results.get("veto_checker", {})
+    patterns = [str(item) for item in veto_checker.get("forbidden_patterns", []) if str(item)] if isinstance(veto_checker, dict) else []
+    for axis in policy.get("deprioritized_axes", []):
+        value = str(axis)
+        if value and value not in patterns:
+            patterns.append(value)
+    return patterns
 
 
-def _default_branch_portfolio(experiment, research: dict[str, object], policy: dict[str, object]) -> list[dict[str, object]]:
-    deprioritized = {str(item) for item in policy.get("deprioritized_axes", []) if str(item)}
-    cards = [item for item in research.get("policy_cards", []) if isinstance(item, dict)]
-    card_ids_by_component: dict[str, list[str]] = {}
-    for card in cards:
-        component = str(card.get("component", ""))
-        if not component:
+def _required_patterns(policy: dict[str, Any]) -> list[str]:
+    patterns: list[str] = []
+    for item in policy.get("branch_mix", []):
+        if not isinstance(item, dict):
             continue
-        card_ids_by_component.setdefault(component, []).append(str(card.get("card_id", "")))
-    portfolio: list[dict[str, object]] = []
-    for branch in policy.get("branch_mix", []):
-        if not isinstance(branch, dict):
-            continue
-        role = str(branch.get("branch_role", "explore"))
-        component = str(branch.get("target_component", "optimization"))
-        if component in deprioritized:
-            continue
-        template = COMPONENT_TEMPLATES.get(component, COMPONENT_TEMPLATES["optimization"])
-        portfolio.append(
-            {
-                "title": f"{experiment.title} {template['title']}",
-                "family": experiment.family,
-                "hypothesis": str(template["hypothesis"]),
-                "rationale": str(template["rationale"]),
-                "branch_role": role,
-                "idea_class": component,
-                "target_component": str(template["target_component"]),
-                "priority_delta": {"primary": 10, "hedge": 12, "explore": 14, "support": 16}.get(role, 14),
-                "launch_mode": "background",
-                "knowledge_card_ids": card_ids_by_component.get(component, [str(item) for item in research.get("knowledge_card_ids", [])][:3]),
-                "policy_trace": [
-                    f"{component}:{role}",
-                    *(f"card:{card_id}" for card_id in card_ids_by_component.get(component, [])[:2]),
-                ],
-                "branch_memory_ids": [str(item) for item in research.get("branch_memory_ids", [])][:3],
-            }
-        )
-    return portfolio
+        pattern = REQUIRED_PATTERN_BY_COMPONENT.get(str(item.get("target_component", "")))
+        if pattern and pattern not in patterns:
+            patterns.append(pattern)
+    return patterns
+
+
+def _grounded_and_novel_slots(research: dict[str, Any], policy: dict[str, Any]) -> tuple[int, int]:
+    repeated_failures = []
+    capability_results = research.get("capability_results", {}) if isinstance(research.get("capability_results"), dict) else {}
+    ledger = capability_results.get("ledger_miner", {})
+    if isinstance(ledger, dict):
+        repeated_failures = [str(item) for item in ledger.get("repeated_failures", []) if str(item)]
+    target_branch_count = int(policy.get("target_branch_count", 2) or 2)
+    novel_slots = 1 if target_branch_count >= 3 or repeated_failures else 0
+    grounded_slots = max(1, target_branch_count - novel_slots)
+    return grounded_slots, novel_slots
+
+
+def _build_search_envelope(payload: dict[str, Any], *, default_turn_id: str) -> dict[str, Any]:
+    existing = payload.get("search_envelope")
+    if isinstance(existing, dict) and existing:
+        envelope = dict(existing)
+    else:
+        portfolio_policy = payload.get("portfolio_policy", {})
+        policy = dict(portfolio_policy) if isinstance(portfolio_policy, dict) else {}
+        envelope = {
+            "turn_id": default_turn_id,
+            "portfolio_mode": str(payload.get("portfolio_mode", "") or ""),
+            "slot_budget": int(payload.get("grounded_branch_slots", 0) or 0) + int(payload.get("novel_branch_slots", 0) or 0),
+            "grounded_branch_slots": int(payload.get("grounded_branch_slots", 0) or 0),
+            "novel_branch_slots": int(payload.get("novel_branch_slots", 0) or 0),
+            "branch_budget_by_role": dict(payload.get("branch_budget_by_role", {}))
+            if isinstance(payload.get("branch_budget_by_role"), dict)
+            else {},
+            "forbidden_patterns": [str(item) for item in payload.get("forbidden_plan_patterns", []) if str(item)],
+            "required_patterns": [str(item) for item in payload.get("required_plan_patterns", []) if str(item)],
+            "minimum_information_gain_bar": float(payload.get("minimum_information_gain_bar", 0.0) or 0.0),
+            "per_portfolio_cap": int(policy.get("per_portfolio_cap", 1) or 1),
+            "per_idea_class_cap": int(policy.get("per_idea_class_cap", 1) or 1),
+            "dispatch_strategy": str(policy.get("dispatch_strategy", "") or ""),
+            "max_budget_share": {"grounded": 0.85, "novel": 0.35},
+            "smoke_only_first": True,
+            "canary_eval_required": True,
+            "novel_max_cost_tier": "medium",
+        }
+    envelope["turn_id"] = str(envelope.get("turn_id", "") or default_turn_id)
+    return envelope
 
 
 def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
@@ -212,58 +182,103 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     )
     if adapted is not None:
         payload, markdown = adapted
+        envelope = _build_search_envelope(payload, default_turn_id=stage_run.stage_run_id)
+        payload["search_envelope"] = envelope
         complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
+        record_constraints_from_decision(
+            state,
+            run_id=run_id,
+            stage_run_id=stage_run.stage_run_id,
+            family=str(payload.get("next_family", "") or experiment.family),
+            decision_payload=payload,
+        )
+        record_search_envelope(
+            state,
+            run_id=run_id,
+            stage_run_id=stage_run.stage_run_id,
+            family=str(payload.get("next_family", "") or experiment.family),
+            envelope_payload=envelope,
+        )
+        apply_knowledge_stage_outputs(config, run_id=run_id, stage="decision", payload=payload)
         return stage_run
 
     threshold = _submission_threshold(config, experiment.config_path)
+    family = experiment.family
     root_cause = str(report.get("root_cause", run.root_cause or run.error or "unknown"))
-    problem_frame = research.get("problem_frame", {}) if isinstance(research.get("problem_frame"), dict) else {}
-    knowledge_card_ids = [str(item) for item in research.get("knowledge_card_ids", [])]
-    policy = _portfolio_policy(config, run, experiment, research)
-    portfolio_intent = _portfolio_intent(experiment, research, policy)
-    branch_portfolio = _default_branch_portfolio(experiment, research, policy)
-    rejected_axes = list(dict.fromkeys([str(item) for item in research.get("negative_priors", [])][:5] + [str(item) for item in policy.get("deprioritized_axes", []) if str(item)]))
+    policy = _portfolio_policy(config, research, family, run_id)
+    forbidden_plan_patterns = _forbidden_patterns(research, policy)
+    required_plan_patterns = _required_patterns(policy)
+    grounded_branch_slots, novel_branch_slots = _grounded_and_novel_slots(research, policy)
+    minimum_information_gain_bar = 0.6 if forbidden_plan_patterns else 0.48
+    portfolio_mode = (
+        "repair"
+        if run.status == "failed"
+        else ("submission_gate" if run.primary_metric_value is not None and run.primary_metric_value >= threshold else "frontier_search")
+    )
+    branch_budget_by_role: dict[str, int] = {}
+    for item in policy.get("branch_mix", []):
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("branch_role", "") or "explore")
+        branch_budget_by_role[role] = branch_budget_by_role.get(role, 0) + 1
+
+    capability_results = research.get("capability_results", {}) if isinstance(research.get("capability_results"), dict) else {}
+    novel = capability_results.get("novel_hypothesis_generator", {})
+    branch_portfolio = [dict(item) for item in policy.get("branch_mix", []) if isinstance(item, dict)]
+    if novel_branch_slots > 0 and isinstance(novel, dict) and str(novel.get("novel_component", "")):
+        branch_portfolio.append(
+            {
+                "branch_role": "explore",
+                "target_component": str(novel.get("novel_component", "")),
+                "grounding_mode": "novel",
+                "unsupported_claims": [str(item) for item in novel.get("unsupported_claims", []) if str(item)],
+                "required_evidence": [str(item) for item in novel.get("required_evidence", []) if str(item)],
+            }
+        )
+
     common_fields = {
-        "problem_frame": problem_frame,
-        "knowledge_card_ids": knowledge_card_ids,
-        "rejected_axes": rejected_axes,
-        "portfolio_intent": portfolio_intent,
+        "problem_frame": research.get("problem_frame", {}),
+        "knowledge_card_ids": [str(item) for item in research.get("knowledge_card_ids", [])],
+        "rejected_axes": [str(item) for item in research.get("negative_vetoes", []) if str(item)],
+        "portfolio_intent": f"Allocate {grounded_branch_slots} grounded slots and {novel_branch_slots} novel slots around the current frontier.",
+        "portfolio_mode": portfolio_mode,
         "portfolio_policy": policy,
+        "branch_budget_by_role": branch_budget_by_role,
+        "grounded_branch_slots": grounded_branch_slots,
+        "novel_branch_slots": novel_branch_slots,
         "selected_policy_cards": [str(item) for item in policy.get("selected_policy_cards", [])],
         "branch_memory_ids": [str(item) for item in policy.get("branch_memory_ids", [])],
         "deprioritized_axes": [str(item) for item in policy.get("deprioritized_axes", [])],
-        "branch_mix": [item for item in policy.get("branch_mix", []) if isinstance(item, dict)],
+        "forbidden_plan_patterns": forbidden_plan_patterns,
+        "required_plan_patterns": required_plan_patterns,
+        "minimum_information_gain_bar": minimum_information_gain_bar,
+        "why_not": {
+            str(item): f"deterministic constraint from reducer/capability state blocks `{item}` without explicit override"
+            for item in forbidden_plan_patterns
+        },
+        "selected_capability_packs": [str(item) for item in research.get("selected_capability_packs", []) if str(item)],
+        "selected_memory_files": [str(item) for item in research.get("selected_memory_files", []) if str(item)],
+        "capability_results": capability_results,
+        "open_questions": [str(item) for item in research.get("open_questions", []) if str(item)],
+        "hypothesis_backlog": [dict(item) for item in research.get("hypothesis_backlog", []) if isinstance(item, dict)],
+        "session_memory": research.get("session_memory", {}) if isinstance(research.get("session_memory"), dict) else {},
+        "branch_mix": [dict(item) for item in policy.get("branch_mix", []) if isinstance(item, dict)],
         "branch_portfolio": branch_portfolio,
         "requires_human": False,
     }
+
     if run.status == "failed":
-        decision_type = "blocked" if any(token in root_cause.lower() for token in ["missing", "module", "dependency"]) else "fix"
         payload = {
             "stage": "decision",
-            "decision_type": decision_type,
-            "next_action": "hold" if decision_type == "blocked" else "run_new_experiment",
-            "submission_recommendation": "no",
-            "root_cause": root_cause,
-            "why": "The runtime failed and needs a direct repair before more exploration.",
-            "next_title": f"{experiment.title} runtime repair",
-            "next_family": experiment.family,
-            "next_config_path": experiment.config_path,
-            "priority_delta": -5 if decision_type == "blocked" else 5,
-            "launch_mode": "sync" if decision_type == "blocked" else "background",
-            **common_fields,
-        }
-    elif experiment.family == "perch_head_debug":
-        payload = {
-            "stage": "decision",
-            "decision_type": "promote_baseline",
+            "decision_type": "fix",
             "next_action": "run_new_experiment",
             "submission_recommendation": "no",
             "root_cause": root_cause,
-            "why": "The debug smoke is healthy enough to promote the cached-probe baseline.",
-            "next_title": "Perch cached-probe baseline",
-            "next_family": "perch_cached_probe",
-            "next_config_path": str(config.runtime_root() / "configs" / "default.yaml"),
-            "priority_delta": 10,
+            "why": "Repair the runtime or validation bottleneck before spending more portfolio budget.",
+            "next_title": f"{experiment.title} runtime repair",
+            "next_family": family,
+            "next_config_path": experiment.config_path,
+            "priority_delta": 5,
             "launch_mode": "background",
             **common_fields,
         }
@@ -274,9 +289,9 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "next_action": "submit_candidate",
             "submission_recommendation": "candidate",
             "root_cause": root_cause,
-            "why": "This run cleared the local submission threshold and should enter the submission intelligence loop.",
-            "next_title": "",
-            "next_family": experiment.family,
+            "why": "This run cleared the local submission threshold and should enter submission intelligence.",
+            "next_title": experiment.title,
+            "next_family": family,
             "next_config_path": experiment.config_path,
             "priority_delta": 0,
             "launch_mode": "background",
@@ -289,14 +304,15 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "next_action": "run_new_experiment",
             "submission_recommendation": "no",
             "root_cause": root_cause,
-            "why": "The run is useful but still below the keep threshold, so the next config should directly target the root cause.",
+            "why": "Continue frontier search, but enforce grounded-vs-novel slot allocation and minimum information gain.",
             "next_title": f"{experiment.title} follow-up",
-            "next_family": experiment.family,
+            "next_family": family,
             "next_config_path": experiment.config_path,
             "priority_delta": 10,
             "launch_mode": "background",
             **common_fields,
         }
+
     markdown = stage_markdown(
         f"Decision {run_id}",
         [
@@ -305,7 +321,9 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             f"- Submission recommendation: `{payload['submission_recommendation']}`",
             f"- Root cause: {payload['root_cause']}",
             f"- Why: {payload['why']}",
-            f"- Portfolio intent: {payload['portfolio_intent']}",
+            f"- Portfolio mode: `{payload['portfolio_mode']}`",
+            f"- Grounded slots: `{payload['grounded_branch_slots']}`",
+            f"- Novel slots: `{payload['novel_branch_slots']}`",
             "",
             "## Branch Mix",
             *(
@@ -314,12 +332,31 @@ def build_decision(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
                 if isinstance(item, dict)
             ),
             "",
-            "## Deprioritized Axes",
-            *(
-                f"- {item}"
-                for item in payload.get("deprioritized_axes", [])
-            ),
+            "## Forbidden Patterns",
+            *(f"- `{item}`" for item in payload.get("forbidden_plan_patterns", [])),
+            "",
+            "## Required Patterns",
+            *(f"- `{item}`" for item in payload.get("required_plan_patterns", [])),
+            "",
+            "## Capability Packs",
+            *(f"- `{item}`" for item in payload.get("selected_capability_packs", [])),
         ],
     )
+    payload["search_envelope"] = _build_search_envelope(payload, default_turn_id=stage_run.stage_run_id)
     complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
+    record_constraints_from_decision(
+        state,
+        run_id=run_id,
+        stage_run_id=stage_run.stage_run_id,
+        family=family,
+        decision_payload=payload,
+    )
+    record_search_envelope(
+        state,
+        run_id=run_id,
+        stage_run_id=stage_run.stage_run_id,
+        family=family,
+        envelope_payload=dict(payload.get("search_envelope", {})),
+    )
+    apply_knowledge_stage_outputs(config, run_id=run_id, stage="decision", payload=payload)
     return stage_run

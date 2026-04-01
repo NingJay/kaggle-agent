@@ -162,6 +162,11 @@ def _doc_block(path: Path) -> str:
 
 
 def _knowledge_blocks(root: Path, manifest: dict[str, Any], *, stage: str, limit: int = KNOWLEDGE_PROMPT_CHAR_BUDGET) -> str:
+    existing = manifest.get("retrieved_knowledge")
+    if isinstance(existing, dict) and existing:
+        rendered_existing = render_retrieved_knowledge(existing, limit=limit)
+        if rendered_existing.strip():
+            return rendered_existing
     bundle = retrieve_knowledge_bundle_from_root(root, manifest, stage=stage, limit=8)
     rendered = render_retrieved_knowledge(bundle, limit=limit)
     return rendered if rendered.strip() else ""

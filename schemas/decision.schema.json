@@ -32,13 +32,41 @@
     "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
     "rejected_axes": { "type": "array", "items": { "type": "string" } },
     "portfolio_intent": { "type": "string" },
+    "portfolio_mode": { "type": "string" },
     "portfolio_policy": {
       "type": "object",
       "additionalProperties": true
     },
+    "search_envelope": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "grounded_branch_slots": { "type": "integer" },
+    "novel_branch_slots": { "type": "integer" },
+    "branch_budget_by_role": {
+      "type": "object",
+      "additionalProperties": { "type": "integer" }
+    },
     "selected_policy_cards": { "type": "array", "items": { "type": "string" } },
     "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
     "deprioritized_axes": { "type": "array", "items": { "type": "string" } },
+    "forbidden_plan_patterns": { "type": "array", "items": { "type": "string" } },
+    "required_plan_patterns": { "type": "array", "items": { "type": "string" } },
+    "minimum_information_gain_bar": { "type": "number" },
+    "why_not": { "type": "object", "additionalProperties": { "type": "string" } },
+    "selected_capability_packs": { "type": "array", "items": { "type": "string" } },
+    "selected_memory_files": { "type": "array", "items": { "type": "string" } },
+    "capability_results": { "type": "object", "additionalProperties": true },
+    "hypothesis_backlog": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "open_questions": { "type": "array", "items": { "type": "string" } },
+    "session_memory": { "type": "object", "additionalProperties": true },
+    "memory_ops": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
     "branch_mix": {
       "type": "array",
       "items": {
@@ -66,6 +94,13 @@
           "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
           "override_reason": { "type": "string" },
           "scheduler_hints": { "type": "object", "additionalProperties": true },
+          "expected_information_gain": { "type": "number" },
+          "falsification_criterion": { "type": "string" },
+          "kill_criterion": { "type": "string" },
+          "avoided_vetoes": { "type": "array", "items": { "type": "string" } },
+          "grounding_mode": { "type": "string" },
+          "unsupported_claims": { "type": "array", "items": { "type": "string" } },
+          "required_evidence": { "type": "array", "items": { "type": "string" } },
           "config_overrides": {
             "type": "array",
             "items": {

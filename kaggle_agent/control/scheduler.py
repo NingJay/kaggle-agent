@@ -94,6 +94,19 @@ def _scheduler_score(
     dispatch_priority = work_item.scheduler_hints.get("dispatch_priority")
     if isinstance(dispatch_priority, (int, float)):
         score += float(dispatch_priority)
+    expected_information_gain = work_item.scheduler_hints.get("expected_information_gain")
+    if isinstance(expected_information_gain, (int, float)):
+        score += float(expected_information_gain) * 10.0
+    novelty_score = work_item.scheduler_hints.get("novelty_score")
+    if isinstance(novelty_score, (int, float)):
+        score += float(novelty_score) * 6.0
+    grounding_mode = str(work_item.scheduler_hints.get("grounding_mode", "") or "")
+    if grounding_mode == "grounded":
+        score += 2.0
+    elif grounding_mode == "novel":
+        score += 1.0
+    if bool(work_item.scheduler_hints.get("low_information_flag")):
+        score -= 16.0
     if work_item.portfolio_id:
         score += 6.0 if active_portfolios.get(work_item.portfolio_id, 0) == 0 else -8.0 * active_portfolios.get(work_item.portfolio_id, 0)
     if work_item.idea_class:

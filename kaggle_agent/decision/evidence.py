@@ -10,6 +10,8 @@ from kaggle_agent.decision.helpers import (
     stage_markdown,
     write_input_manifest,
 )
+from kaggle_agent.knowledge import apply_knowledge_stage_outputs, load_session_memory
+from kaggle_agent.knowledge_reducer import upsert_observation_atom
 from kaggle_agent.schema import FindingRecord, IssueRecord, MetricObservation, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import now_utc_iso
 
@@ -130,6 +132,87 @@ def build_evidence(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     verdict = run.verdict or str(result.get("verdict", "unknown"))
     dataset_summary = result.get("dataset_summary", {})
     all_metrics = result.get("all_metrics", {})
+    leader = None
+    parent_run = next((candidate for candidate in state.runs if candidate.run_id == work_item.source_run_id), None)
+    for candidate in state.runs:
+        if candidate.status != "succeeded" or candidate.primary_metric_value is None:
+            continue
+        if leader is None or candidate.primary_metric_value > leader.primary_metric_value:
+            leader = candidate
+    metric_deltas = {
+        "vs_leader": (
+            None
+            if leader is None or leader.primary_metric_value is None or run.primary_metric_value is None
+            else run.primary_metric_value - leader.primary_metric_value
+        ),
+        "vs_parent": (
+            None
+            if parent_run is None or parent_run.primary_metric_value is None or run.primary_metric_value is None
+            else run.primary_metric_value - parent_run.primary_metric_value
+        ),
+    }
+    anomalies: list[str] = []
+    if run.status == "failed":
+        anomalies.append(f"Run failed before producing a clean {primary_metric} improvement.")
+    if run.primary_metric_value is not None and primary_metric.startswith("soundscape_") and run.primary_metric_value >= 0.98:
+        anomalies.append("Primary metric is near-perfect; verify that this is not a misleading resubstitution metric.")
+    promotion_candidates = []
+    if run.primary_metric_value is not None and metric_deltas["vs_leader"] is not None and metric_deltas["vs_leader"] >= 0:
+        promotion_candidates.append(f"Promote {run.run_id} if validation remains trustworthy against the current leader.")
+    demotion_candidates = []
+    if run.primary_metric_value is not None and run.primary_metric_value < 0.6:
+        demotion_candidates.append(f"Demote {run.run_id} from the active frontier until the bottleneck is repaired.")
+    open_questions = [f"What exact change caused the current root cause: {root_cause}?"]
+    observation_atoms = [
+        upsert_observation_atom(
+            state,
+            run_id=run.run_id,
+            stage_name="evidence",
+            family=experiment.family,
+            component=work_item.idea_class or "primary_metric",
+            summary=f"{primary_metric} recorded for {run.run_id}",
+            source_type="primary_metric",
+            source_ref=run.run_id,
+            metric_name=primary_metric,
+            comparator="leader",
+            value=run.primary_metric_value,
+            direction=(
+                "up"
+                if metric_deltas["vs_leader"] is not None and metric_deltas["vs_leader"] > 0
+                else ("down" if metric_deltas["vs_leader"] is not None and metric_deltas["vs_leader"] < 0 else "flat")
+            ),
+            axis_tags=[work_item.idea_class or "general"],
+        ).to_dict()
+    ]
+    if root_cause:
+        observation_atoms.append(
+            upsert_observation_atom(
+                state,
+                run_id=run.run_id,
+                stage_name="evidence",
+                family=experiment.family,
+                component=work_item.idea_class or "runtime",
+                summary=root_cause,
+                source_type="root_cause",
+                source_ref=run.run_id,
+                axis_tags=[work_item.idea_class or "general"],
+            ).to_dict()
+        )
+    for anomaly in anomalies[:2]:
+        observation_atoms.append(
+            upsert_observation_atom(
+                state,
+                run_id=run.run_id,
+                stage_name="evidence",
+                family=experiment.family,
+                component=work_item.idea_class or "runtime",
+                summary=anomaly,
+                source_type="anomaly",
+                source_ref=run.run_id,
+                axis_tags=[work_item.idea_class or "general"],
+            ).to_dict()
+        )
+    session_memory = load_session_memory(config)
     payload = {
         "stage": "evidence",
         "run_id": run.run_id,
@@ -144,6 +227,13 @@ def build_evidence(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         "verdict": verdict,
         "dataset_summary": dataset_summary,
         "artifacts": run.artifact_paths,
+        "metric_deltas": metric_deltas,
+        "anomalies": anomalies,
+        "promotion_candidates": promotion_candidates,
+        "demotion_candidates": demotion_candidates,
+        "open_questions": open_questions,
+        "observation_atoms": observation_atoms,
+        "session_memory": session_memory,
     }
     lines = [
         f"- Work item: `{work_item.id}`",
@@ -153,6 +243,10 @@ def build_evidence(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         f"- Verdict: `{verdict}`",
         f"- Root cause: {root_cause}",
     ]
+    if metric_deltas["vs_leader"] is not None:
+        lines.append(f"- Delta vs leader: {metric_deltas['vs_leader']:+.6f}")
+    if metric_deltas["vs_parent"] is not None:
+        lines.append(f"- Delta vs parent: {metric_deltas['vs_parent']:+.6f}")
     if dataset_summary:
         lines.extend(
             [
@@ -163,8 +257,25 @@ def build_evidence(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         )
     if result.get("summary_markdown"):
         lines.extend(["", "## Runtime Summary", str(result["summary_markdown"])])
+    if anomalies:
+        lines.extend(["", "## Anomalies", *(f"- {item}" for item in anomalies)])
+    if observation_atoms:
+        lines.extend(
+            [
+                "",
+                "## Observation Atoms",
+                *(
+                    f"- `{item.get('source_type', '')}` | `{item.get('component', '')}` | {item.get('summary', '')}"
+                    for item in observation_atoms
+                    if isinstance(item, dict)
+                ),
+            ]
+        )
+    if open_questions:
+        lines.extend(["", "## Open Questions", *(f"- {item}" for item in open_questions)])
     markdown = stage_markdown(f"Evidence Bundle {run.run_id}", lines)
     complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
+    apply_knowledge_stage_outputs(config, run_id=run_id, stage="evidence", payload=payload)
 
     if run.primary_metric_value is not None:
         _record_metric(

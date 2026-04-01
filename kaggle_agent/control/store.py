@@ -8,14 +8,25 @@ from kaggle_agent.control.lifecycle import resolve_stage_plan
 from kaggle_agent.layout import DEFAULT_ATTEMPT_SLUG, LEGACY_DEFAULT_ATTEMPT_SLUG, ROOT_SURFACE_DOC_NAMES
 from kaggle_agent.schema import (
     AgentRun,
+    BranchTypingRecord,
     BranchMemoryRecord,
+    CapabilityInvocationRecord,
+    ClaimRecord,
+    ConstraintRecord,
+    EvidenceLinkRecord,
     ExperimentSpec,
     FindingRecord,
+    InfoGainEstimateRecord,
     IssueRecord,
     MetricObservation,
+    ObservationAtomRecord,
+    PolicyRuleRecord,
+    ProposalTypingRecord,
+    RealizedTypingRecord,
     ResearchNoteRecord,
     RunRecord,
     RuntimeState,
+    SearchEnvelopeRecord,
     SpecRecord,
     StageRun,
     SubmissionCandidate,
@@ -42,6 +53,17 @@ TABLE_TO_MODEL = {
     "submissions": SubmissionCandidate,
     "submission_results": SubmissionResult,
     "branch_memories": BranchMemoryRecord,
+    "observations": ObservationAtomRecord,
+    "claims": ClaimRecord,
+    "evidence_links": EvidenceLinkRecord,
+    "policy_rules": PolicyRuleRecord,
+    "constraints": ConstraintRecord,
+    "search_envelopes": SearchEnvelopeRecord,
+    "capability_invocations": CapabilityInvocationRecord,
+    "branch_typings": BranchTypingRecord,
+    "proposal_typings": ProposalTypingRecord,
+    "realized_typings": RealizedTypingRecord,
+    "info_gain_estimates": InfoGainEstimateRecord,
 }
 STATE_TABLES = list(TABLE_TO_MODEL.keys())
 
@@ -114,6 +136,17 @@ def _entity_id(item) -> str:
     if hasattr(item, "validation_id"):
         return getattr(item, "validation_id")
     for key in [
+        "observation_id",
+        "claim_id",
+        "rule_id",
+        "constraint_id",
+        "invocation_id",
+        "link_id",
+        "envelope_id",
+        "typing_id",
+        "proposal_typing_id",
+        "realized_typing_id",
+        "estimate_id",
         "stage_run_id",
         "agent_run_id",
         "spec_id",
@@ -153,6 +186,8 @@ def ensure_layout(config: WorkspaceConfig) -> None:
     ensure_directory(config.knowledge_root())
     ensure_directory(config.prompt_root())
     for category in ["research", "papers", "index"]:
+        ensure_directory(config.knowledge_path(category))
+    for category in ["memory", "capability_packs"]:
         ensure_directory(config.knowledge_path(category))
     ensure_directory(config.generated_config_root())
 
@@ -209,6 +244,17 @@ def _empty_state(config: WorkspaceConfig) -> WorkspaceState:
         submission_results=[],
         runtime=_default_runtime_state(config),
         branch_memories=[],
+        observations=[],
+        claims=[],
+        evidence_links=[],
+        policy_rules=[],
+        constraints=[],
+        search_envelopes=[],
+        capability_invocations=[],
+        branch_typings=[],
+        proposal_typings=[],
+        realized_typings=[],
+        info_gain_estimates=[],
     )
 
 
@@ -226,6 +272,17 @@ def _snapshot_state(config: WorkspaceConfig, state: WorkspaceState) -> None:
     atomic_write_json(config.export_root() / "research_notes.json", [item.to_dict() for item in state.research_notes])
     atomic_write_json(config.export_root() / "submissions.json", [item.to_dict() for item in state.submissions])
     atomic_write_json(config.export_root() / "branch_memories.json", [item.to_dict() for item in state.branch_memories])
+    atomic_write_json(config.export_root() / "observations.json", [item.to_dict() for item in state.observations])
+    atomic_write_json(config.export_root() / "claims.json", [item.to_dict() for item in state.claims])
+    atomic_write_json(config.export_root() / "evidence_links.json", [item.to_dict() for item in state.evidence_links])
+    atomic_write_json(config.export_root() / "policy_rules.json", [item.to_dict() for item in state.policy_rules])
+    atomic_write_json(config.export_root() / "constraints.json", [item.to_dict() for item in state.constraints])
+    atomic_write_json(config.export_root() / "search_envelopes.json", [item.to_dict() for item in state.search_envelopes])
+    atomic_write_json(config.export_root() / "capability_invocations.json", [item.to_dict() for item in state.capability_invocations])
+    atomic_write_json(config.export_root() / "branch_typings.json", [item.to_dict() for item in state.branch_typings])
+    atomic_write_json(config.export_root() / "proposal_typings.json", [item.to_dict() for item in state.proposal_typings])
+    atomic_write_json(config.export_root() / "realized_typings.json", [item.to_dict() for item in state.realized_typings])
+    atomic_write_json(config.export_root() / "info_gain_estimates.json", [item.to_dict() for item in state.info_gain_estimates])
 
 
 def load_state(config: WorkspaceConfig) -> WorkspaceState:
@@ -255,6 +312,17 @@ def load_state(config: WorkspaceConfig) -> WorkspaceState:
         submission_results=tables["submission_results"],
         runtime=runtime,
         branch_memories=tables["branch_memories"],
+        observations=tables["observations"],
+        claims=tables["claims"],
+        evidence_links=tables["evidence_links"],
+        policy_rules=tables["policy_rules"],
+        constraints=tables["constraints"],
+        search_envelopes=tables["search_envelopes"],
+        capability_invocations=tables["capability_invocations"],
+        branch_typings=tables["branch_typings"],
+        proposal_typings=tables["proposal_typings"],
+        realized_typings=tables["realized_typings"],
+        info_gain_estimates=tables["info_gain_estimates"],
     )
 
 

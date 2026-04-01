@@ -22,8 +22,15 @@
     "problem_frame": { "type": "object" },
     "knowledge_card_ids": { "type": "array", "items": { "type": "string" } },
     "positive_priors": { "type": "array", "items": { "type": "string" } },
-    "negative_priors": { "type": "array", "items": { "type": "string" } },
-    "conditional_priors": { "type": "array", "items": { "type": "string" } },
+    "negative_vetoes": { "type": "array", "items": { "type": "string" } },
+    "conditional_leads": { "type": "array", "items": { "type": "string" } },
+    "policy_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
     "policy_cards": {
       "type": "array",
       "items": {
@@ -31,7 +38,13 @@
         "additionalProperties": true
       }
     },
-    "policy_trace": { "type": "array", "items": { "type": "string" } },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
     "branch_memories": {
       "type": "array",
       "items": {
@@ -46,6 +59,30 @@
         "type": "object",
         "additionalProperties": true
       }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "selected_memory_files": { "type": "array", "items": { "type": "string" } },
+    "selected_capability_packs": { "type": "array", "items": { "type": "string" } },
+    "capability_results": { "type": "object", "additionalProperties": true },
+    "session_memory": { "type": "object", "additionalProperties": true },
+    "open_questions": { "type": "array", "items": { "type": "string" } },
+    "retrieval_queries_next_turn": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "hypothesis_backlog": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "memory_ops": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
     },
     "markdown": { "type": "string" }
   }

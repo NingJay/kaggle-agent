@@ -18,6 +18,12 @@
     "branch_quality": { "type": "object", "additionalProperties": true },
     "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
     "reusable_judgments": { "type": "array", "items": { "type": "string" } },
+    "proposal_typing": { "type": "object", "additionalProperties": true },
+    "realized_typing": { "type": "object", "additionalProperties": true },
+    "info_gain_estimate": { "type": "object", "additionalProperties": true },
+    "typing_drift": { "type": "object", "additionalProperties": true },
+    "envelope_violations": { "type": "array", "items": { "type": "string" } },
+    "search_envelope": { "type": "object", "additionalProperties": true },
     "markdown": { "type": "string" }
   }
 }

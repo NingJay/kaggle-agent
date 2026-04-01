@@ -18,6 +18,7 @@ from kaggle_agent.adapters.command import CommandAdapterTimeout, run_stage_adapt
 from kaggle_agent.adapters.providers.claude_code_exec import run_claude_code_exec
 from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
 from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, _build_prompt, _verify_codegen_workspace
+from kaggle_agent.branch_typing import compile_proposal_typing, compile_realized_typing, estimate_info_gain
 from kaggle_agent.cli import main as cli_main
 from kaggle_agent.control.lifecycle import resolve_lifecycle_template
 from kaggle_agent.control.executor import collect_finished_runs, launch_execute_stage, start_run
@@ -25,9 +26,10 @@ from kaggle_agent.control.reporting import write_reports
 from kaggle_agent.control.scheduler import choose_next_work_items
 from kaggle_agent.control.monitor import _process_run_stage_chain, _run_validate_stage, process_completed_runs
 from kaggle_agent.decision.codegen import build_codegen
-from kaggle_agent.decision.critic import build_critic
-from kaggle_agent.decision.planner import build_plan
+from kaggle_agent.decision.critic import _apply_typing_contract, build_critic
+from kaggle_agent.decision.planner import _prune_branch_candidates, build_plan
 from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle, synchronize_branch_memory
+from kaggle_agent.knowledge_reducer import active_search_envelope, record_search_envelope, synchronize_claims
 from kaggle_agent.layout import run_label
 from kaggle_agent.control.store import load_state, save_state
 from kaggle_agent.schema import BranchMemoryRecord, ExperimentSpec, RunRecord, RuntimeState, SpecRecord, StageRun, ValidationRecord, WorkItem, WorkspaceState
@@ -205,6 +207,25 @@ def _build_debug_dataset(root: Path) -> None:
 def _write_executable(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
     path.chmod(0o755)
+
+
+def _empty_workspace_state() -> WorkspaceState:
+    return WorkspaceState(
+        runtime=RuntimeState(initialized_at="2026-04-02T00:00:00Z"),
+        work_items=[],
+        experiments=[],
+        runs=[],
+        stage_runs=[],
+        agent_runs=[],
+        specs=[],
+        validations=[],
+        metrics=[],
+        findings=[],
+        issues=[],
+        research_notes=[],
+        submissions=[],
+        submission_results=[],
+    )
 
 
 def _install_fake_providers(bin_dir: Path) -> None:
@@ -3443,6 +3464,249 @@ class WorkspaceTests(unittest.TestCase):
             self.assertIn("schema validation failed", run.stage_error)
             report_stage = next(item for item in state.stage_runs if item.run_id == run_id and item.stage_name == "report")
             self.assertEqual(report_stage.status, "failed")
+
+
+class BranchSearchKernelTests(unittest.TestCase):
+    def test_claim_identity_merges_same_scope(self) -> None:
+        state = _empty_workspace_state()
+        cards = [
+            {
+                "card_id": "card-a",
+                "component": "pseudo_label",
+                "stance": "positive",
+                "summary": "soft pseudo labels remain the biggest win",
+                "title": "Pseudo Labels",
+                "confidence": 0.9,
+                "source_path": "memory/policies/pseudo_kd.md",
+            },
+            {
+                "card_id": "card-b",
+                "component": "pseudo_label",
+                "stance": "positive",
+                "summary": "teacher distillation still dominates the frontier",
+                "title": "Pseudo Labels Followup",
+                "confidence": 0.82,
+                "source_path": "memory/playbooks/pseudo_kd.md",
+            },
+            {
+                "card_id": "card-c",
+                "component": "backbone",
+                "stance": "positive",
+                "summary": "B0 remains the safer leader",
+                "title": "Backbone",
+                "confidence": 0.75,
+                "source_path": "memory/families/b0.md",
+            },
+        ]
+
+        synchronize_claims(state, cards)
+
+        pseudo_claims = [item for item in state.claims if item.component == "pseudo_label" and item.stance == "positive"]
+        backbone_claims = [item for item in state.claims if item.component == "backbone" and item.stance == "positive"]
+        self.assertEqual(len(pseudo_claims), 1)
+        self.assertEqual(len(backbone_claims), 1)
+        self.assertEqual(sorted(pseudo_claims[0].support_ids), ["card-a", "card-b"])
+        self.assertEqual(pseudo_claims[0].seed_support_count, 2)
+
+    def test_search_envelope_persists_latest_turn(self) -> None:
+        state = _empty_workspace_state()
+        record_search_envelope(
+            state,
+            run_id="run-0001",
+            stage_run_id="stage-decision-1",
+            family="birdclef",
+            envelope_payload={"turn_id": "turn-1", "grounded_branch_slots": 2, "novel_branch_slots": 0},
+        )
+        record_search_envelope(
+            state,
+            run_id="run-0001",
+            stage_run_id="stage-decision-2",
+            family="birdclef",
+            envelope_payload={"turn_id": "turn-2", "grounded_branch_slots": 1, "novel_branch_slots": 1},
+        )
+
+        active = active_search_envelope(state, run_id="run-0001", family="birdclef")
+        self.assertIsNotNone(active)
+        self.assertEqual(active.stage_run_id, "stage-decision-2")
+        self.assertEqual(active.envelope["novel_branch_slots"], 1)
+
+    def test_planner_prunes_low_information_and_keeps_grounded_novel_budget(self) -> None:
+        state = _empty_workspace_state()
+        source_config = {
+            "training": {
+                "probe_min_pos": 8,
+                "probe_pca_dim": 32,
+                "learning_rate": 0.001,
+            }
+        }
+        search_envelope = {
+            "slot_budget": 2,
+            "grounded_branch_slots": 1,
+            "novel_branch_slots": 1,
+            "forbidden_patterns": ["blend_only", "calibration_only"],
+            "required_patterns": ["coverage_first"],
+            "minimum_information_gain_bar": 0.4,
+            "per_portfolio_cap": 1,
+            "per_idea_class_cap": 1,
+            "novel_max_cost_tier": "medium",
+        }
+        decision = {"grounded_branch_slots": 1, "novel_branch_slots": 1}
+        policy = {"target_branch_count": 2, "per_portfolio_cap": 1, "per_idea_class_cap": 1, "deprioritized_axes": []}
+        branch_inputs = [
+            {
+                "title": "coverage-first branch",
+                "branch_role": "primary",
+                "idea_class": "class_coverage",
+                "config_overrides": [{"path": "training.probe_min_pos", "value": 4}],
+            },
+            {
+                "title": "novel probe branch",
+                "branch_role": "explore",
+                "idea_class": "probe_head",
+                "grounding_mode": "novel",
+                "unsupported_claims": ["new probe regularizer may help"],
+                "required_evidence": ["smoke canary before full train"],
+                "config_overrides": [{"path": "training.probe_pca_dim", "value": 96}],
+            },
+            {
+                "title": "prior fusion blend sweep",
+                "branch_role": "hedge",
+                "idea_class": "prior_calibration",
+                "config_overrides": [{"path": "prior.temperature", "value": 0.8}],
+            },
+        ]
+
+        _scored, selected, pruned, _overridden, _trace = _prune_branch_candidates(
+            branch_inputs,
+            state=state,
+            run_id="run-0001",
+            stage_run_id="stage-plan-1",
+            family="birdclef",
+            source_config=source_config,
+            policy_cards=[],
+            branch_memories=[],
+            policy=policy,
+            search_envelope=search_envelope,
+            decision=decision,
+        )
+
+        self.assertEqual(len(selected), 2)
+        self.assertEqual({item["grounding_mode"] for item in selected}, {"grounded", "novel"})
+        self.assertTrue(any(item["idea_class"] == "class_coverage" for item in selected))
+        self.assertTrue(any(item["idea_class"] == "probe_head" for item in selected))
+        self.assertTrue(any(item["title"] == "prior fusion blend sweep" and item["pruned_reason"] == "policy_veto" for item in pruned))
+
+    def test_typing_drift_rejects_critic_gate(self) -> None:
+        state = _empty_workspace_state()
+        source_config = {"training": {"probe_min_pos": 8}}
+        proposal_typing = compile_proposal_typing(
+            state,
+            run_id="run-0001",
+            stage_run_id="stage-plan-1",
+            family="birdclef",
+            title="coverage branch",
+            branch_input={
+                "title": "coverage branch",
+                "branch_role": "primary",
+                "idea_class": "class_coverage",
+                "config_overrides": [{"path": "training.probe_min_pos", "value": 4}],
+            },
+            source_config=source_config,
+        )
+        info_gain_estimate = estimate_info_gain(
+            state,
+            run_id="run-0001",
+            stage_run_id="stage-plan-1",
+            family="birdclef",
+            title="coverage branch",
+            branch_input={"branch_role": "primary"},
+            proposal_typing=proposal_typing,
+            search_envelope={"minimum_information_gain_bar": 0.4, "required_patterns": ["coverage_first"]},
+        )
+        realized_typing = compile_realized_typing(
+            run_id="run-0001",
+            stage_run_id="stage-codegen-1",
+            family="birdclef",
+            title="coverage branch",
+            branch_input={"title": "coverage branch"},
+            proposal_typing=proposal_typing,
+            source_config_path="",
+            fallback_source_config=source_config,
+            generated_config_path="",
+            changed_files=["prior.temperature"],
+        )
+        plan = {
+            "family": "birdclef",
+            "search_envelope": {
+                "forbidden_patterns": ["calibration_only", "blend_only"],
+                "required_patterns": ["coverage_first"],
+                "minimum_information_gain_bar": 0.4,
+                "novel_max_cost_tier": "medium",
+            },
+            "branch_plans": [
+                {
+                    "title": "coverage branch",
+                    "family": "birdclef",
+                    "proposal_typing": proposal_typing,
+                    "proposal_typing_id": proposal_typing["proposal_typing_id"],
+                    "info_gain_estimate": info_gain_estimate,
+                    "override_reason": "",
+                }
+            ],
+        }
+        codegen = {
+            "proposal_typing": proposal_typing,
+            "realized_typing": realized_typing,
+            "info_gain_estimate": info_gain_estimate,
+            "branch_role": "primary",
+            "idea_class": "class_coverage",
+            "verify_status": "passed",
+        }
+        payload = {
+            "stage": "critic",
+            "status": "approved",
+            "concerns": [],
+            "warnings": [],
+            "required_fixes": [],
+            "branch_quality": {},
+            "branch_memory_ids": [],
+            "reusable_judgments": [],
+        }
+
+        enforced = _apply_typing_contract(state, "run-0001", plan, codegen, payload)
+
+        self.assertEqual(enforced["status"], "rejected")
+        self.assertTrue(enforced["typing_drift"]["severe"])
+        self.assertTrue(enforced["envelope_violations"])
+
+    def test_retrieve_knowledge_bundle_uses_reducer_backed_truth(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            knowledge_file = config.knowledge_path("01_validated_findings.md")
+            knowledge_file.write_text(
+                "# Findings\n\n## Soft Pseudo Labels\nSoft pseudo labels are the biggest win.\n\n## No PCEN\nNo PCEN hurts validation badly.\n",
+                encoding="utf-8",
+            )
+            state = load_state(config)
+
+            bundle = retrieve_knowledge_bundle(
+                config,
+                {"run": {"run_id": "run-knowledge"}, "experiment": {"family": "birdclef"}},
+                stage="plan",
+                state=state,
+            )
+
+            self.assertTrue(bundle["policy_rules"])
+            self.assertTrue(bundle["claims"])
+            self.assertIn("session_memory", bundle)
+            self.assertIn("policy_cards", bundle)
+            policy_types = {item.get("policy_type") for item in bundle["policy_rules"]}
+            self.assertTrue({"prefer", "avoid"} & policy_types)
 
 
 if __name__ == "__main__":

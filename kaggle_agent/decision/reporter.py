@@ -58,6 +58,9 @@ def build_report(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         payload, markdown = adapted
         complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     else:
+        promotion_candidates = [str(item) for item in evidence.get("promotion_candidates", []) if str(item)]
+        demotion_candidates = [str(item) for item in evidence.get("demotion_candidates", []) if str(item)]
+        open_questions = [str(item) for item in evidence.get("open_questions", []) if str(item)]
         headline = (
             "Promote for submission intelligence"
             if run.primary_metric_value is not None and run.primary_metric_value >= 0.85
@@ -84,6 +87,9 @@ def build_report(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             "verdict": evidence.get("verdict", run.verdict),
             "finding_titles": [item.title for item in findings],
             "issue_titles": [item.title for item in issues],
+            "promotion_candidates": promotion_candidates,
+            "demotion_candidates": demotion_candidates,
+            "open_questions": open_questions,
         }
         lines = [
             f"- Headline: {headline}",
@@ -100,6 +106,12 @@ def build_report(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             lines.extend(["", "## Findings", *(f"- {item.title}: {item.summary}" for item in findings)])
         if issues:
             lines.extend(["", "## Issues", *(f"- {item.title}: {item.summary}" for item in issues)])
+        if promotion_candidates:
+            lines.extend(["", "## Promotion Candidates", *(f"- {item}" for item in promotion_candidates)])
+        if demotion_candidates:
+            lines.extend(["", "## Demotion Candidates", *(f"- {item}" for item in demotion_candidates)])
+        if open_questions:
+            lines.extend(["", "## Next Questions", *(f"- {item}" for item in open_questions)])
         markdown = stage_markdown(f"Run Report {run_id}", lines)
         complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
 

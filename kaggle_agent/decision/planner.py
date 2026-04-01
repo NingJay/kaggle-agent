@@ -7,6 +7,12 @@ from typing import Any
 
 import yaml
 
+from kaggle_agent.branch_typing import (
+    compile_proposal_typing,
+    estimate_info_gain,
+    persist_info_gain_estimate,
+    persist_proposal_typing,
+)
 from kaggle_agent.control.lifecycle import resolve_lifecycle_template, resolve_stage_plan, resolve_target_run_id
 from kaggle_agent.decision.helpers import (
     begin_stage_run,
@@ -16,7 +22,8 @@ from kaggle_agent.decision.helpers import (
     stage_markdown,
     write_input_manifest,
 )
-from kaggle_agent.knowledge import compact_knowledge_bundle, retrieve_knowledge_bundle
+from kaggle_agent.knowledge import apply_knowledge_stage_outputs, compact_knowledge_bundle, retrieve_knowledge_bundle
+from kaggle_agent.knowledge_reducer import active_search_envelope
 from kaggle_agent.schema import WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_text, now_utc_iso, slugify
 
@@ -170,6 +177,47 @@ def _bundle_cards(knowledge_bundle: dict[str, Any]) -> list[dict[str, Any]]:
     return [item for item in cards if isinstance(item, dict)] if isinstance(cards, list) else []
 
 
+def _branch_patterns(branch_input: dict[str, Any]) -> list[str]:
+    patterns: list[str] = []
+    title = str(branch_input.get("title", "") or "").lower()
+    hypothesis = str(branch_input.get("hypothesis", "") or "").lower()
+    idea_class = str(branch_input.get("idea_class", "") or branch_input.get("target_component", "") or "").lower()
+    work_type = str(branch_input.get("work_type", "") or "").lower()
+    text = " ".join([title, hypothesis, idea_class, work_type])
+    if "coverage" in text or idea_class == "class_coverage":
+        patterns.append("coverage_first")
+    if "pseudo" in text or idea_class == "pseudo_label":
+        patterns.append("pseudo_label_expansion")
+    if "probe" in text or idea_class in {"probe_head", "probe_regularization"}:
+        patterns.append("probe_training_change")
+    if "calibration" in text:
+        patterns.append("calibration_only")
+    if "blend" in text or "prior fusion" in text:
+        patterns.append("blend_only")
+    if "schedule" in text or "learning rate" in text or idea_class == "optimization":
+        patterns.append("schedule_recovery")
+    if work_type == "submission":
+        patterns.append("submission")
+    return patterns
+
+
+def _expected_information_gain(branch_input: dict[str, Any]) -> float:
+    explicit = branch_input.get("expected_information_gain")
+    if isinstance(explicit, (int, float)):
+        return max(0.0, min(float(explicit), 1.0))
+    branch_role = str(branch_input.get("branch_role", "") or "explore")
+    role_score = {"primary": 0.82, "hedge": 0.68, "explore": 0.58, "support": 0.45}.get(branch_role, 0.5)
+    overrides = branch_input.get("config_overrides", [])
+    if isinstance(overrides, list):
+        role_score += min(0.12, len(overrides) * 0.03)
+    patterns = _branch_patterns(branch_input)
+    if "calibration_only" in patterns or "blend_only" in patterns:
+        role_score -= 0.18
+    if "coverage_first" in patterns or "pseudo_label_expansion" in patterns:
+        role_score += 0.10
+    return max(0.0, min(round(role_score, 3), 1.0))
+
+
 def _fallback_probe_branch_candidates(
     *,
     config: WorkspaceConfig,
@@ -221,6 +269,10 @@ def _fallback_probe_branch_candidates(
                 {"path": "training.probe_c", "value": coverage_sig[1]},
                 {"path": "training.probe_min_pos", "value": coverage_sig[2]},
             ],
+            "expected_information_gain": 0.86,
+            "falsification_criterion": "Holdout ROC-AUC does not improve after coverage-oriented probe changes.",
+            "kill_criterion": "Discard if the branch behaves like calibration-only tuning or reduces rare-class support.",
+            "avoided_vetoes": ["calibration_only", "blend_only"],
             "knowledge_card_ids": [
                 str(card.get("card_id", ""))
                 for card in cards
@@ -242,6 +294,10 @@ def _fallback_probe_branch_candidates(
                 {"path": "training.probe_c", "value": capacity_sig[1]},
                 {"path": "training.probe_min_pos", "value": capacity_sig[2]},
             ],
+            "expected_information_gain": 0.7,
+            "falsification_criterion": "The higher-capacity probe head fails to beat the coverage-first branch on holdout ROC-AUC.",
+            "kill_criterion": "Stop if representation changes regress holdout signal without improving class coverage metrics.",
+            "avoided_vetoes": ["calibration_only"],
             "knowledge_card_ids": [
                 str(card.get("card_id", ""))
                 for card in cards
@@ -267,6 +323,10 @@ def _fallback_probe_branch_candidates(
                 {"path": "training.probe_c", "value": regularization_sig[1]},
                 {"path": "training.probe_min_pos", "value": regularization_sig[2]},
             ],
+            "expected_information_gain": 0.58,
+            "falsification_criterion": "Conservative regularization does not improve holdout stability versus the current leader.",
+            "kill_criterion": "Stop if the branch is only a cheap hedge and does not move holdout validation.",
+            "avoided_vetoes": ["blend_only"],
             "knowledge_card_ids": [str(item) for item in knowledge_bundle.get("knowledge_card_ids", [])][:4],
         },
     ]
@@ -296,6 +356,10 @@ def _fallback_generic_branch_candidates(
             "priority_delta": 10,
             "launch_mode": "background",
             "config_overrides": [{"path": "training.epochs", "value": max(epochs + 2, 3)}],
+            "expected_information_gain": 0.72,
+            "falsification_criterion": "A longer schedule still fails to improve holdout validation.",
+            "kill_criterion": "Discard if more epochs only increase training metrics without val improvement.",
+            "avoided_vetoes": ["calibration_only"],
             "knowledge_card_ids": [str(item.get("card_id", "")) for item in cards[:3]],
         },
         {
@@ -309,6 +373,9 @@ def _fallback_generic_branch_candidates(
             "priority_delta": 12,
             "launch_mode": "background",
             "config_overrides": [{"path": "training.learning_rate", "value": lr_value * 0.5}],
+            "expected_information_gain": 0.55,
+            "falsification_criterion": "Lower LR does not improve validation stability.",
+            "kill_criterion": "Discard if the branch merely slows learning without better holdout ROC-AUC.",
             "knowledge_card_ids": [str(item.get("card_id", "")) for item in cards[:3]],
         },
         {
@@ -322,6 +389,9 @@ def _fallback_generic_branch_candidates(
             "priority_delta": 14,
             "launch_mode": "background",
             "config_overrides": [{"path": "training.learning_rate", "value": lr_value * 1.25}],
+            "expected_information_gain": 0.57,
+            "falsification_criterion": "Higher LR still looks underfit on holdout validation.",
+            "kill_criterion": "Discard if the branch becomes unstable or degrades validation quickly.",
             "knowledge_card_ids": [str(item.get("card_id", "")) for item in cards[:3]],
         },
     ]
@@ -404,7 +474,21 @@ def _branch_memories(research: dict[str, Any], decision: dict[str, Any], knowled
 
 def _portfolio_policy(decision: dict[str, Any]) -> dict[str, Any]:
     value = decision.get("portfolio_policy")
-    return dict(value) if isinstance(value, dict) else {}
+    policy = dict(value) if isinstance(value, dict) else {}
+    for key in ("forbidden_plan_patterns", "required_plan_patterns", "minimum_information_gain_bar"):
+        if key in decision and key not in policy:
+            policy[key] = decision.get(key)
+    return policy
+
+
+def _search_envelope(state: WorkspaceState, decision: dict[str, Any], *, run_id: str, family: str) -> dict[str, Any]:
+    payload = decision.get("search_envelope")
+    if isinstance(payload, dict) and payload:
+        return dict(payload)
+    record = active_search_envelope(state, run_id=run_id, family=family)
+    if record is not None and isinstance(record.envelope, dict):
+        return dict(record.envelope)
+    return {}
 
 
 def _combined_branch_inputs(
@@ -418,6 +502,7 @@ def _combined_branch_inputs(
         payload.get("candidate_branches", []),
         payload.get("branch_plans", []),
         decision.get("branch_portfolio", []),
+        decision.get("hypothesis_backlog", []),
     ):
         if not isinstance(source, list):
             continue
@@ -444,20 +529,90 @@ def _combined_branch_inputs(
 def _evaluate_branch_candidate(
     branch_input: dict[str, Any],
     *,
+    state: WorkspaceState,
+    run_id: str,
+    stage_run_id: str,
+    family: str,
+    source_config: dict[str, Any],
     policy_cards: list[dict[str, Any]],
     branch_memories: list[dict[str, Any]],
     policy: dict[str, Any],
+    search_envelope: dict[str, Any],
+    decision: dict[str, Any],
 ) -> dict[str, Any]:
     branch = dict(branch_input)
-    idea_class = str(branch.get("idea_class") or branch.get("target_component") or "")
     branch_role = str(branch.get("branch_role") or "explore")
     override_reason = str(branch.get("override_reason") or branch.get("policy_override_reason") or "").strip()
+    proposal_typing = compile_proposal_typing(
+        state,
+        run_id=run_id,
+        stage_run_id=stage_run_id,
+        family=family,
+        title=str(branch.get("title", "") or f"{family}-branch"),
+        branch_input=branch,
+        source_config=source_config,
+    )
+    info_gain_estimate = estimate_info_gain(
+        state,
+        run_id=run_id,
+        stage_run_id=stage_run_id,
+        family=family,
+        title=str(branch.get("title", "") or f"{family}-branch"),
+        branch_input=branch,
+        proposal_typing=proposal_typing,
+        search_envelope=search_envelope,
+    )
+    idea_class = str(proposal_typing.get("idea_class", "") or branch.get("idea_class") or branch.get("target_component") or "")
     deprioritized_axes = {str(item) for item in policy.get("deprioritized_axes", []) if str(item)}
-    cooldown_axes = {str(item) for item in policy.get("cooldown_idea_classes", []) if str(item)}
+    forbidden_patterns = {str(item) for item in search_envelope.get("forbidden_patterns", []) if str(item)}
+    required_patterns = {str(item) for item in search_envelope.get("required_patterns", []) if str(item)}
+    minimum_information_gain_bar = float(search_envelope.get("minimum_information_gain_bar", 0.0) or 0.0)
     score = ROLE_WEIGHTS.get(branch_role, 0.0)
     policy_trace: list[str] = [f"role:{branch_role}:{score:.1f}"]
     veto_reasons: list[str] = []
     branch_memory_ids: list[str] = []
+    pattern_tags = [str(item) for item in proposal_typing.get("pattern_tags", [])]
+    expected_information_gain = float(info_gain_estimate.get("estimated_gain", 0.0) or 0.0)
+    avoided_vetoes = [str(item) for item in branch.get("avoided_vetoes", []) if str(item)]
+    novelty_score = float(proposal_typing.get("novelty_score", 0.0) or 0.0)
+    grounding_mode = str(proposal_typing.get("grounding_mode", "grounded") or "grounded")
+    cost_tier = str(info_gain_estimate.get("cost_tier", proposal_typing.get("cost_tier", "medium")) or "medium")
+    branch["pattern_tags"] = pattern_tags
+    branch["expected_information_gain"] = expected_information_gain
+    branch.setdefault("falsification_criterion", f"Reject if {branch.get('title', 'this branch')} does not improve holdout validation.")
+    branch.setdefault("kill_criterion", "Kill the branch if it only changes low-information post-processing.")
+    branch.setdefault("avoided_vetoes", avoided_vetoes)
+    branch["grounding_mode"] = grounding_mode
+    branch["unsupported_claims"] = [str(item) for item in proposal_typing.get("unsupported_claims", [])]
+    branch["required_evidence"] = [str(item) for item in proposal_typing.get("required_evidence", [])]
+    score += expected_information_gain * 6.0
+    score += novelty_score * 3.5
+    if grounding_mode == "grounded":
+        score += 1.5
+    else:
+        score += 0.5
+    if required_patterns and required_patterns.intersection(pattern_tags):
+        score += 3.0
+        policy_trace.append(f"required-pattern:{','.join(sorted(required_patterns.intersection(pattern_tags)))}")
+    for pattern in pattern_tags:
+        if pattern in forbidden_patterns and not override_reason:
+            veto_reasons.append(f"forbidden-pattern:{pattern}")
+        elif pattern in forbidden_patterns:
+            score -= 2.5
+            policy_trace.append(f"override:forbidden-pattern:{pattern}")
+    if bool(proposal_typing.get("low_information_flag", False)) and not override_reason:
+        veto_reasons.append("low-information-typing")
+    elif bool(proposal_typing.get("low_information_flag", False)):
+        policy_trace.append("override:low-information-typing")
+        score -= 2.0
+    if minimum_information_gain_bar and expected_information_gain < minimum_information_gain_bar and not override_reason:
+        veto_reasons.append(f"low-information:{expected_information_gain:.2f}<{minimum_information_gain_bar:.2f}")
+    elif minimum_information_gain_bar and expected_information_gain < minimum_information_gain_bar:
+        policy_trace.append(f"override:low-information:{expected_information_gain:.2f}")
+    if grounding_mode == "novel" and not branch["required_evidence"] and not override_reason:
+        veto_reasons.append("novel-without-required-evidence")
+    if grounding_mode == "novel" and cost_tier == "high" and not override_reason:
+        veto_reasons.append("novel-high-cost-without-override")
 
     for card in policy_cards:
         component = str(card.get("component", ""))
@@ -489,10 +644,6 @@ def _evaluate_branch_candidate(
         policy_trace.append(f"override:deprioritized-axis:{idea_class}")
         score -= 2.0
 
-    if idea_class in cooldown_axes:
-        score -= 5.0
-        policy_trace.append(f"cooldown:{idea_class}")
-
     strong_memories = 0
     weak_memories = 0
     for memory in branch_memories:
@@ -520,11 +671,21 @@ def _evaluate_branch_candidate(
     branch["branch_memory_ids"] = list(dict.fromkeys(branch_memory_ids))
     branch["override_reason"] = override_reason
     branch["veto_reasons"] = veto_reasons
+    branch["proposal_typing"] = proposal_typing
+    branch["branch_typing"] = proposal_typing
+    branch["proposal_typing_id"] = str(proposal_typing.get("proposal_typing_id", ""))
+    branch["info_gain_estimate"] = info_gain_estimate
+    branch["info_gain_estimate_id"] = str(info_gain_estimate.get("estimate_id", ""))
+    branch["cost_tier"] = cost_tier
     branch["scheduler_hints"] = {
-        "portfolio_cap": int(policy.get("per_portfolio_cap", 1) or 1),
-        "idea_class_cap": int(policy.get("per_idea_class_cap", 1) or 1),
-        "cooldown": idea_class in cooldown_axes,
+        "portfolio_cap": int(search_envelope.get("per_portfolio_cap", policy.get("per_portfolio_cap", 1)) or 1),
+        "idea_class_cap": int(search_envelope.get("per_idea_class_cap", policy.get("per_idea_class_cap", 1)) or 1),
         "dispatch_priority": round(score, 3),
+        "expected_information_gain": expected_information_gain,
+        "novelty_score": novelty_score,
+        "low_information_flag": bool(proposal_typing.get("low_information_flag", False)),
+        "grounding_mode": grounding_mode,
+        "cost_tier": cost_tier,
     }
     return branch
 
@@ -532,24 +693,43 @@ def _evaluate_branch_candidate(
 def _prune_branch_candidates(
     branch_inputs: list[dict[str, Any]],
     *,
+    state: WorkspaceState,
+    run_id: str,
+    stage_run_id: str,
+    family: str,
+    source_config: dict[str, Any],
     policy_cards: list[dict[str, Any]],
     branch_memories: list[dict[str, Any]],
     policy: dict[str, Any],
+    search_envelope: dict[str, Any],
+    decision: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
-    target_branch_count = int(policy.get("target_branch_count", _branch_plan_limit()) or _branch_plan_limit())
+    target_branch_count = int(
+        search_envelope.get("slot_budget", policy.get("target_branch_count", _branch_plan_limit())) or _branch_plan_limit()
+    )
     target_branch_count = max(1, min(target_branch_count, _branch_plan_limit()))
+    grounded_slots = int(search_envelope.get("grounded_branch_slots", decision.get("grounded_branch_slots", target_branch_count)) or target_branch_count)
+    novel_slots = int(search_envelope.get("novel_branch_slots", decision.get("novel_branch_slots", 0)) or 0)
     scored = [
         _evaluate_branch_candidate(
             branch_input,
+            state=state,
+            run_id=run_id,
+            stage_run_id=stage_run_id,
+            family=family,
+            source_config=source_config,
             policy_cards=policy_cards,
             branch_memories=branch_memories,
             policy=policy,
+            search_envelope=search_envelope,
+            decision=decision,
         )
         for branch_input in branch_inputs
     ]
     scored.sort(
         key=lambda item: (
             bool(item.get("veto_reasons")),
+            str(item.get("grounding_mode", "grounded")) == "novel",
             -float(item.get("policy_score", 0.0) or 0.0),
             int(item.get("priority_delta", 0) or 0),
             str(item.get("title", "")),
@@ -559,24 +739,48 @@ def _prune_branch_candidates(
     selected: list[dict[str, Any]] = []
     pruned: list[dict[str, Any]] = []
     seen_idea_classes: set[str] = set()
+    used_grounded = 0
+    used_novel = 0
     for item in scored:
         if item.get("veto_reasons"):
             pruned.append({**item, "pruned_reason": "policy_veto"})
             continue
         idea_class = str(item.get("idea_class", ""))
+        grounding_mode = str(item.get("grounding_mode", "grounded") or "grounded")
+        if grounding_mode == "novel" and used_novel >= novel_slots:
+            pruned.append({**item, "pruned_reason": "novel_budget"})
+            continue
+        if grounding_mode != "novel" and used_grounded >= grounded_slots:
+            pruned.append({**item, "pruned_reason": "grounded_budget"})
+            continue
         if len(selected) < target_branch_count and idea_class and idea_class not in seen_idea_classes:
             selected.append(item)
             seen_idea_classes.add(idea_class)
+            if grounding_mode == "novel":
+                used_novel += 1
+            else:
+                used_grounded += 1
             continue
         if len(selected) < target_branch_count and not idea_class:
             selected.append(item)
+            if grounding_mode == "novel":
+                used_novel += 1
+            else:
+                used_grounded += 1
             continue
         pruned.append({**item, "pruned_reason": "portfolio_budget"})
     if len(selected) < target_branch_count:
         for item in scored:
             if item in selected or item.get("veto_reasons"):
                 continue
+            grounding_mode = str(item.get("grounding_mode", "grounded") or "grounded")
+            if grounding_mode == "novel" and used_novel >= max(1, novel_slots):
+                continue
             selected.append(item)
+            if grounding_mode == "novel":
+                used_novel += 1
+            else:
+                used_grounded += 1
             if len(selected) >= target_branch_count:
                 break
     selected = selected[:target_branch_count]
@@ -648,7 +852,25 @@ def _canonical_branch_plan(
     policy_trace = [str(item) for item in branch_input.get("policy_trace", []) if str(item).strip()]
     branch_memory_ids = [str(item) for item in branch_input.get("branch_memory_ids", []) if str(item).strip()]
     scheduler_hints = dict(branch_input.get("scheduler_hints", {})) if isinstance(branch_input.get("scheduler_hints"), dict) else {}
+    proposal_typing = dict(branch_input.get("proposal_typing", {})) if isinstance(branch_input.get("proposal_typing"), dict) else {}
+    branch_typing = proposal_typing or (dict(branch_input.get("branch_typing", {})) if isinstance(branch_input.get("branch_typing"), dict) else {})
+    info_gain_estimate = dict(branch_input.get("info_gain_estimate", {})) if isinstance(branch_input.get("info_gain_estimate"), dict) else {}
     config_overrides = _normalize_override_ops(branch_input.get("config_overrides"))
+    expected_information_gain = float(
+        branch_input.get("expected_information_gain", info_gain_estimate.get("estimated_gain", 0.0)) or 0.0
+    )
+    falsification_criterion = str(branch_input.get("falsification_criterion", "") or "").strip()
+    kill_criterion = str(branch_input.get("kill_criterion", "") or "").strip()
+    avoided_vetoes = [str(item) for item in branch_input.get("avoided_vetoes", []) if str(item)]
+    pattern_tags = [str(item) for item in branch_input.get("pattern_tags", []) if str(item)]
+    grounding_mode = str(branch_input.get("grounding_mode", "") or branch_typing.get("grounding_mode", "grounded"))
+    cost_tier = str(branch_input.get("cost_tier", "") or info_gain_estimate.get("cost_tier", branch_typing.get("cost_tier", "medium")))
+    unsupported_claims = [str(item) for item in branch_input.get("unsupported_claims", []) if str(item)] or [
+        str(item) for item in branch_typing.get("unsupported_claims", []) if str(item)
+    ]
+    required_evidence = [str(item) for item in branch_input.get("required_evidence", []) if str(item)] or [
+        str(item) for item in branch_typing.get("required_evidence", []) if str(item)
+    ]
     config_path_value = str(branch_input.get("config_path") or "").strip()
 
     config_path = Path(config_path_value) if config_path_value else source_config_path
@@ -686,12 +908,22 @@ def _canonical_branch_plan(
     stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
     target_run_id = resolve_target_run_id(branch_input, lifecycle_template=lifecycle_template, default_run_id=run.run_id)
 
+    scheduler_hints.update(
+        {
+            "expected_information_gain": expected_information_gain,
+            "novelty_score": float(branch_typing.get("novelty_score", 0.0) or 0.0),
+            "low_information_flag": bool(branch_typing.get("low_information_flag", False)),
+            "grounding_mode": grounding_mode,
+            "cost_tier": cost_tier,
+        }
+    )
     return {
         "title": title,
         "family": family,
         "hypothesis": hypothesis,
         "reason": reason,
         "config_path": _relative_config_path(config, config_path),
+        "source_config_path": _relative_config_path(config, source_config_path),
         "priority": priority,
         "depends_on": depends_on,
         "tags": tags,
@@ -710,7 +942,26 @@ def _canonical_branch_plan(
         "branch_memory_ids": branch_memory_ids,
         "scheduler_hints": scheduler_hints,
         "policy_score": float(branch_input.get("policy_score", 0.0) or 0.0),
+        "expected_information_gain": expected_information_gain,
+        "novelty_score": float(branch_typing.get("novelty_score", 0.0) or 0.0),
+        "low_information_flag": bool(branch_typing.get("low_information_flag", False)),
+        "grounding_mode": grounding_mode,
+        "cost_tier": cost_tier,
+        "typing_signature": str(branch_typing.get("typing_signature", "")),
+        "axis_tags": [str(item) for item in branch_typing.get("axis_tags", [])],
+        "change_surface": [str(item) for item in branch_typing.get("change_surface", [])],
+        "falsification_criterion": falsification_criterion,
+        "kill_criterion": kill_criterion,
+        "avoided_vetoes": avoided_vetoes,
+        "pattern_tags": pattern_tags,
         "config_overrides": config_overrides,
+        "unsupported_claims": unsupported_claims,
+        "required_evidence": required_evidence,
+        "proposal_typing_id": str(branch_input.get("proposal_typing_id", "") or branch_typing.get("proposal_typing_id", "")),
+        "proposal_typing": branch_typing,
+        "info_gain_estimate_id": str(branch_input.get("info_gain_estimate_id", "") or info_gain_estimate.get("estimate_id", "")),
+        "info_gain_estimate": info_gain_estimate,
+        "branch_typing": branch_typing,
     }
 
 
@@ -718,6 +969,7 @@ def _canonicalize_plan_payload(
     *,
     config: WorkspaceConfig,
     state: WorkspaceState,
+    stage_run_id: str,
     run,
     experiment,
     decision: dict[str, Any],
@@ -730,6 +982,38 @@ def _canonicalize_plan_payload(
     next_action = str(decision.get("next_action", "hold"))
     if payload is None:
         payload = {}
+    selected_memory_files = [
+        str(item)
+        for item in (
+            payload.get("selected_memory_files", [])
+            or decision.get("selected_memory_files", [])
+            or research.get("selected_memory_files", [])
+        )
+        if str(item)
+    ]
+    selected_capability_packs = [
+        str(item)
+        for item in (
+            payload.get("selected_capability_packs", [])
+            or decision.get("selected_capability_packs", [])
+            or research.get("selected_capability_packs", [])
+        )
+        if str(item)
+    ]
+    open_questions = [
+        str(item)
+        for item in (
+            payload.get("open_questions", [])
+            or decision.get("open_questions", [])
+            or research.get("open_questions", [])
+        )
+        if str(item)
+    ]
+    session_memory = (
+        dict(payload.get("session_memory", {}))
+        if isinstance(payload.get("session_memory"), dict)
+        else (dict(decision.get("session_memory", {})) if isinstance(decision.get("session_memory"), dict) else {})
+    )
     plan_status = str(payload.get("plan_status") or ("submission_candidate" if next_action == "submit_candidate" else ("planned" if next_action != "hold" else "hold")))
     reason = str(payload.get("reason") or decision.get("why") or f"Follow-up from {run.run_id}")
     if plan_status == "hold":
@@ -742,6 +1026,7 @@ def _canonicalize_plan_payload(
             "family": str(payload.get("family") or decision.get("next_family") or experiment.family),
             "hypothesis": str(payload.get("hypothesis") or reason),
             "config_path": str(payload.get("config_path") or experiment.config_path),
+            "source_config_path": str(source_config_path),
             "priority": int(payload.get("priority") or experiment.priority),
             "depends_on": [run.work_item_id],
             "tags": [experiment.family, "hold"],
@@ -760,6 +1045,11 @@ def _canonicalize_plan_payload(
             "overridden_branches": [],
             "policy_trace": [],
             "scheduler_hints": {},
+            "search_envelope": _search_envelope(state, decision, run_id=run.run_id, family=experiment.family),
+            "selected_memory_files": selected_memory_files,
+            "selected_capability_packs": selected_capability_packs,
+            "open_questions": open_questions,
+            "session_memory": session_memory,
         }
     fallback_candidates = _fallback_branch_candidates(
         config=config,
@@ -781,13 +1071,21 @@ def _canonicalize_plan_payload(
         str(item) for item in knowledge_bundle.get("knowledge_card_ids", [])
     ]
     policy = _portfolio_policy(decision)
+    search_envelope = _search_envelope(state, decision, run_id=run.run_id, family=experiment.family)
     policy_cards = _policy_cards(research, decision, knowledge_bundle)
     branch_memories = _branch_memories(research, decision, knowledge_bundle)
     candidate_branches, selected_branch_inputs, pruned_branches, overridden_branches, policy_trace = _prune_branch_candidates(
         branch_inputs,
+        state=state,
+        run_id=run.run_id,
+        stage_run_id=stage_run_id,
+        family=experiment.family,
+        source_config=source_config,
         policy_cards=policy_cards,
         branch_memories=branch_memories,
         policy=policy,
+        search_envelope=search_envelope,
+        decision=decision,
     )
     if plan_status == "submission_candidate":
         candidate_branches = [
@@ -818,6 +1116,13 @@ def _canonicalize_plan_payload(
         )
         for index, branch_input in enumerate(selected_branch_inputs)
     ]
+    for branch in branch_plans:
+        typing_payload = branch.get("proposal_typing")
+        if isinstance(typing_payload, dict) and typing_payload:
+            persist_proposal_typing(state, typing_payload)
+        info_gain_estimate = branch.get("info_gain_estimate")
+        if isinstance(info_gain_estimate, dict) and info_gain_estimate:
+            persist_info_gain_estimate(state, info_gain_estimate)
     if not branch_plans and candidate_branches:
         fallback_primary = candidate_branches[0]
         branch_plans = [
@@ -840,6 +1145,12 @@ def _canonicalize_plan_payload(
                 default_knowledge_ids=default_knowledge_ids,
             )
         ]
+        typing_payload = branch_plans[0].get("proposal_typing")
+        if isinstance(typing_payload, dict) and typing_payload:
+            persist_proposal_typing(state, typing_payload)
+        info_gain_estimate = branch_plans[0].get("info_gain_estimate")
+        if isinstance(info_gain_estimate, dict) and info_gain_estimate:
+            persist_info_gain_estimate(state, info_gain_estimate)
     if plan_status == "submission_candidate":
         lifecycle_template = "submission_from_target_run"
         target_run_id = str(payload.get("target_run_id") or run.run_id)
@@ -852,6 +1163,7 @@ def _canonicalize_plan_payload(
             "family": str(payload.get("family") or decision.get("next_family") or experiment.family),
             "hypothesis": str(payload.get("hypothesis") or reason),
             "config_path": str(payload.get("config_path") or experiment.config_path),
+            "source_config_path": str(source_config_path),
             "priority": int(payload.get("priority") or experiment.priority),
             "depends_on": [run.work_item_id],
             "tags": [experiment.family, "submission_candidate"],
@@ -869,12 +1181,36 @@ def _canonicalize_plan_payload(
             "pruned_branches": pruned_branches,
             "overridden_branches": overridden_branches,
             "policy_trace": policy_trace,
+            "branch_typings": [item.get("proposal_typing", {}) for item in branch_plans if isinstance(item, dict)],
+            "info_gain_estimates": [item.get("info_gain_estimate", {}) for item in branch_plans if isinstance(item, dict)],
             "scheduler_hints": {
-                "per_portfolio_cap": int(policy.get("per_portfolio_cap", 1) or 1),
-                "per_idea_class_cap": int(policy.get("per_idea_class_cap", 1) or 1),
+                "per_portfolio_cap": int(search_envelope.get("per_portfolio_cap", policy.get("per_portfolio_cap", 1)) or 1),
+                "per_idea_class_cap": int(search_envelope.get("per_idea_class_cap", policy.get("per_idea_class_cap", 1)) or 1),
                 "target_branch_count": len(branch_plans),
                 "dispatch_strategy": str(policy.get("dispatch_strategy", "prefer-diverse-frontier-before-follow-on-support")),
             },
+            "search_envelope": search_envelope,
+            "selected_memory_files": selected_memory_files,
+            "selected_capability_packs": selected_capability_packs,
+            "open_questions": open_questions,
+            "session_memory": session_memory,
+            "forbidden_plan_patterns": [str(item) for item in search_envelope.get("forbidden_patterns", []) if str(item)],
+            "required_plan_patterns": [str(item) for item in search_envelope.get("required_patterns", []) if str(item)],
+            "minimum_information_gain_bar": float(search_envelope.get("minimum_information_gain_bar", 0.0) or 0.0),
+            "memory_ops": [
+                {
+                    "op": "compile_branch_portfolio",
+                    "target": portfolio_id,
+                    "summary": reason,
+                    "memory_kind": "playbooks",
+                    "details": f"Compiled {len(branch_plans)} branch plans with submission lifecycle handling.",
+                    "reason": "Plan compiled a concrete portfolio from decision constraints.",
+                    "source_stage": "plan",
+                    "run_id": run.run_id,
+                    "evidence_ids": [run.run_id, *knowledge_bundle.get('knowledge_card_ids', [])[:2]],
+                    "metadata": {"planner_effect": "Keep the compiled portfolio readable for the next loop."},
+                }
+            ],
             "created_at": now_utc_iso(),
         }
     primary = branch_plans[0]
@@ -887,6 +1223,7 @@ def _canonicalize_plan_payload(
         "family": primary["family"],
         "hypothesis": primary["hypothesis"],
         "config_path": primary["config_path"],
+        "source_config_path": primary["source_config_path"],
         "priority": primary["priority"],
         "depends_on": primary["depends_on"],
         "tags": primary["tags"],
@@ -904,12 +1241,36 @@ def _canonicalize_plan_payload(
         "pruned_branches": pruned_branches,
         "overridden_branches": overridden_branches,
         "policy_trace": policy_trace,
+        "branch_typings": [item.get("proposal_typing", {}) for item in branch_plans if isinstance(item, dict)],
+        "info_gain_estimates": [item.get("info_gain_estimate", {}) for item in branch_plans if isinstance(item, dict)],
         "scheduler_hints": {
-            "per_portfolio_cap": int(policy.get("per_portfolio_cap", 1) or 1),
-            "per_idea_class_cap": int(policy.get("per_idea_class_cap", 1) or 1),
+            "per_portfolio_cap": int(search_envelope.get("per_portfolio_cap", policy.get("per_portfolio_cap", 1)) or 1),
+            "per_idea_class_cap": int(search_envelope.get("per_idea_class_cap", policy.get("per_idea_class_cap", 1)) or 1),
             "target_branch_count": len(branch_plans),
             "dispatch_strategy": str(policy.get("dispatch_strategy", "prefer-diverse-frontier-before-follow-on-support")),
         },
+        "search_envelope": search_envelope,
+        "selected_memory_files": selected_memory_files,
+        "selected_capability_packs": selected_capability_packs,
+        "open_questions": open_questions,
+        "session_memory": session_memory,
+        "forbidden_plan_patterns": [str(item) for item in search_envelope.get("forbidden_patterns", []) if str(item)],
+        "required_plan_patterns": [str(item) for item in search_envelope.get("required_patterns", []) if str(item)],
+        "minimum_information_gain_bar": float(search_envelope.get("minimum_information_gain_bar", 0.0) or 0.0),
+        "memory_ops": [
+            {
+                "op": "compile_branch_portfolio",
+                "target": portfolio_id,
+                "summary": primary["reason"],
+                "memory_kind": "playbooks",
+                "details": f"Compiled {len(branch_plans)} branch plans while preserving portfolio constraints.",
+                "reason": "Plan converted decision constraints into executable sibling branches.",
+                "source_stage": "plan",
+                "run_id": run.run_id,
+                "evidence_ids": [run.run_id, *knowledge_bundle.get('knowledge_card_ids', [])[:2]],
+                "metadata": {"planner_effect": "Use this compiled branch portfolio as the next execution frontier."},
+            }
+        ],
         "created_at": now_utc_iso(),
     }
 
@@ -963,6 +1324,7 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     payload = _canonicalize_plan_payload(
         config=config,
         state=state,
+        stage_run_id=stage_run.stage_run_id,
         run=run,
         experiment=experiment,
         decision=decision,
@@ -993,8 +1355,18 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             if not isinstance(branch, dict):
                 continue
             markdown_lines.append(
-                f"- `{branch.get('branch_role', 'branch')}` | {branch.get('title', '')} | idea={branch.get('idea_class', '')} | lifecycle=`{branch.get('lifecycle_template', '')}` | target_run=`{branch.get('target_run_id', '') or 'n/a'}` | stages=`{' -> '.join(branch.get('stage_plan', []))}` | score={branch.get('policy_score', 0.0)} | config=`{branch.get('config_path', '')}`"
+                f"- `{branch.get('branch_role', 'branch')}` | {branch.get('title', '')} | idea={branch.get('idea_class', '')} | grounding=`{branch.get('grounding_mode', '')}` | lifecycle=`{branch.get('lifecycle_template', '')}` | target_run=`{branch.get('target_run_id', '') or 'n/a'}` | stages=`{' -> '.join(branch.get('stage_plan', []))}` | score={branch.get('policy_score', 0.0)} | info_gain={branch.get('expected_information_gain', 0.0)} | novelty={branch.get('novelty_score', 0.0)} | config=`{branch.get('config_path', '')}`"
             )
+            if branch.get("falsification_criterion"):
+                markdown_lines.append(f"  - falsify: {branch.get('falsification_criterion', '')}")
+            if branch.get("kill_criterion"):
+                markdown_lines.append(f"  - kill: {branch.get('kill_criterion', '')}")
+            if branch.get("avoided_vetoes"):
+                markdown_lines.append(f"  - avoids: {', '.join(str(item) for item in branch.get('avoided_vetoes', []))}")
+            if branch.get("unsupported_claims"):
+                markdown_lines.append(f"  - unsupported: {', '.join(str(item) for item in branch.get('unsupported_claims', []))}")
+            if branch.get("required_evidence"):
+                markdown_lines.append(f"  - requires evidence: {', '.join(str(item) for item in branch.get('required_evidence', []))}")
     pruned = payload.get("pruned_branches")
     if isinstance(pruned, list) and pruned:
         markdown_lines.extend(["", "## Pruned Branches"])
@@ -1014,6 +1386,16 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     policy_trace = payload.get("policy_trace")
     if isinstance(policy_trace, list) and policy_trace:
         markdown_lines.extend(["", "## Policy Trace", *(f"- `{item}`" for item in policy_trace)])
+    selected_memory_files = payload.get("selected_memory_files")
+    if isinstance(selected_memory_files, list) and selected_memory_files:
+        markdown_lines.extend(["", "## Semantic Memory Files", *(f"- `knowledge/{item}`" for item in selected_memory_files)])
+    selected_capability_packs = payload.get("selected_capability_packs")
+    if isinstance(selected_capability_packs, list) and selected_capability_packs:
+        markdown_lines.extend(["", "## Capability Packs", *(f"- `{item}`" for item in selected_capability_packs)])
+    open_questions = payload.get("open_questions")
+    if isinstance(open_questions, list) and open_questions:
+        markdown_lines.extend(["", "## Open Questions", *(f"- {item}" for item in open_questions)])
     markdown = stage_markdown(f"Plan {run_id}", markdown_lines)
     complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
+    apply_knowledge_stage_outputs(config, run_id=run_id, stage="plan", payload=payload)
     return stage_run

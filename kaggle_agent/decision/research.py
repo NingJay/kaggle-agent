@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from kaggle_agent.decision.helpers import (
     begin_stage_run,
@@ -10,113 +11,144 @@ from kaggle_agent.decision.helpers import (
     stage_markdown,
     write_input_manifest,
 )
-from kaggle_agent.knowledge import compact_knowledge_bundle, ensure_knowledge_layout, retrieve_knowledge_bundle
+from kaggle_agent.knowledge import (
+    apply_knowledge_stage_outputs,
+    compact_knowledge_bundle,
+    ensure_knowledge_layout,
+    retrieve_knowledge_bundle,
+)
 from kaggle_agent.schema import ResearchNoteRecord, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import atomic_write_text, now_utc_iso
 
 
 def _candidate_queries(root_cause: str, family: str, knowledge_bundle: dict[str, object]) -> list[str]:
-    text = f"{root_cause}\n{family}".lower()
     queries: list[str] = []
-    if "probe" in text or "cached" in text or "embedding" in text:
-        queries.append("frozen audio embeddings linear probe bird audio classification")
-    if "prior" in text or "calibration" in text or "soundscape" in text:
-        queries.append("soundscape classification prior calibration passive acoustic monitoring")
-    if "imbalance" in text or "sparse" in text or "long tail" in text:
-        queries.append("multilabel long tail acoustic event classification")
-    cards = knowledge_bundle.get("cards", [])
-    if isinstance(cards, list):
-        for card in cards[:5]:
-            if not isinstance(card, dict):
-                continue
-            component = str(card.get("component", ""))
-            if component == "pseudo_label":
-                queries.append("bird audio pseudo label distillation teacher student")
-            elif component == "class_coverage":
-                queries.append("long tail class coverage passive acoustic monitoring")
-            elif component == "prior_calibration":
-                queries.append("holdout prior fusion calibration macro roc auc")
-            elif component == "probe_head":
-                queries.append("audio embedding probe classifier hidden layer birdclef")
+    text = f"{family}\n{root_cause}".lower()
+    if "probe" in text or "embedding" in text:
+        queries.append("bird audio embedding probe class imbalance holdout validation")
+    if "pseudo" in text or "teacher" in text or "distill" in text:
+        queries.append("bird audio pseudo label distillation holdout roc auc")
+    if "coverage" in text or "imbalance" in text or "rare" in text:
+        queries.append("long tail multilabel acoustic event class coverage")
+    if "backbone" in text or "v2s" in text:
+        queries.append("bird audio backbone recovery learning rate schedule")
+    capability_results = knowledge_bundle.get("capability_results", {})
+    if isinstance(capability_results, dict):
+        novel = capability_results.get("novel_hypothesis_generator", {})
+        if isinstance(novel, dict):
+            for item in novel.get("required_evidence", [])[:2]:
+                if str(item).strip():
+                    queries.append(str(item))
     queries.append("birdclef soundscape macro roc auc validation strategy")
-    return list(dict.fromkeys(queries))
+    return list(dict.fromkeys(item for item in queries if item))
 
 
-def _string_priors(knowledge_bundle: dict[str, object], stance: str) -> list[str]:
-    cards = knowledge_bundle.get("cards", [])
-    priors: list[str] = []
-    if not isinstance(cards, list):
-        return priors
-    for card in cards:
-        if not isinstance(card, dict):
+def _rule_summaries(policy_rules: list[dict[str, Any]], *, kinds: set[str]) -> list[str]:
+    lines: list[str] = []
+    for item in policy_rules:
+        if str(item.get("policy_type", "")) not in kinds:
             continue
-        if str(card.get("stance", "")) != stance:
-            continue
-        priors.append(
-            f"{card.get('card_id', '')}: {card.get('title', '')} [{card.get('component', 'general')}] - {card.get('summary', '')}"
-        )
-    return priors
+        lines.append(f"{item.get('component', 'general')}: {item.get('summary', '')}")
+    return lines
 
 
-def _default_research_payload(root_cause: str, family: str, knowledge_bundle: dict[str, object]) -> dict[str, object]:
-    queries = _candidate_queries(root_cause, family, knowledge_bundle)
-    adopt_now: list[str] = []
-    consider: list[str] = []
-    reject: list[str] = []
-    positive_priors = _string_priors(knowledge_bundle, "positive")
-    negative_priors = _string_priors(knowledge_bundle, "negative")
-    conditional_priors = _string_priors(knowledge_bundle, "conditional")
-    policy_cards = [item for item in knowledge_bundle.get("policy_cards", []) if isinstance(item, dict)]
+def _build_research_payload(root_cause: str, family: str, knowledge_bundle: dict[str, object]) -> dict[str, object]:
+    policy_rules = [item for item in knowledge_bundle.get("policy_rules", []) if isinstance(item, dict)]
+    claims = [item for item in knowledge_bundle.get("claims", []) if isinstance(item, dict)]
     branch_memories = [item for item in knowledge_bundle.get("branch_memories", []) if isinstance(item, dict)]
     contradictions = [item for item in knowledge_bundle.get("contradictions", []) if isinstance(item, dict)]
-    policy_trace = [
-        f"{item.get('policy_type', 'context')}:{item.get('component', 'general')}:{item.get('card_id', '')}"
-        for item in policy_cards[:8]
+    constraints = [item for item in knowledge_bundle.get("constraints", []) if isinstance(item, dict)]
+    capability_packs = [item for item in knowledge_bundle.get("capability_packs", []) if isinstance(item, dict)]
+    capability_results = knowledge_bundle.get("capability_results", {}) if isinstance(knowledge_bundle.get("capability_results"), dict) else {}
+    session_memory = knowledge_bundle.get("session_memory", {}) if isinstance(knowledge_bundle.get("session_memory"), dict) else {}
+
+    adopt_now = _rule_summaries(policy_rules, kinds={"require", "prefer"})
+    consider = _rule_summaries(policy_rules, kinds={"conditional"})
+    reject = _rule_summaries(policy_rules, kinds={"veto", "avoid"})
+
+    strong_branch = next(
+        (item for item in branch_memories if str(item.get("outcome", "")) in {"leader", "improved", "submission_candidate"}),
+        None,
+    )
+    weak_branch = next(
+        (item for item in branch_memories if str(item.get("outcome", "")) in {"regressed", "critic_rejected", "run_failed", "validate_failed"}),
+        None,
+    )
+    if strong_branch is not None:
+        adopt_now.append(f"reuse strong branch pattern: {strong_branch.get('summary', '')}")
+    if weak_branch is not None:
+        reject.append(f"avoid recently weak branch pattern: {weak_branch.get('summary', '')}")
+
+    ledger = capability_results.get("ledger_miner", {})
+    if isinstance(ledger, dict):
+        top_components = ledger.get("top_components", [])
+        if isinstance(top_components, list) and top_components:
+            consider.append(
+                "top ledger components: "
+                + ", ".join(f"{item.get('component', '')}({item.get('net', 0)})" for item in top_components[:3] if isinstance(item, dict))
+            )
+    veto = capability_results.get("veto_checker", {})
+    if isinstance(veto, dict):
+        forbidden = [str(item) for item in veto.get("forbidden_patterns", []) if str(item)]
+        if forbidden:
+            reject.append("forbidden plan patterns now active: " + ", ".join(forbidden[:4]))
+    novel = capability_results.get("novel_hypothesis_generator", {})
+    open_questions: list[str] = [
+        f"How do we resolve {item.get('component', 'general')} contradiction: {item.get('summary', '')}"
+        for item in contradictions[:3]
     ]
-    if positive_priors:
-        adopt_now.extend(item.split(": ", maxsplit=1)[1] for item in positive_priors[:3] if ": " in item)
-    if conditional_priors:
-        consider.extend(item.split(": ", maxsplit=1)[1] for item in conditional_priors[:3] if ": " in item)
-    if negative_priors:
-        reject.extend(item.split(": ", maxsplit=1)[1] for item in negative_priors[:3] if ": " in item)
-    if branch_memories:
-        best_memory = branch_memories[0]
-        if str(best_memory.get("outcome", "")) in {"leader", "improved", "submission_candidate"}:
-            adopt_now.append(f"reuse the strongest recent branch pattern: {best_memory.get('summary', '')}")
-        weak_memories = [item for item in branch_memories if str(item.get("outcome", "")) in {"regressed", "critic_rejected", "run_failed", "validate_failed"}]
-        if weak_memories:
-            reject.append(f"avoid repeating weak recent branch patterns: {weak_memories[0].get('summary', '')}")
-    for contradiction in contradictions[:2]:
-        consider.append(f"resolve contradiction: {contradiction.get('summary', '')}")
-    if "probe" in family and not adopt_now:
-        adopt_now.append("expand cached-probe variants along coverage or representation axes before heavier finetuning")
-    if "probe" in family and not consider:
-        consider.append("test probe-head changes that improve class coverage before calibration-only tuning")
-    if "failed" in root_cause.lower() or "missing" in root_cause.lower():
-        adopt_now.append("repair the runtime contract before spending slot budget on new variants")
-        reject.append("do not schedule submission probes while the runtime is unstable")
-    if not adopt_now:
-        adopt_now.append("continue along the strongest validated branch and repair the primary root cause first")
-    if not consider:
-        consider.append("compare current findings against the reference notebook and cached Perch priors")
+    if isinstance(novel, dict):
+        open_questions.extend(str(item) for item in novel.get("required_evidence", [])[:2] if str(item))
+    if not open_questions:
+        open_questions.append(f"What removes the current bottleneck without repeating low-information sweeps: {root_cause}?")
+
+    retrieval_queries_next_turn = _candidate_queries(root_cause, family, knowledge_bundle)
+    hypothesis_backlog: list[dict[str, Any]] = []
+    if isinstance(novel, dict) and str(novel.get("novel_component", "")):
+        hypothesis_backlog.append(
+            {
+                "kind": "novel_lane",
+                "component": str(novel.get("novel_component", "")),
+                "unsupported_claims": [str(item) for item in novel.get("unsupported_claims", []) if str(item)],
+                "required_evidence": [str(item) for item in novel.get("required_evidence", []) if str(item)],
+            }
+        )
+    if strong_branch is not None:
+        hypothesis_backlog.append(
+            {
+                "kind": "grounded_lane",
+                "component": str(strong_branch.get("idea_class", "") or "general"),
+                "reason": str(strong_branch.get("summary", "")),
+            }
+        )
+
     return {
         "stage": "research",
         "root_cause": root_cause,
-        "queries": queries,
-        "adopt_now": adopt_now,
-        "consider": consider,
-        "reject": reject,
+        "queries": retrieval_queries_next_turn,
+        "adopt_now": adopt_now[:6] or ["repair the bottleneck with the strongest grounded prior first"],
+        "consider": consider[:6] or ["open one adjacent branch if grounded priors are exhausted"],
+        "reject": reject[:6],
         "knowledge_files_seen": int(knowledge_bundle.get("knowledge_files_seen", 0) or 0),
         "problem_frame": knowledge_bundle.get("problem_frame", {}),
         "knowledge_card_ids": [str(item) for item in knowledge_bundle.get("knowledge_card_ids", [])],
-        "positive_priors": positive_priors,
-        "negative_priors": negative_priors,
-        "conditional_priors": conditional_priors,
-        "policy_cards": policy_cards,
-        "policy_trace": policy_trace,
+        "positive_priors": _rule_summaries(policy_rules, kinds={"require", "prefer"}),
+        "negative_vetoes": _rule_summaries(policy_rules, kinds={"veto", "avoid"}),
+        "conditional_leads": _rule_summaries(policy_rules, kinds={"conditional"}),
+        "policy_rules": policy_rules,
+        "policy_cards": policy_rules,
+        "claims": claims,
         "branch_memories": branch_memories,
-        "branch_memory_ids": [str(item) for item in knowledge_bundle.get("branch_memory_ids", [])],
+        "branch_memory_ids": [str(item.get("memory_id", "")) for item in branch_memories],
         "contradictions": contradictions,
+        "constraints": constraints,
+        "selected_memory_files": [str(item.get("path", "")) for item in knowledge_bundle.get("semantic_memory_files", []) if isinstance(item, dict)],
+        "selected_capability_packs": [str(item.get("pack_id", "")) for item in capability_packs],
+        "capability_results": capability_results,
+        "session_memory": session_memory,
+        "open_questions": open_questions[:5],
+        "retrieval_queries_next_turn": retrieval_queries_next_turn,
+        "hypothesis_backlog": hypothesis_backlog,
     }
 
 
@@ -162,14 +194,15 @@ def build_research(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         payload, markdown = adapted
         complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     else:
-        payload = _default_research_payload(
+        payload = _build_research_payload(
             str(report_payload.get("root_cause", run.root_cause or run.error or "missing context")),
             experiment.family,
             knowledge_bundle,
         )
         lines = [
             f"- Root cause focus: {payload['root_cause']}",
-            f"- Suggested search queries: {', '.join(str(item) for item in payload['queries'])}",
+            f"- Knowledge files seen: {payload['knowledge_files_seen']}",
+            f"- Retrieval next turn: {', '.join(str(item) for item in payload['retrieval_queries_next_turn'])}",
             "",
             "## Adopt Now",
             *(f"- {item}" for item in payload["adopt_now"]),
@@ -179,47 +212,77 @@ def build_research(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         ]
         if payload["reject"]:
             lines.extend(["", "## Reject For Now", *(f"- {item}" for item in payload["reject"])])
-        if payload.get("knowledge_card_ids"):
-            lines.extend(["", "## Retrieved Knowledge Cards", *(f"- `{item}`" for item in payload["knowledge_card_ids"])])
-        policy_cards = payload.get("policy_cards")
-        if isinstance(policy_cards, list) and policy_cards:
+        if payload.get("policy_rules"):
             lines.extend(
                 [
                     "",
-                    "## Policy Cards",
+                    "## Policy Rules",
                     *(
-                        f"- `{item.get('policy_type', 'context')}` | `{item.get('component', 'general')}` | `{item.get('card_id', '')}` | {item.get('summary', '')}"
-                        for item in policy_cards
+                        f"- `{item.get('policy_type', 'context')}` | `{item.get('component', 'general')}` | {item.get('summary', '')}"
+                        for item in payload["policy_rules"]
                         if isinstance(item, dict)
                     ),
                 ]
             )
-        branch_memories = payload.get("branch_memories")
-        if isinstance(branch_memories, list) and branch_memories:
+        if payload.get("claims"):
+            lines.extend(
+                [
+                    "",
+                    "## Relevant Claims",
+                    *(
+                        f"- `{item.get('stance', 'general')}` | `{item.get('component', 'general')}` | {item.get('summary', '')}"
+                        for item in payload["claims"][:6]
+                        if isinstance(item, dict)
+                    ),
+                ]
+            )
+        if payload.get("branch_memories"):
             lines.extend(
                 [
                     "",
                     "## Recent Branch Memories",
                     *(
                         f"- `{item.get('run_id', '')}` | outcome={item.get('outcome', '')} | {item.get('summary', '')}"
-                        for item in branch_memories
+                        for item in payload["branch_memories"]
                         if isinstance(item, dict)
                     ),
                 ]
             )
-        contradictions = payload.get("contradictions")
-        if isinstance(contradictions, list) and contradictions:
+        if payload.get("contradictions"):
+            lines.extend(["", "## Contradictions", *(f"- {item.get('summary', '')}" for item in payload["contradictions"] if isinstance(item, dict))])
+        if payload.get("selected_capability_packs"):
+            lines.extend(["", "## Capability Packs", *(f"- `{item}`" for item in payload["selected_capability_packs"])])
+        if payload.get("capability_results"):
             lines.extend(
                 [
                     "",
-                    "## Contradictions",
-                    *(f"- {item.get('summary', '')}" for item in contradictions if isinstance(item, dict)),
+                    "## Capability Results",
+                    *(
+                        f"- `{key}` | {value}"
+                        for key, value in payload["capability_results"].items()
+                        if isinstance(payload["capability_results"], dict)
+                    ),
                 ]
             )
+        if payload.get("hypothesis_backlog"):
+            lines.extend(
+                [
+                    "",
+                    "## Hypothesis Backlog",
+                    *(
+                        f"- `{item.get('kind', '')}` | component={item.get('component', '')} | unsupported={', '.join(str(entry) for entry in item.get('unsupported_claims', [])) or 'n/a'}"
+                        for item in payload["hypothesis_backlog"]
+                        if isinstance(item, dict)
+                    ),
+                ]
+            )
+        if payload.get("open_questions"):
+            lines.extend(["", "## Open Questions", *(f"- {item}" for item in payload["open_questions"])])
         markdown = stage_markdown(f"Research Summary {run_id}", lines)
         complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
 
     note_payload = latest_stage_payload(state, run_id, "research")
+    apply_knowledge_stage_outputs(config, run_id=run_id, stage="research", payload=note_payload)
     summary = "; ".join(str(item) for item in note_payload.get("adopt_now", [])) or "no structured research actions"
     state.research_notes.append(
         ResearchNoteRecord(

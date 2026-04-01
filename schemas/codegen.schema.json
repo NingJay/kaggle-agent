@@ -49,6 +49,13 @@
     "policy_trace": { "type": "array", "items": { "type": "string" } },
     "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
     "scheduler_hints": { "type": "object", "additionalProperties": true },
-    "motivation_summary": { "type": "string" }
+    "motivation_summary": { "type": "string" },
+    "source_config_path": { "type": "string" },
+    "proposal_typing_id": { "type": "string" },
+    "proposal_typing": { "type": "object", "additionalProperties": true },
+    "realized_typing_id": { "type": "string" },
+    "realized_typing": { "type": "object", "additionalProperties": true },
+    "info_gain_estimate_id": { "type": "string" },
+    "info_gain_estimate": { "type": "object", "additionalProperties": true }
   }
 }

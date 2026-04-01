@@ -181,6 +181,11 @@ def _plan_branches(plan: dict[str, object], run) -> list[dict[str, object]]:
             "policy_trace": [str(item) for item in plan.get("policy_trace", [])],
             "branch_memory_ids": [str(item) for item in plan.get("branch_memory_ids", [])],
             "scheduler_hints": dict(plan.get("scheduler_hints", {})) if isinstance(plan.get("scheduler_hints"), dict) else {},
+            "source_config_path": str(plan.get("source_config_path", "")),
+            "proposal_typing": dict(plan.get("proposal_typing", {})) if isinstance(plan.get("proposal_typing"), dict) else {},
+            "proposal_typing_id": str(plan.get("proposal_typing_id", "") or ""),
+            "info_gain_estimate": dict(plan.get("info_gain_estimate", {})) if isinstance(plan.get("info_gain_estimate"), dict) else {},
+            "info_gain_estimate_id": str(plan.get("info_gain_estimate_id", "") or ""),
         }
     ]
 
@@ -267,6 +272,11 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
     if plan_status in {"planned", "submission_candidate"}:
         branches = _plan_branches(plan, run)
         code_state_ref = ""
+        code_state_path: Path | None = None
+        verify_status = "skipped"
+        verify_summary = ""
+        typing_drift = critic.get("typing_drift", {}) if isinstance(critic.get("typing_drift"), dict) else {}
+        envelope_violations = [str(item) for item in critic.get("envelope_violations", []) if str(item)]
         if plan_status == "planned":
             code_state_ref = str(codegen.get("code_state_ref", "") or "")
             code_state_path = Path(code_state_ref) if code_state_ref else None
@@ -274,15 +284,22 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
             verify_summary = str(codegen.get("verify_summary") or codegen.get("smoke_summary") or "")
             run_bundle_value = str(codegen.get("run_bundle_path", "") or "")
             run_bundle_path = Path(run_bundle_value) if run_bundle_value else None
+            run_bundle_config_path = ""
             if run_bundle_path is not None and run_bundle_path.exists():
                 run_bundle = json.loads(run_bundle_path.read_text(encoding="utf-8"))
                 run_bundle_config_path = str(run_bundle.get("config_path") or "")
-                if run_bundle_config_path:
-                    for branch in branches[:1]:
-                        branch["config_path"] = run_bundle_config_path
+            if run_bundle_config_path:
+                for branch in branches[:1]:
+                    branch["config_path"] = run_bundle_config_path
             if critic.get("status") != "approved":
                 status = "failed"
                 summary = "Critic rejected the generated bundle."
+            elif bool(typing_drift.get("severe")):
+                status = "failed"
+                summary = "Typing drift blocked validate-stage fan-out."
+            elif envelope_violations:
+                status = "failed"
+                summary = "Search envelope violations blocked validate-stage fan-out."
             elif code_state_path is not None and not code_state_path.exists():
                 status = "failed"
                 summary = f"Missing code state for validation: {code_state_path}"

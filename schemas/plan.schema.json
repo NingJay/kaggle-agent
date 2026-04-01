@@ -27,6 +27,7 @@
     "family": { "type": "string" },
     "hypothesis": { "type": "string" },
     "config_path": { "type": "string" },
+    "source_config_path": { "type": "string" },
     "priority": { "type": "integer" },
     "depends_on": { "type": "array", "items": { "type": "string" } },
     "tags": { "type": "array", "items": { "type": "string" } },
@@ -61,8 +62,34 @@
         "additionalProperties": true
       }
     },
+    "branch_typings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "info_gain_estimates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
     "policy_trace": { "type": "array", "items": { "type": "string" } },
     "scheduler_hints": { "type": "object", "additionalProperties": true },
+    "search_envelope": { "type": "object", "additionalProperties": true },
+    "selected_memory_files": { "type": "array", "items": { "type": "string" } },
+    "selected_capability_packs": { "type": "array", "items": { "type": "string" } },
+    "open_questions": { "type": "array", "items": { "type": "string" } },
+    "session_memory": { "type": "object", "additionalProperties": true },
+    "forbidden_plan_patterns": { "type": "array", "items": { "type": "string" } },
+    "required_plan_patterns": { "type": "array", "items": { "type": "string" } },
+    "minimum_information_gain_bar": { "type": "number" },
+    "memory_ops": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
     "config_overrides": {
       "type": "array",
       "items": {
@@ -85,6 +112,7 @@
           "hypothesis": { "type": "string" },
           "reason": { "type": "string" },
           "config_path": { "type": "string" },
+          "source_config_path": { "type": "string" },
           "priority": { "type": "integer" },
           "depends_on": { "type": "array", "items": { "type": "string" } },
           "tags": { "type": "array", "items": { "type": "string" } },
@@ -103,6 +131,25 @@
           "branch_memory_ids": { "type": "array", "items": { "type": "string" } },
           "scheduler_hints": { "type": "object", "additionalProperties": true },
           "policy_score": { "type": "number" },
+          "expected_information_gain": { "type": "number" },
+          "novelty_score": { "type": "number" },
+          "low_information_flag": { "type": "boolean" },
+          "grounding_mode": { "type": "string" },
+          "cost_tier": { "type": "string" },
+          "typing_signature": { "type": "string" },
+          "axis_tags": { "type": "array", "items": { "type": "string" } },
+          "change_surface": { "type": "array", "items": { "type": "string" } },
+          "falsification_criterion": { "type": "string" },
+          "kill_criterion": { "type": "string" },
+          "avoided_vetoes": { "type": "array", "items": { "type": "string" } },
+          "pattern_tags": { "type": "array", "items": { "type": "string" } },
+          "unsupported_claims": { "type": "array", "items": { "type": "string" } },
+          "required_evidence": { "type": "array", "items": { "type": "string" } },
+          "proposal_typing_id": { "type": "string" },
+          "proposal_typing": { "type": "object", "additionalProperties": true },
+          "info_gain_estimate_id": { "type": "string" },
+          "info_gain_estimate": { "type": "object", "additionalProperties": true },
+          "branch_typing": { "type": "object", "additionalProperties": true },
           "config_overrides": {
             "type": "array",
             "items": {
