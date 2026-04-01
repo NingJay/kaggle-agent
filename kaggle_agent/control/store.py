@@ -111,11 +111,12 @@ def _save_table(config: WorkspaceConfig, table: str, rows) -> None:
 def _entity_id(item) -> str:
     if hasattr(item, "id"):
         return getattr(item, "id")
+    if hasattr(item, "validation_id"):
+        return getattr(item, "validation_id")
     for key in [
         "stage_run_id",
         "agent_run_id",
         "spec_id",
-        "validation_id",
         "memory_id",
         "metric_id",
         "finding_id",

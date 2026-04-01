@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 
 from kaggle_agent.adapters.command import CommandAdapterError
-from kaggle_agent.control.executor import collect_finished_runs, reconcile_active_run_ids, start_run
+from kaggle_agent.control.executor import collect_finished_runs, launch_execute_stage, reconcile_active_run_ids, start_run
 from kaggle_agent.control.lifecycle import (
     infer_lifecycle_template,
     next_stage,
@@ -250,6 +250,20 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
     summary = "No follow-up experiment required."
     dispatch_summary: list[dict[str, object]] = []
     portfolio_id = str(plan.get("portfolio_id", "") or "")
+
+    def _default_branch_lifecycle(branch_payload: dict[str, object]) -> str:
+        explicit = str(branch_payload.get("lifecycle_template", "") or "").strip()
+        if explicit:
+            return resolve_lifecycle_template(branch_payload)
+        work_type = str(branch_payload.get("work_type", "experiment_iteration") or "experiment_iteration").strip()
+        if work_type == "submission":
+            return "submission_from_target_run"
+        if work_type == "analysis_only":
+            return "analysis_only"
+        if work_type == "ablation_terminal":
+            return "branch_terminal_experiment"
+        return "branch_experiment"
+
     if plan_status in {"planned", "submission_candidate"}:
         branches = _plan_branches(plan, run)
         code_state_ref = ""
@@ -294,7 +308,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                         str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
                     )
                     branch_payload["code_state_ref"] = code_state_ref
-                    lifecycle_template = resolve_lifecycle_template(branch_payload)
+                    lifecycle_template = _default_branch_lifecycle(branch_payload)
                     stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
                     target_run_id = resolve_target_run_id(
                         branch_payload,
@@ -396,7 +410,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                     str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
                 )
                 branch_payload["code_state_ref"] = ""
-                lifecycle_template = resolve_lifecycle_template(branch_payload)
+                lifecycle_template = _default_branch_lifecycle(branch_payload)
                 stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
                 target_run_id = resolve_target_run_id(
                     branch_payload,
@@ -650,7 +664,13 @@ def _finalize_work_item_status(state: WorkspaceState, run_id: str) -> None:
     work_item.updated_at = now_utc_iso()
 
 
-def _process_run_stage_chain(config: WorkspaceConfig, state: WorkspaceState, run_id: str) -> None:
+def _process_run_stage_chain(
+    config: WorkspaceConfig,
+    state: WorkspaceState,
+    run_id: str,
+    *,
+    execute_in_background: bool = True,
+) -> None:
     run = next(item for item in state.runs if item.run_id == run_id)
     while run.status in FINAL_RUN_STATUSES and run.stage_cursor and run.stage_cursor != "complete":
         stage_plan = _run_stage_plan(config, state, run)
@@ -661,7 +681,22 @@ def _process_run_stage_chain(config: WorkspaceConfig, state: WorkspaceState, run
                 break
         try:
             current_stage = run.stage_cursor
-            if current_stage == "evidence":
+            if current_stage == "execute":
+                work_item = next(item for item in state.work_items if item.id == run.work_item_id)
+                spec = next(item for item in state.specs if item.spec_id == run.spec_id)
+                experiment = next(item for item in state.experiments if item.id == run.experiment_id)
+                launch_execute_stage(
+                    config,
+                    state,
+                    work_item,
+                    spec,
+                    experiment,
+                    run,
+                    background=execute_in_background,
+                )
+                if run.status == "running":
+                    break
+            elif current_stage == "evidence":
                 build_evidence(config, state, run_id)
             elif current_stage == "report":
                 build_report(config, state, run_id)
@@ -714,7 +749,7 @@ def process_completed_runs(config: WorkspaceConfig, state: WorkspaceState) -> No
         if run.status not in FINAL_RUN_STATUSES:
             continue
         if run.stage_cursor != "complete":
-            _process_run_stage_chain(config, state, run.run_id)
+            _process_run_stage_chain(config, state, run.run_id, execute_in_background=True)
         if run.stage_cursor == "complete" or run.stage_error:
             synchronize_branch_memory(state, run.run_id)
 
@@ -731,7 +766,7 @@ def maybe_start_next_run(
     run_in_background = background if background is not None else next_work_item.work_type != "deep_dive_analysis"
     run = start_run(config, state, next_work_item.id, background=run_in_background)
     if run.status in FINAL_RUN_STATUSES and run.stage_cursor and run.stage_cursor != "complete":
-        _process_run_stage_chain(config, state, run.run_id)
+        _process_run_stage_chain(config, state, run.run_id, execute_in_background=run_in_background)
         if run.stage_cursor == "complete" or run.stage_error:
             synchronize_branch_memory(state, run.run_id)
     return run, run_in_background
@@ -743,7 +778,7 @@ def _auto_start_ready_runs(config: WorkspaceConfig, state: WorkspaceState) -> li
         run = start_run(config, state, work_item.id, background=True)
         started.append(run.run_id)
         if run.status in FINAL_RUN_STATUSES and run.stage_cursor and run.stage_cursor != "complete":
-            _process_run_stage_chain(config, state, run.run_id)
+            _process_run_stage_chain(config, state, run.run_id, execute_in_background=True)
             if run.stage_cursor == "complete" or run.stage_error:
                 synchronize_branch_memory(state, run.run_id)
     return started

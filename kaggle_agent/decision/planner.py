@@ -43,6 +43,17 @@ def _inferred_work_type(branch_role: str, idea_class: str, title: str, existing_
     return normalized or "experiment_iteration"
 
 
+def _default_branch_lifecycle_template(work_type: str) -> str:
+    normalized = str(work_type or "").strip()
+    if normalized == "submission":
+        return "submission_from_target_run"
+    if normalized == "analysis_only":
+        return "analysis_only"
+    if normalized == "ablation_terminal":
+        return "branch_terminal_experiment"
+    return "branch_experiment"
+
+
 def _branch_plan_limit() -> int:
     raw = os.environ.get("KAGGLE_AGENT_BRANCH_PLAN_LIMIT", "").strip()
     if not raw:
@@ -667,7 +678,11 @@ def _canonical_branch_plan(
         title=title,
         existing_work_type=str(branch_input.get("work_type") or "experiment_iteration"),
     )
-    lifecycle_template = resolve_lifecycle_template({**branch_input, "work_type": work_type})
+    explicit_lifecycle_template = str(branch_input.get("lifecycle_template") or "").strip()
+    if explicit_lifecycle_template:
+        lifecycle_template = resolve_lifecycle_template({**branch_input, "work_type": work_type})
+    else:
+        lifecycle_template = _default_branch_lifecycle_template(work_type)
     stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
     target_run_id = resolve_target_run_id(branch_input, lifecycle_template=lifecycle_template, default_run_id=run.run_id)
 

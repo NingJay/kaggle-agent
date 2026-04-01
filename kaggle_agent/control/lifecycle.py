@@ -18,7 +18,20 @@ CANONICAL_STAGE_GRAPH = [
 
 LIFECYCLE_TEMPLATES: dict[str, list[str]] = {
     "recursive_experiment": list(CANONICAL_STAGE_GRAPH),
+    "branch_experiment": [
+        "codegen",
+        "critic",
+        "validate",
+        "execute",
+        "evidence",
+        "report",
+        "research",
+        "decision",
+        "plan",
+        "submission",
+    ],
     "terminal_experiment": ["execute", "evidence", "report", "validate"],
+    "branch_terminal_experiment": ["codegen", "critic", "validate", "execute", "evidence", "report"],
     "submission_from_target_run": ["submission"],
     "analysis_only": ["research", "decision", "plan"],
 }
@@ -74,9 +87,10 @@ def validate_stage_plan(stage_plan: Iterable[str], *, strict: bool = True) -> li
     unknown = [item for item in normalized if item not in CANONICAL_STAGE_GRAPH]
     if unknown:
         raise ValueError(f"Unknown stage names in stage plan: {', '.join(unknown)}")
-    if strict and not _is_subsequence(normalized, CANONICAL_STAGE_GRAPH):
+    matches_known_template = any(normalized == candidate for candidate in LIFECYCLE_TEMPLATES.values())
+    if strict and not (matches_known_template or _is_subsequence(normalized, CANONICAL_STAGE_GRAPH)):
         raise ValueError(
-            "Stage plan must be a subsequence of the canonical graph: "
+            "Stage plan must match a known lifecycle template or follow the canonical graph order: "
             + " -> ".join(CANONICAL_STAGE_GRAPH)
         )
     return normalized

@@ -100,6 +100,8 @@ def get_status_state(config: WorkspaceConfig) -> WorkspaceState:
     with workspace_lock(config.lock_path()):
         state = load_state(config)
         reconcile_active_run_ids(state)
+        process_completed_runs(config, state)
+        reconcile_active_run_ids(state)
         write_reports(config, state)
         save_state(config, state)
         return state

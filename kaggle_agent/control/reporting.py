@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import csv
 import html
+import json
 from pathlib import Path
 
 from kaggle_agent.control.submission import plan_submission_slots
 from kaggle_agent.knowledge import write_experiment_conclusions
 from kaggle_agent.layout import (
+    STAGE_ORDER,
     artifact_relative_path,
     current_attempt_slug,
     run_label_from_path,
@@ -273,6 +275,151 @@ def _overview_markdown(config: WorkspaceConfig, state: WorkspaceState) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _latest_stage_run_for_name(state: WorkspaceState, run_id: str, stage_name: str):
+    matches = [item for item in state.stage_runs if item.run_id == run_id and item.stage_name == stage_name]
+    if not matches:
+        return None
+    matches.sort(key=lambda item: (item.updated_at, item.created_at, item.stage_run_id))
+    return matches[-1]
+
+
+def _execute_step_status(run: RunRecord, step_index: int) -> str:
+    if not run.started_at and run.stage_cursor != "execute":
+        return "pending"
+    if run.stage_cursor == "execute":
+        return "ready"
+    if run.status == "running" and not run.stage_cursor:
+        return "running"
+    later_cursor = run.stage_cursor in set(run.stage_plan[step_index + 1 :]) or run.stage_cursor == "complete"
+    if run.completed_at or later_cursor or any(item for item in run.stage_plan[step_index + 1 :] if item):
+        return "completed" if run.error == "" else "failed"
+    if run.error:
+        return "failed"
+    return "pending"
+
+
+def _stage_step_status(run: RunRecord, stage_name: str, stage_run, step_index: int) -> str:
+    if stage_name == "execute":
+        return _execute_step_status(run, step_index)
+    if stage_run is not None:
+        return stage_run.validator_status or stage_run.status
+    if run.stage_cursor == stage_name:
+        return "ready"
+    if run.stage_cursor == "complete" and stage_name in run.stage_plan[: step_index + 1]:
+        return "completed"
+    return "pending"
+
+
+def _stage_dir_hint(stage_name: str) -> str:
+    order = STAGE_ORDER.get(stage_name, 0)
+    if order <= 0:
+        return stage_name
+    return f"{order:02d}-{stage_name}__*"
+
+
+def _stage_artifact_from_disk(config: WorkspaceConfig, run_root: Path, stage_name: str) -> dict[str, str]:
+    stages_root = run_root / "stages"
+    if not stages_root.exists():
+        return {}
+    matches = sorted(
+        (path for path in stages_root.glob(_stage_dir_hint(stage_name)) if path.is_dir()),
+        key=lambda item: (item.stat().st_mtime, item.name),
+    )
+    if not matches:
+        return {}
+    chosen = matches[-1]
+    return {
+        "artifact_label": chosen.name,
+        "artifact_dir": artifact_relative_path(str(chosen), config.root),
+        "artifact_json": artifact_relative_path(str(chosen / f"{stage_name}.json"), config.root),
+        "artifact_md": artifact_relative_path(str(chosen / f"{stage_name}.md"), config.root),
+        "status": chosen.name.split("__", 1)[1] if "__" in chosen.name else "",
+    }
+
+
+def _run_lifecycle_payload(config: WorkspaceConfig, state: WorkspaceState, run: RunRecord, run_root: Path) -> dict[str, object]:
+    steps: list[dict[str, object]] = []
+    for index, stage_name in enumerate(run.stage_plan, start=1):
+        stage_run = _latest_stage_run_for_name(state, run.run_id, stage_name)
+        artifact_label = ""
+        artifact_dir = ""
+        artifact_json = ""
+        artifact_md = ""
+        artifact_status = ""
+        if stage_run is not None:
+            artifact_label = stage_label_from_path(
+                stage_run.output_dir,
+                stage_run.stage_name,
+                stage_status=stage_run.status,
+                validator_status=stage_run.validator_status,
+            )
+            artifact_dir = artifact_relative_path(stage_run.output_dir, config.root)
+            artifact_json = artifact_relative_path(stage_run.output_json_path, config.root)
+            artifact_md = artifact_relative_path(stage_run.output_md_path, config.root)
+            artifact_status = stage_run.validator_status or stage_run.status
+        disk_artifact = _stage_artifact_from_disk(config, run_root, stage_name)
+        if disk_artifact:
+            artifact_label = disk_artifact.get("artifact_label", artifact_label)
+            artifact_dir = disk_artifact.get("artifact_dir", artifact_dir)
+            artifact_json = disk_artifact.get("artifact_json", artifact_json)
+            artifact_md = disk_artifact.get("artifact_md", artifact_md)
+            artifact_status = disk_artifact.get("status", artifact_status)
+        step_status = artifact_status or _stage_step_status(run, stage_name, stage_run, index - 1)
+        steps.append(
+            {
+                "sequence": index,
+                "stage_name": stage_name,
+                "canonical_dir_hint": _stage_dir_hint(stage_name),
+                "status": step_status,
+                "artifact_label": artifact_label,
+                "artifact_dir": artifact_dir,
+                "artifact_json": artifact_json,
+                "artifact_md": artifact_md,
+            }
+        )
+    latest_stage_label = next((step["artifact_label"] for step in reversed(steps) if step["artifact_label"]), "")
+    return {
+        "run_id": run.run_id,
+        "run_label": run_label_from_path(run.run_dir) or run.run_id,
+        "lifecycle_template": run.lifecycle_template or "recursive_experiment",
+        "status": run.status,
+        "current_cursor": run.stage_cursor or "complete",
+        "note": "Stage directory prefixes keep canonical stage ids. Actual execution order follows `stage_plan` below.",
+        "steps": steps,
+        "latest_stage_label": latest_stage_label or "n/a",
+    }
+
+
+def _write_run_lifecycle_views(config: WorkspaceConfig, state: WorkspaceState) -> None:
+    for run in visible_runs(state):
+        run_root = Path(run.run_dir)
+        if run_root.name == "runtime":
+            run_root = run_root.parent
+        stages_root = ensure_directory(run_root / "stages")
+        payload = _run_lifecycle_payload(config, state, run, run_root)
+        lines = [
+            f"# Lifecycle {payload['run_label']}",
+            "",
+            f"- Run id: `{payload['run_id']}`",
+            f"- Lifecycle template: `{payload['lifecycle_template']}`",
+            f"- Run status: `{payload['status']}`",
+            f"- Current cursor: `{payload['current_cursor']}`",
+            f"- Latest realized stage: `{payload['latest_stage_label']}`",
+            f"- Note: {payload['note']}",
+            "",
+            "## Planned Execution Order",
+        ]
+        for step in payload["steps"]:
+            lines.append(
+                f"{step['sequence']}. `{step['stage_name']}` | status=`{step['status']}` | canonical_dir=`{step['canonical_dir_hint']}`"
+                + (f" | artifact=`{step['artifact_label']}`" if step["artifact_label"] else "")
+            )
+        markdown = "\n".join(lines).rstrip() + "\n"
+        atomic_write_text(run_root / "lifecycle.md", markdown)
+        atomic_write_text(stages_root / "ORDER.md", markdown)
+        atomic_write_text(run_root / "lifecycle.json", json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+
+
 def _render_html_page(title: str, sections: list[tuple[str, str]]) -> str:
     cards = "\n".join(
         f"<section class='card'><h2>{html.escape(heading)}</h2>{body}</section>"
@@ -317,6 +464,7 @@ def _render_html_page(title: str, sections: list[tuple[str, str]]) -> str:
 def write_reports(config: WorkspaceConfig, state: WorkspaceState) -> None:
     ensure_surface_files(config)
     _surface_updates(config, state)
+    _write_run_lifecycle_views(config, state)
     write_experiment_conclusions(config, state)
 
     leader = best_run(state)

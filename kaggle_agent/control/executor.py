@@ -175,6 +175,73 @@ def _resolved_work_item_stage_plan(config: WorkspaceConfig, work_item) -> list[s
     return stage_plan
 
 
+def launch_execute_stage(
+    config: WorkspaceConfig,
+    state: WorkspaceState,
+    work_item,
+    spec: SpecRecord,
+    experiment,
+    run: RunRecord,
+    *,
+    background: bool,
+) -> RunRecord:
+    run_dir = Path(run.run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    log_path = Path(run.log_path)
+    started_at = run.started_at or now_utc_iso()
+    run.started_at = started_at
+    run.completed_at = ""
+    run.status = "running"
+    run.error = ""
+    run.stage_cursor = ""
+    run.stage_error = ""
+    run.stage_updated_at = now_utc_iso()
+    run.root_cause = ""
+    run.verdict = ""
+    gpu_id = choose_idle_gpu() or ""
+    execution_root, config_path, train_entrypoint = _resolve_execution_workspace(config, spec, run)
+    run.command = f"python {train_entrypoint} --config {config_path}"
+    run.cwd = str(execution_root)
+    run.gpu_id = gpu_id
+    launch_script = run_dir / "launch.sh"
+    atomic_write_text(launch_script, _launch_script(config, work_item.id, spec, run))
+    launch_script.chmod(0o755)
+    work_item.status = "running"
+    work_item.latest_run_id = run.run_id
+    work_item.latest_spec_id = spec.spec_id
+    work_item.updated_at = now_utc_iso()
+    experiment.status = "running"
+    experiment.latest_run_id = run.run_id
+    experiment.spec_id = spec.spec_id
+    experiment.updated_at = now_utc_iso()
+    if run.run_id not in state.runtime.active_run_ids:
+        state.runtime.active_run_ids.append(run.run_id)
+    with log_path.open("w", encoding="utf-8") as handle:
+        if background:
+            process = subprocess.Popen(
+                ["/usr/bin/bash", str(launch_script)],
+                stdin=subprocess.DEVNULL,
+                stdout=handle,
+                stderr=subprocess.STDOUT,
+                cwd=config.root,
+                start_new_session=True,
+            )
+            run.pid = process.pid
+            return run
+        completed = subprocess.run(
+            ["/usr/bin/bash", str(launch_script)],
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+            cwd=config.root,
+            check=False,
+        )
+        run.pid = None
+        if completed.returncode != 0:
+            run.error = f"process exited with code {completed.returncode}"
+    finalize_run(config, state, run.run_id)
+    return run
+
+
 def start_run(
     config: WorkspaceConfig,
     state: WorkspaceState,
@@ -218,16 +285,7 @@ def start_run(
         root_cause="synthetic_lifecycle_entry" if entry_stage != "execute" else "",
         verdict="synthetic_lifecycle_entry" if entry_stage != "execute" else "",
     )
-    if entry_stage == "execute":
-        gpu_id = choose_idle_gpu() or ""
-        execution_root, config_path, train_entrypoint = _resolve_execution_workspace(config, spec, run)
-        run.command = f"python {train_entrypoint} --config {config_path}"
-        run.cwd = str(execution_root)
-        run.gpu_id = gpu_id
-        launch_script = run_dir / "launch.sh"
-        atomic_write_text(launch_script, _launch_script(config, work_item.id, spec, run))
-        launch_script.chmod(0o755)
-    else:
+    if entry_stage != "execute":
         atomic_write_text(
             log_path,
             f"synthetic lifecycle entry for `{entry_stage}` using template `{lifecycle_template}`\n",
@@ -236,39 +294,21 @@ def start_run(
     work_item.latest_run_id = run.run_id
     work_item.latest_spec_id = spec.spec_id
     work_item.updated_at = now_utc_iso()
+    state.runs.append(run)
+    if entry_stage == "execute":
+        return launch_execute_stage(
+            config,
+            state,
+            work_item,
+            spec,
+            experiment,
+            run,
+            background=background,
+        )
     experiment.status = run.status
     experiment.latest_run_id = run.run_id
     experiment.spec_id = spec.spec_id
     experiment.updated_at = now_utc_iso()
-    state.runs.append(run)
-    if entry_stage == "execute":
-        state.runtime.active_run_ids.append(run.run_id)
-    else:
-        return run
-
-    with log_path.open("w", encoding="utf-8") as handle:
-        if background:
-            process = subprocess.Popen(
-                ["/usr/bin/bash", str(launch_script)],
-                stdin=subprocess.DEVNULL,
-                stdout=handle,
-                stderr=subprocess.STDOUT,
-                cwd=config.root,
-                start_new_session=True,
-            )
-            run.pid = process.pid
-            return run
-        completed = subprocess.run(
-            ["/usr/bin/bash", str(launch_script)],
-            stdout=handle,
-            stderr=subprocess.STDOUT,
-            cwd=config.root,
-            check=False,
-        )
-        run.pid = None
-        if completed.returncode != 0:
-            run.error = f"process exited with code {completed.returncode}"
-    finalize_run(config, state, run.run_id)
     return run
 
 

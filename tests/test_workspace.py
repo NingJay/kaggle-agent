@@ -20,7 +20,8 @@ from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
 from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, _build_prompt, _verify_codegen_workspace
 from kaggle_agent.cli import main as cli_main
 from kaggle_agent.control.lifecycle import resolve_lifecycle_template
-from kaggle_agent.control.executor import collect_finished_runs, start_run
+from kaggle_agent.control.executor import collect_finished_runs, launch_execute_stage, start_run
+from kaggle_agent.control.reporting import write_reports
 from kaggle_agent.control.scheduler import choose_next_work_items
 from kaggle_agent.control.monitor import _process_run_stage_chain, _run_validate_stage, process_completed_runs
 from kaggle_agent.decision.codegen import build_codegen
@@ -28,8 +29,8 @@ from kaggle_agent.decision.critic import build_critic
 from kaggle_agent.decision.planner import build_plan
 from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle, synchronize_branch_memory
 from kaggle_agent.layout import run_label
-from kaggle_agent.control.store import load_state
-from kaggle_agent.schema import BranchMemoryRecord, ExperimentSpec, RunRecord, RuntimeState, StageRun, WorkItem, WorkspaceState
+from kaggle_agent.control.store import load_state, save_state
+from kaggle_agent.schema import BranchMemoryRecord, ExperimentSpec, RunRecord, RuntimeState, SpecRecord, StageRun, ValidationRecord, WorkItem, WorkspaceState
 from kaggle_agent.service import (
     build_submission,
     doctor_checks,
@@ -1217,8 +1218,14 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual({item.branch_role for item in new_items}, {"primary", "hedge"})
             self.assertEqual({item.idea_class for item in new_items}, {"class_coverage", "probe_head"})
             self.assertTrue(all(item.latest_spec_id for item in new_items))
-            self.assertTrue(all(item.lifecycle_template == "recursive_experiment" for item in new_items))
-            self.assertTrue(all(item.pipeline == ["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"] for item in new_items))
+            self.assertTrue(all(item.lifecycle_template == "branch_experiment" for item in new_items))
+            self.assertTrue(
+                all(
+                    item.pipeline
+                    == ["codegen", "critic", "validate", "execute", "evidence", "report", "research", "decision", "plan", "submission"]
+                    for item in new_items
+                )
+            )
 
     def test_validate_stage_dispatches_deferred_branches_for_submission_candidate(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -1326,7 +1333,7 @@ class WorkspaceTests(unittest.TestCase):
             derived = next(item for item in state.work_items if item.id != "workitem-perch-baseline")
             self.assertEqual(derived.branch_role, "improvement")
             self.assertEqual(derived.idea_class, "class_coverage")
-            self.assertEqual(derived.lifecycle_template, "recursive_experiment")
+            self.assertEqual(derived.lifecycle_template, "branch_experiment")
 
     def test_validate_stage_assigns_submission_lifecycle_and_target_run(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -2081,7 +2088,20 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(derived_items)
             self.assertTrue(all(item.latest_spec_id for item in derived_items))
 
-            follow_up_run = start_run(config, state, derived_items[0].id, background=False)
+            follow_up_item = derived_items[0]
+            follow_up_run = start_run(config, state, follow_up_item.id, background=False)
+            self.assertEqual(follow_up_run.command, "synthetic:codegen")
+            follow_up_experiment = next(item for item in state.experiments if item.id == follow_up_run.experiment_id)
+            follow_up_spec = next(item for item in state.specs if item.spec_id == follow_up_run.spec_id)
+            launch_execute_stage(
+                config,
+                state,
+                follow_up_item,
+                follow_up_spec,
+                follow_up_experiment,
+                follow_up_run,
+                background=False,
+            )
             self.assertEqual(follow_up_run.status, "succeeded")
             self.assertTrue((Path(follow_up_run.run_dir) / "code_state_marker.txt").exists())
 
@@ -2460,6 +2480,297 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(state.submissions[-1].source_run_id, target_run.run_id)
             self.assertEqual(submission_item.status, "submitted")
             self.assertEqual(synthetic_run.stage_cursor, "complete")
+
+    def test_start_run_for_branch_experiment_enters_codegen_first(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            baseline = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            branch_item = WorkItem(
+                id="workitem-branch-entry",
+                title="Coverage branch",
+                work_type="experiment_iteration",
+                family=baseline.family,
+                priority=25,
+                config_path=baseline.config_path,
+                lifecycle_template="branch_experiment",
+                pipeline=["codegen", "critic", "validate", "execute", "evidence", "report", "research", "decision", "plan", "submission"],
+                status="queued",
+            )
+            state.work_items.append(branch_item)
+
+            run = start_run(config, state, branch_item.id, background=False)
+
+            self.assertEqual(run.status, "succeeded")
+            self.assertEqual(run.command, "synthetic:codegen")
+            self.assertEqual(run.stage_cursor, "codegen")
+            self.assertEqual(branch_item.status, "running")
+
+    def test_process_run_stage_chain_branch_experiment_launches_execute_after_validate(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            baseline = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            branch_item = WorkItem(
+                id="workitem-branch-exec",
+                title="Branch execute transition",
+                work_type="experiment_iteration",
+                family=baseline.family,
+                priority=25,
+                config_path=baseline.config_path,
+                lifecycle_template="branch_experiment",
+                pipeline=["codegen", "critic", "validate", "execute", "evidence", "report", "research", "decision", "plan", "submission"],
+                status="running",
+            )
+            state.work_items.append(branch_item)
+            spec = ExperimentSpec(
+                id="exp-branch-exec",
+                title=branch_item.title,
+                hypothesis="branch",
+                family=branch_item.family,
+                config_path=branch_item.config_path,
+                priority=branch_item.priority,
+                work_item_id=branch_item.id,
+                spec_id="spec-branch-exec",
+            )
+            state.experiments.append(spec)
+            state.specs.append(
+                SpecRecord(
+                    spec_id="spec-branch-exec",
+                    work_item_id=branch_item.id,
+                    source_stage_run_id="stage-upstream",
+                    spec_type="experiment",
+                    title=branch_item.title,
+                    family=branch_item.family,
+                    config_path=branch_item.config_path,
+                    payload_path=branch_item.config_path,
+                    launch_mode="background",
+                    code_state_ref="",
+                    status="validated",
+                    dedupe_key="spec:branch-exec",
+                )
+            )
+            run = RunRecord(
+                run_id="run-branch-exec",
+                experiment_id=spec.id,
+                work_item_id=branch_item.id,
+                spec_id="spec-branch-exec",
+                status="succeeded",
+                command="synthetic:codegen",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-branch-exec"),
+                log_path=str(root / "artifacts" / "runs" / "run-branch-exec" / "train.log"),
+                stage_cursor="codegen",
+                lifecycle_template="branch_experiment",
+                stage_plan=["codegen", "critic", "validate", "execute", "evidence", "report", "research", "decision", "plan", "submission"],
+            )
+            state.runs.append(run)
+
+            def _launch(*_args, **_kwargs):
+                run.status = "running"
+                run.stage_cursor = ""
+                run.stage_updated_at = "2026-04-01T00:00:00Z"
+                return run
+
+            with patch("kaggle_agent.control.monitor.build_codegen", return_value=None) as codegen_mock, patch(
+                "kaggle_agent.control.monitor.build_critic",
+                return_value=None,
+            ) as critic_mock, patch(
+                "kaggle_agent.control.monitor._run_validate_stage",
+                return_value=None,
+            ) as validate_mock, patch(
+                "kaggle_agent.control.monitor.launch_execute_stage",
+                side_effect=_launch,
+            ) as launch_mock, patch(
+                "kaggle_agent.control.monitor.build_evidence",
+            ) as evidence_mock:
+                _process_run_stage_chain(config, state, run.run_id, execute_in_background=True)
+
+            codegen_mock.assert_called_once()
+            critic_mock.assert_called_once()
+            validate_mock.assert_called_once()
+            launch_mock.assert_called_once()
+            evidence_mock.assert_not_called()
+            self.assertEqual(run.status, "running")
+            self.assertEqual(run.stage_cursor, "")
+
+    def test_save_state_uses_validation_id_for_validation_rows(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            state.validations = [
+                ValidationRecord(
+                    validation_id="validation-0001",
+                    work_item_id="workitem-a",
+                    source_stage_run_id="stage-a",
+                    spec_id="spec-shared",
+                    status="validated",
+                    summary="first validation",
+                    output_json_path="/tmp/validate-a.json",
+                    output_md_path="/tmp/validate-a.md",
+                    created_at="2026-03-31T00:00:00Z",
+                ),
+                ValidationRecord(
+                    validation_id="validation-0002",
+                    work_item_id="workitem-b",
+                    source_stage_run_id="stage-b",
+                    spec_id="spec-shared",
+                    status="validated",
+                    summary="second validation",
+                    output_json_path="/tmp/validate-b.json",
+                    output_md_path="/tmp/validate-b.md",
+                    created_at="2026-03-31T00:01:00Z",
+                ),
+            ]
+
+            save_state(config, state)
+            reloaded = load_state(config)
+
+            self.assertEqual([item.validation_id for item in reloaded.validations], ["validation-0001", "validation-0002"])
+            self.assertEqual([item.spec_id for item in reloaded.validations], ["spec-shared", "spec-shared"])
+
+    def test_write_reports_emits_branch_lifecycle_order_manifest(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            branch_item = WorkItem(
+                id="workitem-branch-order",
+                title="Branch order visibility",
+                work_type="experiment_iteration",
+                family="perch_cached_probe",
+                priority=25,
+                config_path="BirdCLEF-2026-Codebase/configs/generated/branch-order.yaml",
+                lifecycle_template="branch_experiment",
+                pipeline=["codegen", "critic", "validate", "execute", "evidence", "report", "research", "decision", "plan", "submission"],
+                status="running",
+            )
+            state.work_items.append(branch_item)
+            run = RunRecord(
+                run_id="run-branch-order",
+                experiment_id="exp-branch-order",
+                work_item_id=branch_item.id,
+                spec_id="spec-branch-order",
+                status="running",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "attempts" / "demo" / "runs" / "run-branch-order" / "runtime"),
+                log_path=str(root / "artifacts" / "attempts" / "demo" / "runs" / "run-branch-order" / "runtime" / "train.log"),
+                started_at="2026-04-01T00:00:00Z",
+                lifecycle_template="branch_experiment",
+                stage_plan=["codegen", "critic", "validate", "execute", "evidence", "report", "research", "decision", "plan", "submission"],
+                stage_cursor="report",
+                latest_stage_run_id="stage-report",
+            )
+            state.runs.append(run)
+            state.stage_runs.extend(
+                [
+                    StageRun(
+                        stage_run_id="stage-codegen",
+                        run_id=run.run_id,
+                        work_item_id=branch_item.id,
+                        stage_name="codegen",
+                        status="completed",
+                        input_ref=run.run_id,
+                        output_dir=str(Path(run.run_dir).parent / "stages" / "06-codegen__noop"),
+                        output_json_path=str(Path(run.run_dir).parent / "stages" / "06-codegen__noop" / "codegen.json"),
+                        output_md_path=str(Path(run.run_dir).parent / "stages" / "06-codegen__noop" / "codegen.md"),
+                        validator_status="noop",
+                        created_at="2026-04-01T00:01:00Z",
+                        updated_at="2026-04-01T00:01:00Z",
+                    ),
+                    StageRun(
+                        stage_run_id="stage-critic",
+                        run_id=run.run_id,
+                        work_item_id=branch_item.id,
+                        stage_name="critic",
+                        status="completed",
+                        input_ref="stage-codegen",
+                        output_dir=str(Path(run.run_dir).parent / "stages" / "07-critic__approved"),
+                        output_json_path=str(Path(run.run_dir).parent / "stages" / "07-critic__approved" / "critic.json"),
+                        output_md_path=str(Path(run.run_dir).parent / "stages" / "07-critic__approved" / "critic.md"),
+                        validator_status="approved",
+                        created_at="2026-04-01T00:02:00Z",
+                        updated_at="2026-04-01T00:02:00Z",
+                    ),
+                    StageRun(
+                        stage_run_id="stage-validate",
+                        run_id=run.run_id,
+                        work_item_id=branch_item.id,
+                        stage_name="validate",
+                        status="completed",
+                        input_ref="stage-critic",
+                        output_dir=str(Path(run.run_dir).parent / "stages" / "08-validate__not-required"),
+                        output_json_path=str(Path(run.run_dir).parent / "stages" / "08-validate__not-required" / "validate.json"),
+                        output_md_path=str(Path(run.run_dir).parent / "stages" / "08-validate__not-required" / "validate.md"),
+                        validator_status="not-required",
+                        created_at="2026-04-01T00:03:00Z",
+                        updated_at="2026-04-01T00:03:00Z",
+                    ),
+                    StageRun(
+                        stage_run_id="stage-evidence",
+                        run_id=run.run_id,
+                        work_item_id=branch_item.id,
+                        stage_name="evidence",
+                        status="completed",
+                        input_ref="run-branch-order",
+                        output_dir=str(Path(run.run_dir).parent / "stages" / "01-evidence__succeeded"),
+                        output_json_path=str(Path(run.run_dir).parent / "stages" / "01-evidence__succeeded" / "evidence.json"),
+                        output_md_path=str(Path(run.run_dir).parent / "stages" / "01-evidence__succeeded" / "evidence.md"),
+                        validator_status="succeeded",
+                        created_at="2026-04-01T00:04:00Z",
+                        updated_at="2026-04-01T00:04:00Z",
+                    ),
+                    StageRun(
+                        stage_run_id="stage-report",
+                        run_id=run.run_id,
+                        work_item_id=branch_item.id,
+                        stage_name="report",
+                        status="running",
+                        input_ref="stage-evidence",
+                        output_dir=str(Path(run.run_dir).parent / "stages" / "02-report__running"),
+                        output_json_path=str(Path(run.run_dir).parent / "stages" / "02-report__running" / "report.json"),
+                        output_md_path=str(Path(run.run_dir).parent / "stages" / "02-report__running" / "report.md"),
+                        created_at="2026-04-01T00:05:00Z",
+                        updated_at="2026-04-01T00:05:00Z",
+                    ),
+                ]
+            )
+
+            write_reports(config, state)
+
+            order_md = Path(run.run_dir).parent / "stages" / "ORDER.md"
+            lifecycle_json = Path(run.run_dir).parent / "lifecycle.json"
+            self.assertTrue(order_md.exists())
+            self.assertTrue(lifecycle_json.exists())
+            order_text = order_md.read_text(encoding="utf-8")
+            self.assertIn("Stage directory prefixes keep canonical stage ids", order_text)
+            self.assertIn("1. `codegen` | status=`noop` | canonical_dir=`06-codegen__*` | artifact=`06-codegen__noop`", order_text)
+            self.assertIn("5. `evidence` | status=`succeeded` | canonical_dir=`01-evidence__*` | artifact=`01-evidence__succeeded`", order_text)
+            self.assertIn("6. `report` | status=`running` | canonical_dir=`02-report__*` | artifact=`02-report__running`", order_text)
 
     def test_process_run_stage_chain_retries_retryable_stage_errors(self) -> None:
         with TemporaryDirectory() as tmp:
