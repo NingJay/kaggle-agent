@@ -250,32 +250,136 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
     summary = "No follow-up experiment required."
     dispatch_summary: list[dict[str, object]] = []
     portfolio_id = str(plan.get("portfolio_id", "") or "")
-    if plan_status == "planned":
+    if plan_status in {"planned", "submission_candidate"}:
         branches = _plan_branches(plan, run)
-        code_state_ref = str(codegen.get("code_state_ref", "") or "")
-        code_state_path = Path(code_state_ref) if code_state_ref else None
-        verify_status = str(codegen.get("verify_status") or codegen.get("smoke_status") or "skipped")
-        verify_summary = str(codegen.get("verify_summary") or codegen.get("smoke_summary") or "")
-        run_bundle_value = str(codegen.get("run_bundle_path", "") or "")
-        run_bundle_path = Path(run_bundle_value) if run_bundle_value else None
-        if run_bundle_path is not None and run_bundle_path.exists():
-            run_bundle = json.loads(run_bundle_path.read_text(encoding="utf-8"))
-            run_bundle_config_path = str(run_bundle.get("config_path") or "")
-            if run_bundle_config_path:
-                for branch in branches[:1]:
-                    branch["config_path"] = run_bundle_config_path
-        if critic.get("status") != "approved":
-            status = "failed"
-            summary = "Critic rejected the generated bundle."
-        elif code_state_path is not None and not code_state_path.exists():
-            status = "failed"
-            summary = f"Missing code state for validation: {code_state_path}"
-        elif code_state_path is not None and verify_status != "passed":
-            status = "failed"
-            summary = f"Codegen verify failed: {verify_summary or verify_status}"
+        code_state_ref = ""
+        if plan_status == "planned":
+            code_state_ref = str(codegen.get("code_state_ref", "") or "")
+            code_state_path = Path(code_state_ref) if code_state_ref else None
+            verify_status = str(codegen.get("verify_status") or codegen.get("smoke_status") or "skipped")
+            verify_summary = str(codegen.get("verify_summary") or codegen.get("smoke_summary") or "")
+            run_bundle_value = str(codegen.get("run_bundle_path", "") or "")
+            run_bundle_path = Path(run_bundle_value) if run_bundle_value else None
+            if run_bundle_path is not None and run_bundle_path.exists():
+                run_bundle = json.loads(run_bundle_path.read_text(encoding="utf-8"))
+                run_bundle_config_path = str(run_bundle.get("config_path") or "")
+                if run_bundle_config_path:
+                    for branch in branches[:1]:
+                        branch["config_path"] = run_bundle_config_path
+            if critic.get("status") != "approved":
+                status = "failed"
+                summary = "Critic rejected the generated bundle."
+            elif code_state_path is not None and not code_state_path.exists():
+                status = "failed"
+                summary = f"Missing code state for validation: {code_state_path}"
+            elif code_state_path is not None and verify_status != "passed":
+                status = "failed"
+                summary = f"Codegen verify failed: {verify_summary or verify_status}"
+            elif not branches:
+                status = "failed"
+                summary = "Plan did not materialize any executable follow-up branches."
+            else:
+                resolved_branches: list[dict[str, object]] = []
+                missing_config: Path | None = None
+                for branch in branches:
+                    config_path_value = str(branch.get("config_path", "") or "")
+                    config_file = Path(config_path_value)
+                    if not config_file.is_absolute():
+                        config_file = config.root / config_file
+                    if not config_file.exists():
+                        missing_config = config_file
+                        break
+                    branch_payload = dict(branch)
+                    branch_payload["config_path"] = (
+                        str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
+                    )
+                    branch_payload["code_state_ref"] = code_state_ref
+                    lifecycle_template = resolve_lifecycle_template(branch_payload)
+                    stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
+                    target_run_id = resolve_target_run_id(
+                        branch_payload,
+                        lifecycle_template=lifecycle_template,
+                        default_run_id=run.run_id,
+                    )
+                    branch_payload["lifecycle_template"] = lifecycle_template
+                    branch_payload["stage_plan"] = list(stage_plan)
+                    branch_payload["target_run_id"] = target_run_id
+                    if lifecycle_template == "submission_from_target_run":
+                        branch_payload["work_type"] = "submission"
+                    resolved_branches.append(branch_payload)
+                if missing_config is not None:
+                    status = "failed"
+                    summary = f"Missing config for validation: {missing_config}"
+                else:
+                    status = "validated"
+                    spec_ids: list[str] = []
+                    queued_work_item_ids: list[str] = []
+                    for index, branch_payload in enumerate(resolved_branches):
+                        if config.automation.auto_execute_plans:
+                            queued = register_work_item(
+                                state,
+                                title=str(branch_payload["title"]),
+                                work_type=str(branch_payload.get("work_type", "experiment_iteration")),
+                                family=str(branch_payload["family"]),
+                                config_path=str(branch_payload["config_path"]),
+                                priority=int(branch_payload.get("priority", 50) or 50),
+                                pipeline=[str(item) for item in branch_payload.get("stage_plan", [])],
+                                lifecycle_template=str(branch_payload.get("lifecycle_template", "recursive_experiment")),
+                                target_run_id=str(branch_payload.get("target_run_id", "")),
+                                depends_on=[str(item) for item in branch_payload.get("depends_on", [run.work_item_id])],
+                                dedupe_key=str(branch_payload.get("dedupe_key", "")),
+                                source_run_id=run.run_id,
+                                source_stage_run_id=stage_run.stage_run_id,
+                                portfolio_id=str(branch_payload.get("portfolio_id", "") or plan.get("portfolio_id", "")),
+                                parent_work_item_id=run.work_item_id,
+                                idea_class=str(branch_payload.get("idea_class", "")),
+                                branch_role=str(branch_payload.get("branch_role", "primary")),
+                                branch_rank=int(branch_payload.get("branch_rank", index) or index),
+                                knowledge_card_ids=[str(item) for item in branch_payload.get("knowledge_card_ids", [])],
+                                notes=[str(branch_payload.get("hypothesis", "")), str(branch_payload.get("reason", ""))],
+                                policy_trace=[str(item) for item in branch_payload.get("policy_trace", [])],
+                                branch_memory_ids=[str(item) for item in branch_payload.get("branch_memory_ids", [])],
+                                scheduler_hints=dict(branch_payload.get("scheduler_hints", {})) if isinstance(branch_payload.get("scheduler_hints"), dict) else {},
+                            )
+                            queued.updated_at = now_utc_iso()
+                            work_item_id = queued.id
+                        else:
+                            queued = None
+                            work_item_id = f"derived:{stage_run.stage_run_id}:{index:02d}"
+                        spec = _create_or_update_spec(state, stage_run, branch_payload, work_item_id=work_item_id)
+                        spec_ids.append(spec.spec_id)
+                        if queued is not None:
+                            queued.latest_spec_id = spec.spec_id
+                            queued.updated_at = now_utc_iso()
+                            queued_work_item_ids.append(queued.id)
+                        dispatch_summary.append(
+                            {
+                                "branch_rank": int(branch_payload.get("branch_rank", index) or index),
+                                "branch_role": str(branch_payload.get("branch_role", "primary")),
+                                "idea_class": str(branch_payload.get("idea_class", "")),
+                                "portfolio_id": str(branch_payload.get("portfolio_id", "") or portfolio_id),
+                                "work_item_id": work_item_id,
+                                "spec_id": spec.spec_id,
+                                "config_path": str(branch_payload.get("config_path", "")),
+                                "lifecycle_template": str(branch_payload.get("lifecycle_template", "")),
+                                "stage_plan": [str(item) for item in branch_payload.get("stage_plan", [])],
+                                "target_run_id": str(branch_payload.get("target_run_id", "")),
+                                "knowledge_card_ids": [str(item) for item in branch_payload.get("knowledge_card_ids", [])],
+                                "policy_trace": [str(item) for item in branch_payload.get("policy_trace", [])],
+                                "branch_memory_ids": [str(item) for item in branch_payload.get("branch_memory_ids", [])],
+                                "scheduler_hints": dict(branch_payload.get("scheduler_hints", {})) if isinstance(branch_payload.get("scheduler_hints"), dict) else {},
+                            }
+                        )
+                        if index == 0:
+                            spec_id = spec.spec_id
+                            queued_work_item_id = queued.id if queued is not None else ""
+                    summary = (
+                        f"Validated {len(resolved_branches)} follow-up branches and queued {len(queued_work_item_ids)} work items."
+                        if config.automation.auto_execute_plans
+                        else f"Validated {len(resolved_branches)} follow-up branches."
+                    )
         elif not branches:
-            status = "failed"
-            summary = "Plan did not materialize any executable follow-up branches."
+            summary = "Submission-candidate route skips validate fan-out and proceeds directly to submission."
         else:
             resolved_branches: list[dict[str, object]] = []
             missing_config: Path | None = None
@@ -291,7 +395,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                 branch_payload["config_path"] = (
                     str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
                 )
-                branch_payload["code_state_ref"] = code_state_ref
+                branch_payload["code_state_ref"] = ""
                 lifecycle_template = resolve_lifecycle_template(branch_payload)
                 stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
                 target_run_id = resolve_target_run_id(
@@ -302,6 +406,8 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                 branch_payload["lifecycle_template"] = lifecycle_template
                 branch_payload["stage_plan"] = list(stage_plan)
                 branch_payload["target_run_id"] = target_run_id
+                if lifecycle_template == "submission_from_target_run":
+                    branch_payload["work_type"] = "submission"
                 resolved_branches.append(branch_payload)
             if missing_config is not None:
                 status = "failed"
@@ -370,9 +476,9 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                         spec_id = spec.spec_id
                         queued_work_item_id = queued.id if queued is not None else ""
                 summary = (
-                    f"Validated {len(resolved_branches)} follow-up branches and queued {len(queued_work_item_ids)} work items."
+                    f"Queued {len(resolved_branches)} deferred follow-up branches while proceeding to submission."
                     if config.automation.auto_execute_plans
-                    else f"Validated {len(resolved_branches)} follow-up branches."
+                    else f"Resolved {len(resolved_branches)} deferred follow-up branches while proceeding to submission."
                 )
     payload = {
         "stage": "validate",
@@ -381,7 +487,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
         "plan_status": plan_status,
         "spec_id": spec_id,
         "queued_work_item_id": queued_work_item_id,
-        "branch_count": len(_plan_branches(plan, run)) if plan_status == "planned" else 0,
+        "branch_count": len(_plan_branches(plan, run)) if plan_status in {"planned", "submission_candidate"} else 0,
         "portfolio_id": portfolio_id,
         "dispatch_summary": dispatch_summary,
     }

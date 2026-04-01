@@ -96,6 +96,8 @@ def _print_status(root: Path, *, include_debug: bool = False) -> int:
         run_label = next((run_label_from_path(item.run_dir) for item in runs if item.run_id == work_item.latest_run_id), "")
         print(
             f"  {work_item.id}\t{work_item.status}\tp{work_item.priority}\t{work_item.family}\t{work_item.title}"
+            f"\tlifecycle={getattr(work_item, 'lifecycle_template', '') or 'n/a'}"
+            f"\ttarget={getattr(work_item, 'target_run_id', '') or 'n/a'}"
             f"\trun={run_label or 'n/a'}\tstage={stage_label if latest_stage is not None else 'n/a'}"
         )
     print("Runs:")
@@ -103,7 +105,8 @@ def _print_status(root: Path, *, include_debug: bool = False) -> int:
         metric = "-" if run.primary_metric_value is None else f"{run.primary_metric_name}={run.primary_metric_value:.6f}"
         print(
             f"  {run_label_from_path(run.run_dir) or run.run_id}\t{run.status}\t{run.stage_cursor or 'complete'}"
-            f"\t{run.experiment_id}\t{metric}\truntime={artifact_relative_path(run.run_dir, config.root)}"
+            f"\t{run.experiment_id}\t{metric}\tlifecycle={getattr(run, 'lifecycle_template', '') or 'n/a'}"
+            f"\truntime={artifact_relative_path(run.run_dir, config.root)}"
         )
     print("Stage Runs:")
     for stage_run in stage_runs[-10:]:

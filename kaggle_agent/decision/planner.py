@@ -31,6 +31,18 @@ ROLE_WEIGHTS = {
 }
 
 
+def _inferred_work_type(branch_role: str, idea_class: str, title: str, existing_work_type: str) -> str:
+    normalized = str(existing_work_type or "").strip()
+    if normalized and normalized != "experiment_iteration":
+        return normalized
+    role = str(branch_role or "").strip().lower()
+    idea = str(idea_class or "").strip().lower()
+    name = str(title or "").strip().lower()
+    if role == "submission" or "submission" in idea or "submit" in name or "leaderboard" in name:
+        return "submission"
+    return normalized or "experiment_iteration"
+
+
 def _branch_plan_limit() -> int:
     raw = os.environ.get("KAGGLE_AGENT_BRANCH_PLAN_LIMIT", "").strip()
     if not raw:
@@ -649,8 +661,13 @@ def _canonical_branch_plan(
 
     dedupe_key = str(branch_input.get("dedupe_key") or f"plan:{run.run_id}:{portfolio_id}:{branch_rank:02d}:{slugify(title)}")
     depends_on = [str(item) for item in branch_input.get("depends_on", [run.work_item_id])]
-    work_type = str(branch_input.get("work_type") or "experiment_iteration")
-    lifecycle_template = resolve_lifecycle_template(branch_input)
+    work_type = _inferred_work_type(
+        branch_role=branch_role,
+        idea_class=idea_class,
+        title=title,
+        existing_work_type=str(branch_input.get("work_type") or "experiment_iteration"),
+    )
+    lifecycle_template = resolve_lifecycle_template({**branch_input, "work_type": work_type})
     stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
     target_run_id = resolve_target_run_id(branch_input, lifecycle_template=lifecycle_template, default_run_id=run.run_id)
 
@@ -729,36 +746,6 @@ def _canonicalize_plan_payload(
             "policy_trace": [],
             "scheduler_hints": {},
         }
-    if plan_status == "submission_candidate":
-        return {
-            "stage": "plan",
-            "plan_status": "submission_candidate",
-            "source_run_id": run.run_id,
-            "reason": reason,
-            "title": str(payload.get("title") or decision.get("next_title") or experiment.title),
-            "family": str(payload.get("family") or decision.get("next_family") or experiment.family),
-            "hypothesis": str(payload.get("hypothesis") or reason),
-            "config_path": str(payload.get("config_path") or experiment.config_path),
-            "priority": int(payload.get("priority") or experiment.priority),
-            "depends_on": [run.work_item_id],
-            "tags": [experiment.family, "submission_candidate"],
-            "launch_mode": str(payload.get("launch_mode") or decision.get("launch_mode") or "background"),
-            "dedupe_key": str(payload.get("dedupe_key") or f"plan:submission:{run.run_id}"),
-            "work_type": str(payload.get("work_type") or "experiment_iteration"),
-            "lifecycle_template": str(payload.get("lifecycle_template") or "recursive_experiment"),
-            "target_run_id": str(payload.get("target_run_id") or ""),
-            "stage_plan": resolve_stage_plan(str(payload.get("lifecycle_template") or "recursive_experiment"), strict=config.automation.strict_stage_graph),
-            "portfolio_id": "",
-            "knowledge_card_ids": [str(item) for item in knowledge_bundle.get("knowledge_card_ids", [])],
-            "problem_frame": knowledge_bundle.get("problem_frame", {}),
-            "candidate_branches": [],
-            "branch_plans": [],
-            "pruned_branches": [],
-            "overridden_branches": [],
-            "policy_trace": [],
-            "scheduler_hints": {},
-        }
-
     fallback_candidates = _fallback_branch_candidates(
         config=config,
         state=state,
@@ -787,6 +774,13 @@ def _canonicalize_plan_payload(
         branch_memories=branch_memories,
         policy=policy,
     )
+    if plan_status == "submission_candidate":
+        candidate_branches = [
+            item for item in candidate_branches if resolve_lifecycle_template(item) != "submission_from_target_run"
+        ]
+        selected_branch_inputs = [
+            item for item in selected_branch_inputs if resolve_lifecycle_template(item) != "submission_from_target_run"
+        ]
 
     branch_plans = [
         _canonical_branch_plan(
@@ -831,6 +825,43 @@ def _canonicalize_plan_payload(
                 default_knowledge_ids=default_knowledge_ids,
             )
         ]
+    if plan_status == "submission_candidate":
+        lifecycle_template = "submission_from_target_run"
+        target_run_id = str(payload.get("target_run_id") or run.run_id)
+        return {
+            "stage": "plan",
+            "plan_status": "submission_candidate",
+            "source_run_id": run.run_id,
+            "reason": reason,
+            "title": str(payload.get("title") or decision.get("next_title") or experiment.title),
+            "family": str(payload.get("family") or decision.get("next_family") or experiment.family),
+            "hypothesis": str(payload.get("hypothesis") or reason),
+            "config_path": str(payload.get("config_path") or experiment.config_path),
+            "priority": int(payload.get("priority") or experiment.priority),
+            "depends_on": [run.work_item_id],
+            "tags": [experiment.family, "submission_candidate"],
+            "launch_mode": str(payload.get("launch_mode") or decision.get("launch_mode") or "background"),
+            "dedupe_key": str(payload.get("dedupe_key") or f"plan:submission:{run.run_id}"),
+            "work_type": "submission",
+            "lifecycle_template": lifecycle_template,
+            "target_run_id": target_run_id,
+            "stage_plan": resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph),
+            "portfolio_id": portfolio_id if branch_plans else "",
+            "knowledge_card_ids": [str(item) for item in knowledge_bundle.get("knowledge_card_ids", [])],
+            "problem_frame": knowledge_bundle.get("problem_frame", {}),
+            "candidate_branches": candidate_branches,
+            "branch_plans": branch_plans,
+            "pruned_branches": pruned_branches,
+            "overridden_branches": overridden_branches,
+            "policy_trace": policy_trace,
+            "scheduler_hints": {
+                "per_portfolio_cap": int(policy.get("per_portfolio_cap", 1) or 1),
+                "per_idea_class_cap": int(policy.get("per_idea_class_cap", 1) or 1),
+                "target_branch_count": len(branch_plans),
+                "dispatch_strategy": str(policy.get("dispatch_strategy", "prefer-diverse-frontier-before-follow-on-support")),
+            },
+            "created_at": now_utc_iso(),
+        }
     primary = branch_plans[0]
     return {
         "stage": "plan",

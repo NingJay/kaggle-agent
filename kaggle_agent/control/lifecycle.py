@@ -32,6 +32,21 @@ WORK_TYPE_TO_TEMPLATE = {
 }
 
 
+def _looks_like_submission_branch(payload: dict[str, object]) -> bool:
+    branch_role = str(payload.get("branch_role", "") or "").strip().lower()
+    idea_class = str(payload.get("idea_class", "") or "").strip().lower()
+    title = str(payload.get("title", "") or "").strip().lower()
+    tags = [str(item or "").strip().lower() for item in payload.get("tags", []) if str(item or "").strip()]
+    blob = " ".join([title, " ".join(tags)])
+    if branch_role == "submission":
+        return True
+    if "submission" in idea_class:
+        return True
+    if "submit" in blob or "submission bundle" in blob or "leaderboard" in blob:
+        return True
+    return False
+
+
 def _normalize_stage_plan(stage_plan: Iterable[str]) -> list[str]:
     normalized: list[str] = []
     for stage_name in stage_plan:
@@ -81,6 +96,8 @@ def resolve_lifecycle_template(payload: dict[str, object] | None, *, default: st
         if explicit not in LIFECYCLE_TEMPLATES:
             raise ValueError(f"Unknown lifecycle template: {explicit}")
         return explicit
+    if _looks_like_submission_branch(payload):
+        return "submission_from_target_run"
     work_type = str(payload.get("work_type", "") or "").strip()
     if work_type and work_type in WORK_TYPE_TO_TEMPLATE:
         return WORK_TYPE_TO_TEMPLATE[work_type]

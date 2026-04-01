@@ -149,6 +149,52 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         input_ref=run.latest_stage_run_id or run.run_id,
     )
     plan_status = str(plan.get("plan_status", "hold"))
+    if plan_status != "planned":
+        write_input_manifest(
+            input_manifest_path,
+            {
+                "run": run.to_dict(),
+                "plan": plan,
+                "codegen_attempt_number": 0,
+                "skip_reason": f"plan_status={plan_status}",
+            },
+        )
+        payload = {
+            "stage": "codegen",
+            "status": "noop",
+            "reason": f"plan_status={plan_status}",
+            "generated_config_path": "",
+            "run_bundle_path": "",
+            "patch_path": "",
+            "code_state_ref": "",
+            "verify_artifacts_ref": "",
+            "verify_command": "",
+            "verify_status": "skipped",
+            "verify_summary": f"Codegen provider was not invoked because the plan is `{plan_status}`.",
+            "worktree_path": "",
+            "base_commit": "",
+            "head_commit": "",
+            "changed_files": [],
+            "provider_runtime": "deterministic-skip",
+            "allowed_edit_roots": list(FALLBACK_ALLOWED_EDIT_ROOTS),
+            "smoke_status": "skipped",
+            "smoke_summary": f"Codegen provider was not invoked because the plan is `{plan_status}`.",
+        }
+        payload = _decorate_codegen_payload(payload, plan)
+        markdown = stage_markdown(
+            f"Codegen {run_id}",
+            [
+                "- Status: `noop`",
+                f"- Reason: {payload['reason']}",
+                "- Provider invocation: skipped",
+                f"- Verify summary: {payload['verify_summary']}",
+                f"- Branch role: `{payload.get('branch_role', '') or 'n/a'}`",
+                f"- Idea class: `{payload.get('idea_class', '') or 'n/a'}`",
+            ],
+        )
+        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
+        return stage_run
+
     previous_payload: dict[str, object] | None = None
     previous_markdown = ""
     for attempt_number in range(1, CODEGEN_MAX_REPAIR_ATTEMPTS + 1):
@@ -183,43 +229,7 @@ def build_codegen(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     if previous_payload is not None:
         complete_stage_run(stage_run, state=state, payload=previous_payload, markdown=previous_markdown)
         return stage_run
-
     output_dir = Path(stage_run.output_dir)
-    if plan_status != "planned":
-        payload = {
-            "stage": "codegen",
-            "status": "noop",
-            "reason": f"plan_status={plan_status}",
-            "generated_config_path": "",
-            "run_bundle_path": "",
-            "patch_path": "",
-            "code_state_ref": "",
-            "verify_artifacts_ref": "",
-            "verify_command": "",
-            "verify_status": "skipped",
-            "verify_summary": "Codegen did not run because the plan was not in planned state.",
-            "worktree_path": "",
-            "base_commit": "",
-            "head_commit": "",
-            "changed_files": [],
-            "provider_runtime": "deterministic-fallback",
-            "allowed_edit_roots": list(FALLBACK_ALLOWED_EDIT_ROOTS),
-            "smoke_status": "skipped",
-            "smoke_summary": "Codegen did not run because the plan was not in planned state.",
-        }
-        payload = _decorate_codegen_payload(payload, plan)
-        markdown = stage_markdown(
-            f"Codegen {run_id}",
-            [
-                f"- Status: `noop`",
-                f"- Reason: {payload['reason']}",
-                f"- Branch role: `{payload.get('branch_role', '') or 'n/a'}`",
-                f"- Idea class: `{payload.get('idea_class', '') or 'n/a'}`",
-            ],
-        )
-        complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
-        return stage_run
-
     config_path = Path(str(plan["config_path"]))
     if not config_path.is_absolute():
         config_path = config.root / config_path

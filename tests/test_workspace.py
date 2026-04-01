@@ -19,10 +19,12 @@ from kaggle_agent.adapters.providers.claude_code_exec import run_claude_code_exe
 from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
 from kaggle_agent.adapters.stage_wrapper import CodegenWorkspace, StageContext, _build_prompt, _verify_codegen_workspace
 from kaggle_agent.cli import main as cli_main
+from kaggle_agent.control.lifecycle import resolve_lifecycle_template
 from kaggle_agent.control.executor import collect_finished_runs, start_run
 from kaggle_agent.control.scheduler import choose_next_work_items
 from kaggle_agent.control.monitor import _process_run_stage_chain, _run_validate_stage, process_completed_runs
 from kaggle_agent.decision.codegen import build_codegen
+from kaggle_agent.decision.critic import build_critic
 from kaggle_agent.decision.planner import build_plan
 from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle, synchronize_branch_memory
 from kaggle_agent.layout import run_label
@@ -480,6 +482,28 @@ print(json.dumps({
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_submission_like_branch_is_coerced_to_submission_lifecycle(self) -> None:
+        payload = {
+            "title": "Ship raw-probe CPU submission bundle",
+            "branch_role": "submission",
+            "idea_class": "baseline_submission",
+            "work_type": "experiment_iteration",
+            "tags": ["submission"],
+        }
+        self.assertEqual(resolve_lifecycle_template(payload), "submission_from_target_run")
+
+    def test_submission_context_does_not_coerce_improvement_branch(self) -> None:
+        payload = {
+            "title": "Expand class coverage",
+            "branch_role": "improvement",
+            "idea_class": "class_coverage",
+            "work_type": "experiment_iteration",
+            "reason": "Deferred improvement branch after submission.",
+            "hypothesis": "Coverage expansion should improve macro ROC-AUC after leaderboard anchoring.",
+            "tags": ["planned", "branch-search", "improvement"],
+        }
+        self.assertEqual(resolve_lifecycle_template(payload), "recursive_experiment")
+
     def test_run_label_truncates_long_titles_with_stable_hash(self) -> None:
         title = (
             "Perch probe round 8 replace linear head with 1 hidden layer MLP embedding dim 256 "
@@ -1195,6 +1219,114 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(all(item.latest_spec_id for item in new_items))
             self.assertTrue(all(item.lifecycle_template == "recursive_experiment" for item in new_items))
             self.assertTrue(all(item.pipeline == ["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"] for item in new_items))
+
+    def test_validate_stage_dispatches_deferred_branches_for_submission_candidate(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            work_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            experiment = ExperimentSpec(
+                id="exp-validate-submission-deferred",
+                title="Perch cached-probe baseline",
+                hypothesis="baseline",
+                family=work_item.family,
+                config_path=work_item.config_path,
+                priority=work_item.priority,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+            )
+            state.experiments.append(experiment)
+            run = RunRecord(
+                run_id="run-validate-submission-deferred",
+                experiment_id=experiment.id,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+                status="succeeded",
+                command="",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-validate-submission-deferred"),
+                log_path=str(root / "artifacts" / "runs" / "run-validate-submission-deferred" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.665,
+            )
+            state.runs.append(run)
+            generated_root = root / "BirdCLEF-2026-Codebase" / "configs" / "generated"
+            generated_root.mkdir(parents=True, exist_ok=True)
+            branch_cfg = generated_root / "post-submit-branch.yaml"
+            branch_cfg.write_text((root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+
+            def _latest_payload(_state, _run_id, stage_name):
+                if stage_name == "plan":
+                    return {
+                        "stage": "plan",
+                        "plan_status": "submission_candidate",
+                        "source_run_id": run.run_id,
+                        "reason": "Ship the baseline, then fan out post-submission improvements.",
+                        "title": "Build submission bundle",
+                        "family": "perch_cached_probe",
+                        "hypothesis": "Submit now, then expand class coverage.",
+                        "config_path": str((root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml").relative_to(root)),
+                        "priority": 20,
+                        "depends_on": [work_item.id],
+                        "tags": ["submission_candidate"],
+                        "work_type": "submission",
+                        "lifecycle_template": "submission_from_target_run",
+                        "target_run_id": run.run_id,
+                        "portfolio_id": "portfolio-run-validate-submission-deferred",
+                        "branch_plans": [
+                            {
+                                "title": "Expand class coverage",
+                                "family": "perch_cached_probe",
+                                "hypothesis": "Coverage expansion should improve macro ROC-AUC after leaderboard anchoring.",
+                                "reason": "Deferred improvement branch after submission.",
+                                "config_path": str(branch_cfg.relative_to(root)),
+                                "priority": 28,
+                                "depends_on": [work_item.id],
+                                "tags": ["planned", "branch-search", "improvement"],
+                                "launch_mode": "background",
+                                "dedupe_key": "plan:post-submit-branch",
+                                "work_type": "experiment_iteration",
+                                "portfolio_id": "portfolio-run-validate-submission-deferred",
+                                "idea_class": "class_coverage",
+                                "branch_role": "improvement",
+                                "branch_rank": 0,
+                                "knowledge_card_ids": ["card-post-submit"],
+                            }
+                        ],
+                    }
+                if stage_name == "codegen":
+                    return {
+                        "stage": "codegen",
+                        "status": "noop",
+                        "verify_status": "skipped",
+                        "verify_summary": "Codegen provider was not invoked because the plan is `submission_candidate`.",
+                    }
+                if stage_name == "critic":
+                    return {
+                        "stage": "critic",
+                        "status": "approved",
+                        "warnings": ["Critic provider was not invoked because the plan is `submission_candidate`."],
+                    }
+                return {}
+
+            with patch("kaggle_agent.control.monitor.latest_stage_payload", side_effect=_latest_payload):
+                stage_run = _run_validate_stage(config, state, run.run_id)
+
+            payload = json.loads(Path(stage_run.output_json_path).read_text(encoding="utf-8"))
+            self.assertEqual(payload["status"], "validated")
+            self.assertEqual(payload["plan_status"], "submission_candidate")
+            self.assertEqual(payload["branch_count"], 1)
+            self.assertIn("proceeding to submission", payload["summary"])
+            derived = next(item for item in state.work_items if item.id != "workitem-perch-baseline")
+            self.assertEqual(derived.branch_role, "improvement")
+            self.assertEqual(derived.idea_class, "class_coverage")
+            self.assertEqual(derived.lifecycle_template, "recursive_experiment")
 
     def test_validate_stage_assigns_submission_lifecycle_and_target_run(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -2522,6 +2654,198 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(completed["payload"]["verify_status"], "passed")
             self.assertEqual(completed["markdown"], "second")
 
+    def test_build_plan_keeps_followup_branch_portfolio_for_submission_candidate(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            work_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            experiment = ExperimentSpec(
+                id="exp-plan-submission-portfolio",
+                title="Perch cached-probe baseline",
+                hypothesis="baseline",
+                family=work_item.family,
+                config_path=work_item.config_path,
+                priority=work_item.priority,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+            )
+            state.experiments.append(experiment)
+            run = RunRecord(
+                run_id="run-plan-submission-portfolio",
+                experiment_id=experiment.id,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+                status="succeeded",
+                command="",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-plan-submission-portfolio"),
+                log_path=str(root / "artifacts" / "runs" / "run-plan-submission-portfolio" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.665,
+            )
+            state.runs.append(run)
+            generated_root = root / "BirdCLEF-2026-Codebase" / "configs" / "generated"
+            generated_root.mkdir(parents=True, exist_ok=True)
+            branch_cfg = generated_root / "coverage-after-submit.yaml"
+            branch_cfg.write_text((root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+
+            adapter_payload = {
+                "stage": "plan",
+                "plan_status": "submission_candidate",
+                "title": "Build CPU-first submission bundle from run-0001",
+                "family": "perch_cached_probe",
+                "hypothesis": "Submit now, then continue coverage expansion in parallel.",
+                "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+                "priority": 20,
+                "work_type": "submission",
+                "target_run_id": run.run_id,
+                "branch_plans": [
+                    {
+                        "title": "Submit baseline bundle",
+                        "family": "perch_cached_probe",
+                        "hypothesis": "Submit the current leader bundle.",
+                        "reason": "Immediate submission route.",
+                        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+                        "priority": 20,
+                        "tags": ["submission"],
+                        "work_type": "submission",
+                        "branch_role": "submission",
+                        "idea_class": "baseline_submission",
+                        "target_run_id": run.run_id,
+                    },
+                    {
+                        "title": "Expand class coverage after submission",
+                        "family": "perch_cached_probe",
+                        "hypothesis": "Coverage expansion should improve recall after the baseline is anchored.",
+                        "reason": "Post-submission improvement branch.",
+                        "config_path": str(branch_cfg.relative_to(root)),
+                        "priority": 28,
+                        "tags": ["improvement"],
+                        "work_type": "experiment_iteration",
+                        "branch_role": "improvement",
+                        "idea_class": "class_coverage",
+                        "knowledge_card_ids": ["card-coverage"],
+                    },
+                ],
+            }
+
+            def _latest_payload(_state, _run_id, stage_name):
+                if stage_name == "decision":
+                    return {
+                        "stage": "decision",
+                        "next_action": "submit_candidate",
+                        "why": "Ship now, but keep the next improvement portfolio warm.",
+                        "next_title": "Build CPU-first submission bundle from run-0001",
+                        "next_family": "perch_cached_probe",
+                    }
+                if stage_name == "research":
+                    return {
+                        "stage": "research",
+                        "root_cause": "Need leaderboard anchoring plus post-submission coverage work.",
+                        "adopt_now": ["submit baseline bundle"],
+                        "consider": ["coverage expansion after submission"],
+                        "reject": [],
+                    }
+                return {}
+
+            with patch("kaggle_agent.decision.planner.latest_stage_payload", side_effect=_latest_payload), patch(
+                "kaggle_agent.decision.planner.run_configured_stage_adapter",
+                return_value=(adapter_payload, "plan markdown"),
+            ):
+                stage_run = build_plan(config, state, run.run_id)
+
+            payload = json.loads(Path(stage_run.output_json_path).read_text(encoding="utf-8"))
+            self.assertEqual(payload["plan_status"], "submission_candidate")
+            self.assertEqual(payload["lifecycle_template"], "submission_from_target_run")
+            self.assertEqual(payload["stage_plan"], ["submission"])
+            self.assertEqual(payload["target_run_id"], run.run_id)
+            self.assertEqual(len(payload["branch_plans"]), 1)
+            self.assertEqual(payload["branch_plans"][0]["branch_role"], "improvement")
+            self.assertEqual(payload["branch_plans"][0]["idea_class"], "class_coverage")
+
+    def test_build_codegen_skips_provider_for_submission_candidate_plan(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            config = load_config(root)
+
+            output_dir = root / "artifacts" / "codegen-submission-output"
+            output_dir.mkdir(parents=True)
+            input_manifest_path = output_dir / "input_manifest.json"
+            run = RunRecord(
+                run_id="run-codegen-submission-skip",
+                experiment_id="exp-codegen-submission-skip",
+                work_item_id="workitem-codegen-submission-skip",
+                spec_id="",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-codegen-submission-skip"),
+                log_path=str(root / "artifacts" / "runs" / "run-codegen-submission-skip" / "train.log"),
+            )
+            state = WorkspaceState(
+                work_items=[],
+                experiments=[],
+                runs=[run],
+                stage_runs=[],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(initialized_at="2026-03-31T00:00:00Z", next_validation_number=1),
+            )
+            stage_run = StageRun(
+                stage_run_id="stage-codegen-submission-skip",
+                run_id=run.run_id,
+                work_item_id=run.work_item_id,
+                stage_name="codegen",
+                status="running",
+                input_ref=run.run_id,
+                output_dir=str(output_dir),
+                output_json_path=str(output_dir / "codegen.json"),
+                output_md_path=str(output_dir / "codegen.md"),
+            )
+            plan_payload = {
+                "stage": "plan",
+                "plan_status": "submission_candidate",
+                "title": "Build submission bundle",
+                "family": "perch_cached_probe",
+                "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+                "branch_role": "submission",
+                "idea_class": "baseline_submission",
+            }
+
+            completed: dict[str, object] = {}
+
+            with patch("kaggle_agent.decision.codegen.latest_stage_payload", side_effect=[plan_payload, {}]), patch(
+                "kaggle_agent.decision.codegen.begin_stage_run",
+                return_value=(stage_run, input_manifest_path),
+            ), patch(
+                "kaggle_agent.decision.codegen.run_configured_stage_adapter",
+            ) as adapter_mock, patch(
+                "kaggle_agent.decision.codegen.complete_stage_run",
+                side_effect=lambda _stage_run, **kwargs: completed.update(kwargs),
+            ):
+                build_codegen(config, state, run.run_id)
+
+            adapter_mock.assert_not_called()
+            self.assertEqual(completed["payload"]["status"], "noop")
+            self.assertEqual(completed["payload"]["reason"], "plan_status=submission_candidate")
+            self.assertIn("was not invoked", completed["payload"]["verify_summary"])
+            self.assertIn("Provider invocation: skipped", completed["markdown"])
+
     def test_codegen_prompt_surfaces_retry_context_and_repair_rules(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2694,6 +3018,91 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(critic_attempt["status"], "rejected")
             self.assertIn("leader baseline", critic_attempt["concerns"][0])
             self.assertIn("Repair the bundle", critic_attempt["required_fixes"][0])
+
+    def test_build_critic_skips_provider_for_submission_candidate_plan(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            config = load_config(root)
+
+            output_dir = root / "artifacts" / "critic-submission-output"
+            output_dir.mkdir(parents=True)
+            input_manifest_path = output_dir / "input_manifest.json"
+            run = RunRecord(
+                run_id="run-critic-submission-skip",
+                experiment_id="exp-critic-submission-skip",
+                work_item_id="workitem-critic-submission-skip",
+                spec_id="",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-critic-submission-skip"),
+                log_path=str(root / "artifacts" / "runs" / "run-critic-submission-skip" / "train.log"),
+            )
+            state = WorkspaceState(
+                work_items=[],
+                experiments=[],
+                runs=[run],
+                stage_runs=[],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(initialized_at="2026-03-31T00:00:00Z", next_validation_number=1),
+            )
+            stage_run = StageRun(
+                stage_run_id="stage-critic-submission-skip",
+                run_id=run.run_id,
+                work_item_id=run.work_item_id,
+                stage_name="critic",
+                status="running",
+                input_ref=run.run_id,
+                output_dir=str(output_dir),
+                output_json_path=str(output_dir / "critic.json"),
+                output_md_path=str(output_dir / "critic.md"),
+            )
+            plan_payload = {
+                "stage": "plan",
+                "plan_status": "submission_candidate",
+                "branch_role": "submission",
+                "idea_class": "baseline_submission",
+            }
+            codegen_payload = {
+                "stage": "codegen",
+                "status": "noop",
+                "verify_status": "skipped",
+            }
+
+            completed: dict[str, object] = {}
+
+            def _latest_payload(_state: WorkspaceState, _run_id: str, stage_name: str) -> dict[str, object]:
+                if stage_name == "plan":
+                    return plan_payload
+                if stage_name == "codegen":
+                    return codegen_payload
+                return {}
+
+            with patch("kaggle_agent.decision.critic.latest_stage_payload", side_effect=_latest_payload), patch(
+                "kaggle_agent.decision.critic.begin_stage_run",
+                return_value=(stage_run, input_manifest_path),
+            ), patch(
+                "kaggle_agent.decision.critic.run_configured_stage_adapter",
+            ) as adapter_mock, patch(
+                "kaggle_agent.decision.critic.complete_stage_run",
+                side_effect=lambda _stage_run, **kwargs: completed.update(kwargs),
+            ):
+                build_critic(config, state, run.run_id)
+
+            adapter_mock.assert_not_called()
+            self.assertEqual(completed["payload"]["status"], "approved")
+            self.assertIn("was not invoked", completed["payload"]["warnings"][0])
+            self.assertIn("Provider invocation: skipped", completed["markdown"])
 
     def test_adapter_wrapper_fails_on_schema_mismatch(self) -> None:
         with TemporaryDirectory() as tmp:
