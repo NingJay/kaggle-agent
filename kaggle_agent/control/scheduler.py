@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from kaggle_agent.control.lifecycle import infer_lifecycle_template, resolve_stage_plan
 from kaggle_agent.control.store import find_work_item
 from kaggle_agent.schema import ExperimentSpec, SpecRecord, WorkItem, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import now_utc_iso, slugify
@@ -190,6 +191,8 @@ def register_work_item(
     config_path: str,
     priority: int,
     pipeline: list[str],
+    lifecycle_template: str = "recursive_experiment",
+    target_run_id: str = "",
     depends_on: list[str] | None = None,
     dedupe_key: str = "",
     source_run_id: str = "",
@@ -206,11 +209,15 @@ def register_work_item(
     branch_memory_ids: list[str] | None = None,
     scheduler_hints: dict[str, object] | None = None,
 ) -> WorkItem:
+    stage_plan = list(pipeline) if pipeline else resolve_stage_plan(lifecycle_template)
+    resolved_template = lifecycle_template or infer_lifecycle_template(stage_plan)
     existing = next((item for item in state.work_items if dedupe_key and item.dedupe_key == dedupe_key), None)
     if existing is not None:
         existing.config_path = config_path
         existing.priority = priority
-        existing.pipeline = list(pipeline)
+        existing.lifecycle_template = resolved_template or existing.lifecycle_template
+        existing.target_run_id = target_run_id or existing.target_run_id
+        existing.pipeline = list(stage_plan)
         existing.depends_on = list(depends_on or existing.depends_on)
         existing.portfolio_id = portfolio_id or existing.portfolio_id
         existing.parent_work_item_id = parent_work_item_id or existing.parent_work_item_id
@@ -231,7 +238,9 @@ def register_work_item(
         priority=priority,
         status="queued",
         config_path=config_path,
-        pipeline=list(pipeline),
+        lifecycle_template=resolved_template,
+        target_run_id=target_run_id,
+        pipeline=list(stage_plan),
         depends_on=list(depends_on or []),
         source_run_id=source_run_id,
         source_stage_run_id=source_stage_run_id,
@@ -346,7 +355,8 @@ def queue_config_experiment(
         family=family,
         config_path=relative_path,
         priority=priority,
-        pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
+        lifecycle_template="recursive_experiment",
+        pipeline=resolve_stage_plan("recursive_experiment"),
         notes=["Queued from direct config request."],
     )
 

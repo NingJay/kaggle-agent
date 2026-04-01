@@ -181,6 +181,10 @@ def _surface_updates(config: WorkspaceConfig, state: WorkspaceState) -> None:
             branch_bits.append(f"idea={work_item.idea_class}")
         if work_item.policy_trace:
             branch_bits.append(f"policy={work_item.policy_trace[0]}")
+        if work_item.lifecycle_template and work_item.lifecycle_template != "recursive_experiment":
+            branch_bits.append(f"lifecycle={work_item.lifecycle_template}")
+        if work_item.target_run_id:
+            branch_bits.append(f"target_run={work_item.target_run_id}")
         branch_summary = f" | {' '.join(branch_bits)}" if branch_bits else ""
         checklist.append(
             f"- [{'x' if work_item.status in {'complete', 'submitted'} else ' '}] `{work_item.id}` | {work_item.status} | p{work_item.priority} | {work_item.title}{branch_summary} | run={run_display} | stage={_latest_stage_label(state, work_item.latest_stage_run_id)}"
@@ -200,6 +204,8 @@ def _surface_updates(config: WorkspaceConfig, state: WorkspaceState) -> None:
             branch_bits.append(f"portfolio={work_item.portfolio_id}")
         if work_item is not None and work_item.policy_trace:
             branch_bits.append(f"policy={work_item.policy_trace[0]}")
+        if run.lifecycle_template and run.lifecycle_template != "recursive_experiment":
+            branch_bits.append(f"lifecycle={run.lifecycle_template}")
         branch_suffix = f" | {' '.join(branch_bits)}" if branch_bits else ""
         journal.append(
             f"- `{run_label_from_path(run.run_dir) or run.run_id}` | {run.status} | cursor={run.stage_cursor or 'n/a'} | latest_stage={latest_stage_label} | metric={run.primary_metric_name}={run.primary_metric_value}{branch_suffix}"

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from kaggle_agent.config import load_workspace_config
+from kaggle_agent.control.lifecycle import resolve_stage_plan
 from kaggle_agent.control.monitor import maybe_start_next_run, process_completed_runs, tick_workspace, watch_workspace
 from kaggle_agent.control.reporting import ensure_surface_files, write_reports
 from kaggle_agent.control.executor import reconcile_active_run_ids
@@ -134,7 +135,8 @@ def enqueue_preflight(config: WorkspaceConfig, *, priority: int = 5, allow_debug
             family="perch_head_debug",
             config_path=debug_config,
             priority=priority,
-            pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
+            lifecycle_template="recursive_experiment",
+            pipeline=resolve_stage_plan("recursive_experiment"),
             dedupe_key=f"manual:preflight:{attempt_slug}",
             notes=["Explicit debug-only preflight work item."],
         )

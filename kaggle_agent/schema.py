@@ -218,6 +218,8 @@ class WorkItem(_Serializable):
     priority: int
     status: str = "queued"
     config_path: str = ""
+    lifecycle_template: str = "recursive_experiment"
+    target_run_id: str = ""
     pipeline: list[str] = field(default_factory=list)
     depends_on: list[str] = field(default_factory=list)
     latest_run_id: str = ""
@@ -289,6 +291,8 @@ class RunRecord(_Serializable):
     primary_metric_value: float | None = None
     secondary_metrics: dict[str, float] = field(default_factory=dict)
     code_state_ref: str = ""
+    lifecycle_template: str = "recursive_experiment"
+    stage_plan: list[str] = field(default_factory=list)
     error: str = ""
     artifact_paths: dict[str, str] = field(default_factory=dict)
     root_cause: str = ""

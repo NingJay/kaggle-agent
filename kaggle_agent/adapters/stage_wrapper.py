@@ -284,7 +284,9 @@ def _build_prompt(
             "If the blocking issue is class imbalance or class coverage, propose a plan that addresses coverage before calibration-only tuning.\n"
             "When `plan_status` is `planned`, return a `branch_plans` array with 2-3 sibling branches whenever you can justify parallel search.\n"
             "Each branch may include `config_overrides` as typed operations like `{path, value}`; prefer that over inventing nonexistent config files.\n"
-            "Set the top-level plan fields to the primary branch, and keep sibling branches in `branch_plans` with explicit `branch_role`, `idea_class`, and `knowledge_card_ids`."
+            "Set `work_type` deliberately: use `submission` only for packaging an existing run, `analysis_only` for non-training reasoning branches, and `ablation_terminal` for terminal execute-once branches.\n"
+            "For submission branches, set `target_run_id` to the exact run that should be packaged.\n"
+            "Set the top-level plan fields to the primary branch, and keep sibling branches in `branch_plans` with explicit `branch_role`, `idea_class`, `knowledge_card_ids`, and lifecycle metadata."
         )
     if ctx.stage == "research":
         prompt_sections.append(

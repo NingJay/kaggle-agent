@@ -7,6 +7,7 @@ from typing import Any
 
 import yaml
 
+from kaggle_agent.control.lifecycle import resolve_lifecycle_template, resolve_stage_plan, resolve_target_run_id
 from kaggle_agent.decision.helpers import (
     begin_stage_run,
     complete_stage_run,
@@ -649,6 +650,9 @@ def _canonical_branch_plan(
     dedupe_key = str(branch_input.get("dedupe_key") or f"plan:{run.run_id}:{portfolio_id}:{branch_rank:02d}:{slugify(title)}")
     depends_on = [str(item) for item in branch_input.get("depends_on", [run.work_item_id])]
     work_type = str(branch_input.get("work_type") or "experiment_iteration")
+    lifecycle_template = resolve_lifecycle_template(branch_input)
+    stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
+    target_run_id = resolve_target_run_id(branch_input, lifecycle_template=lifecycle_template, default_run_id=run.run_id)
 
     return {
         "title": title,
@@ -662,6 +666,9 @@ def _canonical_branch_plan(
         "launch_mode": launch_mode,
         "dedupe_key": dedupe_key,
         "work_type": work_type,
+        "lifecycle_template": lifecycle_template,
+        "target_run_id": target_run_id,
+        "stage_plan": stage_plan,
         "portfolio_id": portfolio_id,
         "idea_class": idea_class,
         "branch_role": branch_role,
@@ -709,6 +716,9 @@ def _canonicalize_plan_payload(
             "launch_mode": str(payload.get("launch_mode") or decision.get("launch_mode") or "background"),
             "dedupe_key": str(payload.get("dedupe_key") or f"plan:hold:{run.run_id}"),
             "work_type": str(payload.get("work_type") or "experiment_iteration"),
+            "lifecycle_template": str(payload.get("lifecycle_template") or "recursive_experiment"),
+            "target_run_id": str(payload.get("target_run_id") or ""),
+            "stage_plan": resolve_stage_plan(str(payload.get("lifecycle_template") or "recursive_experiment"), strict=config.automation.strict_stage_graph),
             "portfolio_id": "",
             "knowledge_card_ids": [str(item) for item in knowledge_bundle.get("knowledge_card_ids", [])],
             "problem_frame": knowledge_bundle.get("problem_frame", {}),
@@ -735,6 +745,9 @@ def _canonicalize_plan_payload(
             "launch_mode": str(payload.get("launch_mode") or decision.get("launch_mode") or "background"),
             "dedupe_key": str(payload.get("dedupe_key") or f"plan:submission:{run.run_id}"),
             "work_type": str(payload.get("work_type") or "experiment_iteration"),
+            "lifecycle_template": str(payload.get("lifecycle_template") or "recursive_experiment"),
+            "target_run_id": str(payload.get("target_run_id") or ""),
+            "stage_plan": resolve_stage_plan(str(payload.get("lifecycle_template") or "recursive_experiment"), strict=config.automation.strict_stage_graph),
             "portfolio_id": "",
             "knowledge_card_ids": [str(item) for item in knowledge_bundle.get("knowledge_card_ids", [])],
             "problem_frame": knowledge_bundle.get("problem_frame", {}),
@@ -834,6 +847,9 @@ def _canonicalize_plan_payload(
         "launch_mode": primary["launch_mode"],
         "dedupe_key": primary["dedupe_key"],
         "work_type": primary["work_type"],
+        "lifecycle_template": primary["lifecycle_template"],
+        "target_run_id": primary["target_run_id"],
+        "stage_plan": primary["stage_plan"],
         "portfolio_id": portfolio_id,
         "knowledge_card_ids": primary["knowledge_card_ids"],
         "problem_frame": knowledge_bundle.get("problem_frame", {}),
@@ -920,6 +936,9 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         f"- Title: {payload['title']}",
         f"- Config: `{payload['config_path']}`",
         f"- Launch mode: `{payload['launch_mode']}`",
+        f"- Lifecycle: `{payload.get('lifecycle_template', '') or 'n/a'}`",
+        f"- Stage plan: `{' -> '.join(payload.get('stage_plan', [])) or 'n/a'}`",
+        f"- Target run: `{payload.get('target_run_id', '') or 'n/a'}`",
         f"- Hypothesis: {payload['hypothesis']}",
     ]
     if isinstance(branch_plans, list) and branch_plans:
@@ -928,7 +947,7 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
             if not isinstance(branch, dict):
                 continue
             markdown_lines.append(
-                f"- `{branch.get('branch_role', 'branch')}` | {branch.get('title', '')} | idea={branch.get('idea_class', '')} | score={branch.get('policy_score', 0.0)} | config=`{branch.get('config_path', '')}`"
+                f"- `{branch.get('branch_role', 'branch')}` | {branch.get('title', '')} | idea={branch.get('idea_class', '')} | lifecycle=`{branch.get('lifecycle_template', '')}` | target_run=`{branch.get('target_run_id', '') or 'n/a'}` | stages=`{' -> '.join(branch.get('stage_plan', []))}` | score={branch.get('policy_score', 0.0)} | config=`{branch.get('config_path', '')}`"
             )
     pruned = payload.get("pruned_branches")
     if isinstance(pruned, list) and pruned:

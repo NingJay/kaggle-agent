@@ -4,6 +4,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
+from kaggle_agent.control.lifecycle import resolve_stage_plan
 from kaggle_agent.layout import DEFAULT_ATTEMPT_SLUG, LEGACY_DEFAULT_ATTEMPT_SLUG, ROOT_SURFACE_DOC_NAMES
 from kaggle_agent.schema import (
     AgentRun,
@@ -181,7 +182,8 @@ def _default_work_items(config: WorkspaceConfig) -> list[WorkItem]:
             family="perch_cached_probe",
             priority=20,
             config_path=str((config.runtime_root() / "configs" / "default.yaml").relative_to(config.root)),
-            pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
+            lifecycle_template="recursive_experiment",
+            pipeline=resolve_stage_plan("recursive_experiment"),
             dedupe_key="seed:perch-baseline",
             created_at=timestamp,
             updated_at=timestamp,

@@ -1193,6 +1193,144 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual({item.branch_role for item in new_items}, {"primary", "hedge"})
             self.assertEqual({item.idea_class for item in new_items}, {"class_coverage", "probe_head"})
             self.assertTrue(all(item.latest_spec_id for item in new_items))
+            self.assertTrue(all(item.lifecycle_template == "recursive_experiment" for item in new_items))
+            self.assertTrue(all(item.pipeline == ["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"] for item in new_items))
+
+    def test_validate_stage_assigns_submission_lifecycle_and_target_run(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            work_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+            experiment = ExperimentSpec(
+                id="exp-validate-submission",
+                title="Perch cached-probe baseline",
+                hypothesis="baseline",
+                family=work_item.family,
+                config_path=work_item.config_path,
+                priority=work_item.priority,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+            )
+            state.experiments.append(experiment)
+            parent_run = RunRecord(
+                run_id="run-validate-submission",
+                experiment_id=experiment.id,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+                status="succeeded",
+                command="",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-validate-submission"),
+                log_path=str(root / "artifacts" / "runs" / "run-validate-submission" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.68,
+            )
+            target_run = RunRecord(
+                run_id="run-leader-target",
+                experiment_id=experiment.id,
+                work_item_id=work_item.id,
+                spec_id="spec-seed",
+                status="succeeded",
+                command="",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-leader-target"),
+                log_path=str(root / "artifacts" / "runs" / "run-leader-target" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.72,
+            )
+            state.runs.extend([parent_run, target_run])
+            code_state_root = root / "state" / "snapshots" / "codegen" / "code-state"
+            code_state_root.mkdir(parents=True, exist_ok=True)
+            generated_root = root / "BirdCLEF-2026-Codebase" / "configs" / "generated"
+            generated_root.mkdir(parents=True, exist_ok=True)
+            branch_cfg = generated_root / "submission-branch.yaml"
+            branch_cfg.write_text((root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+
+            def _latest_payload(_state, _run_id, stage_name):
+                if stage_name == "plan":
+                    return {
+                        "stage": "plan",
+                        "plan_status": "planned",
+                        "source_run_id": parent_run.run_id,
+                        "reason": "Package the current leader directly.",
+                        "title": "Submission branch",
+                        "family": "perch_cached_probe",
+                        "hypothesis": "Submit the best validated run without retraining.",
+                        "config_path": str(branch_cfg.relative_to(root)),
+                        "priority": 20,
+                        "depends_on": [work_item.id],
+                        "tags": ["planned", "submission"],
+                        "launch_mode": "background",
+                        "dedupe_key": "plan:submission-branch",
+                        "work_type": "submission",
+                        "portfolio_id": "portfolio-run-validate-submission",
+                        "knowledge_card_ids": ["card-submit"],
+                        "branch_plans": [
+                            {
+                                "title": "Submission branch",
+                                "family": "perch_cached_probe",
+                                "hypothesis": "Submit the best validated run without retraining.",
+                                "reason": "Use the validated leader as-is.",
+                                "config_path": str(branch_cfg.relative_to(root)),
+                                "priority": 20,
+                                "depends_on": [work_item.id],
+                                "tags": ["planned", "submission"],
+                                "launch_mode": "background",
+                                "dedupe_key": "plan:submission-branch",
+                                "work_type": "submission",
+                                "target_run_id": target_run.run_id,
+                                "portfolio_id": "portfolio-run-validate-submission",
+                                "idea_class": "submission",
+                                "branch_role": "submission",
+                                "branch_rank": 0,
+                                "knowledge_card_ids": ["card-submit"],
+                            }
+                        ],
+                    }
+                if stage_name == "codegen":
+                    return {
+                        "stage": "codegen",
+                        "status": "generated",
+                        "reason": "Generated submission config pointer.",
+                        "generated_config_path": str(branch_cfg),
+                        "run_bundle_path": "",
+                        "patch_path": "",
+                        "code_state_ref": str(code_state_root),
+                        "verify_artifacts_ref": str(root / "state" / "verify"),
+                        "verify_command": "python train_sed.py --config generated/submission-branch.yaml",
+                        "verify_status": "passed",
+                        "verify_summary": "verify passed",
+                        "worktree_path": str(code_state_root),
+                        "base_commit": "abc123",
+                        "head_commit": "def456",
+                        "changed_files": ["BirdCLEF-2026-Codebase/configs/generated/submission-branch.yaml"],
+                        "provider_runtime": "claude_code mode:agentic",
+                        "allowed_edit_roots": ["BirdCLEF-2026-Codebase/configs/generated"],
+                        "smoke_status": "passed",
+                        "smoke_summary": "verify passed",
+                    }
+                if stage_name == "critic":
+                    return {"stage": "critic", "status": "approved"}
+                return {}
+
+            with patch("kaggle_agent.control.monitor.latest_stage_payload", side_effect=_latest_payload):
+                stage_run = _run_validate_stage(config, state, parent_run.run_id)
+
+            payload = json.loads(Path(stage_run.output_json_path).read_text(encoding="utf-8"))
+            dispatched = payload["dispatch_summary"][0]
+            derived = next(item for item in state.work_items if item.id != "workitem-perch-baseline")
+            self.assertEqual(derived.lifecycle_template, "submission_from_target_run")
+            self.assertEqual(derived.pipeline, ["submission"])
+            self.assertEqual(derived.target_run_id, target_run.run_id)
+            self.assertEqual(dispatched["lifecycle_template"], "submission_from_target_run")
+            self.assertEqual(dispatched["stage_plan"], ["submission"])
+            self.assertEqual(dispatched["target_run_id"], target_run.run_id)
 
     def test_choose_next_work_items_returns_batch_up_to_capacity(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -2029,6 +2167,167 @@ class WorkspaceTests(unittest.TestCase):
             validate_mock.assert_not_called()
             codegen_mock.assert_not_called()
             self.assertEqual(run.stage_cursor, "codegen")
+
+    def test_process_run_stage_chain_stops_terminal_experiment_after_validate(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+
+            work_item = WorkItem(
+                id="workitem-terminal",
+                title="Terminal ablation",
+                work_type="ablation_terminal",
+                family="perch_cached_probe",
+                priority=40,
+                config_path="BirdCLEF-2026-Codebase/configs/default.yaml",
+                lifecycle_template="terminal_experiment",
+                pipeline=["execute", "evidence", "report", "validate"],
+                status="reviewing",
+            )
+            run = RunRecord(
+                run_id="run-terminal",
+                experiment_id="exp-terminal",
+                work_item_id=work_item.id,
+                spec_id="spec-terminal",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-terminal"),
+                log_path=str(root / "artifacts" / "runs" / "run-terminal" / "train.log"),
+                stage_cursor="evidence",
+                lifecycle_template="terminal_experiment",
+                stage_plan=["execute", "evidence", "report", "validate"],
+            )
+            state = WorkspaceState(
+                work_items=[work_item],
+                experiments=[],
+                runs=[run],
+                stage_runs=[],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(initialized_at="2026-03-31T00:00:00Z", next_validation_number=1),
+            )
+
+            def _payload_for_stage(_state: WorkspaceState, _run_id: str, stage_name: str) -> dict[str, object]:
+                if stage_name == "validate":
+                    return {"stage": "validate", "status": "validated"}
+                return {}
+
+            with patch("kaggle_agent.control.monitor.build_evidence", return_value=None) as evidence_mock, patch(
+                "kaggle_agent.control.monitor.build_report",
+                return_value=None,
+            ) as report_mock, patch(
+                "kaggle_agent.control.monitor._run_validate_stage",
+                return_value=None,
+            ) as validate_mock, patch(
+                "kaggle_agent.control.monitor.build_research",
+            ) as research_mock, patch(
+                "kaggle_agent.control.monitor.build_decision",
+            ) as decision_mock, patch(
+                "kaggle_agent.control.monitor.build_plan",
+            ) as plan_mock, patch(
+                "kaggle_agent.control.monitor.build_codegen",
+            ) as codegen_mock, patch(
+                "kaggle_agent.control.monitor.build_critic",
+            ) as critic_mock, patch(
+                "kaggle_agent.control.monitor._run_submission_stage",
+            ) as submission_mock, patch(
+                "kaggle_agent.control.monitor.latest_stage_payload",
+                side_effect=_payload_for_stage,
+            ):
+                _process_run_stage_chain(config, state, run.run_id)
+
+            evidence_mock.assert_called_once()
+            report_mock.assert_called_once()
+            validate_mock.assert_called_once()
+            research_mock.assert_not_called()
+            decision_mock.assert_not_called()
+            plan_mock.assert_not_called()
+            codegen_mock.assert_not_called()
+            critic_mock.assert_not_called()
+            submission_mock.assert_not_called()
+            self.assertEqual(run.stage_cursor, "complete")
+            self.assertEqual(work_item.status, "complete")
+
+    def test_submission_lifecycle_creates_synthetic_run_and_packages_target_run(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            baseline = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
+
+            target_experiment = ExperimentSpec(
+                id="exp-target-run",
+                title="Validated leader",
+                hypothesis="leader",
+                family=baseline.family,
+                config_path=baseline.config_path,
+                priority=baseline.priority,
+                work_item_id=baseline.id,
+                spec_id="spec-target-run",
+            )
+            state.experiments.append(target_experiment)
+            target_run = RunRecord(
+                run_id="run-target-run",
+                experiment_id=target_experiment.id,
+                work_item_id=baseline.id,
+                spec_id="spec-target-run",
+                status="succeeded",
+                command="python train_sed.py --config default.yaml",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-target-run"),
+                log_path=str(root / "artifacts" / "runs" / "run-target-run" / "train.log"),
+                primary_metric_name="val_soundscape_macro_roc_auc",
+                primary_metric_value=0.74,
+                stage_cursor="complete",
+            )
+            state.runs.append(target_run)
+
+            submission_item = WorkItem(
+                id="workitem-submission-target",
+                title="Package target run",
+                work_type="submission",
+                family=baseline.family,
+                priority=10,
+                config_path=baseline.config_path,
+                lifecycle_template="submission_from_target_run",
+                target_run_id=target_run.run_id,
+                pipeline=["submission"],
+                status="queued",
+                dedupe_key="manual:submission-target",
+            )
+            state.work_items.append(submission_item)
+
+            synthetic_run = start_run(config, state, submission_item.id, background=False)
+            self.assertEqual(synthetic_run.status, "succeeded")
+            self.assertEqual(synthetic_run.command, "synthetic:submission")
+            self.assertEqual(synthetic_run.stage_cursor, "submission")
+            self.assertFalse((Path(synthetic_run.run_dir) / "launch.sh").exists())
+
+            process_completed_runs(config, state)
+
+            submission_stage = next(item for item in state.stage_runs if item.run_id == synthetic_run.run_id and item.stage_name == "submission")
+            submission_payload = json.loads(Path(submission_stage.output_json_path).read_text(encoding="utf-8"))
+            self.assertEqual(submission_payload["status"], "candidate_created")
+            self.assertEqual(submission_payload["target_run_id"], target_run.run_id)
+            self.assertEqual(state.submissions[-1].source_run_id, target_run.run_id)
+            self.assertEqual(submission_item.status, "submitted")
+            self.assertEqual(synthetic_run.stage_cursor, "complete")
 
     def test_process_run_stage_chain_retries_retryable_stage_errors(self) -> None:
         with TemporaryDirectory() as tmp:

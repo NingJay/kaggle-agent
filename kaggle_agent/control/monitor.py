@@ -6,6 +6,14 @@ from pathlib import Path
 
 from kaggle_agent.adapters.command import CommandAdapterError
 from kaggle_agent.control.executor import collect_finished_runs, reconcile_active_run_ids, start_run
+from kaggle_agent.control.lifecycle import (
+    infer_lifecycle_template,
+    next_stage,
+    resolve_lifecycle_template,
+    resolve_stage_plan,
+    resolve_target_run_id,
+    validate_stage_plan,
+)
 from kaggle_agent.control.reporting import write_reports
 from kaggle_agent.control.scheduler import choose_next_work_item, choose_next_work_items, mark_work_item_status, register_work_item
 from kaggle_agent.control.store import find_work_item, load_state, save_state
@@ -163,6 +171,8 @@ def _plan_branches(plan: dict[str, object], run) -> list[dict[str, object]]:
             "launch_mode": str(plan.get("launch_mode", "background")),
             "dedupe_key": str(plan.get("dedupe_key", "")),
             "work_type": str(plan.get("work_type", "experiment_iteration")),
+            "lifecycle_template": str(plan.get("lifecycle_template", "") or ""),
+            "target_run_id": str(plan.get("target_run_id", "") or ""),
             "portfolio_id": str(plan.get("portfolio_id", "")),
             "idea_class": str(plan.get("idea_class", "")),
             "branch_role": str(plan.get("branch_role", "primary")),
@@ -173,6 +183,43 @@ def _plan_branches(plan: dict[str, object], run) -> list[dict[str, object]]:
             "scheduler_hints": dict(plan.get("scheduler_hints", {})) if isinstance(plan.get("scheduler_hints"), dict) else {},
         }
     ]
+
+
+def _work_item_stage_plan(config: WorkspaceConfig, work_item) -> list[str]:
+    lifecycle_template = str(work_item.lifecycle_template or "").strip()
+    if work_item.pipeline:
+        stage_plan = validate_stage_plan(work_item.pipeline, strict=config.automation.strict_stage_graph)
+        inferred = infer_lifecycle_template(stage_plan)
+        if not lifecycle_template or (
+            lifecycle_template == "recursive_experiment"
+            and stage_plan != resolve_stage_plan("recursive_experiment", strict=False)
+        ):
+            lifecycle_template = inferred
+    else:
+        if not lifecycle_template:
+            lifecycle_template = "recursive_experiment"
+        stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
+    work_item.lifecycle_template = lifecycle_template or "recursive_experiment"
+    work_item.pipeline = list(stage_plan)
+    return stage_plan
+
+
+def _run_stage_plan(config: WorkspaceConfig, state: WorkspaceState, run) -> list[str]:
+    work_item = next((item for item in state.work_items if item.id == run.work_item_id), None)
+    fallback_plan = _work_item_stage_plan(config, work_item) if work_item is not None else resolve_stage_plan("recursive_experiment", strict=config.automation.strict_stage_graph)
+    if run.stage_plan:
+        stage_plan = validate_stage_plan(run.stage_plan, strict=config.automation.strict_stage_graph)
+    else:
+        stage_plan = fallback_plan
+    lifecycle_template = str(run.lifecycle_template or "").strip()
+    if not lifecycle_template or (
+        lifecycle_template == "recursive_experiment"
+        and stage_plan != resolve_stage_plan("recursive_experiment", strict=False)
+    ):
+        lifecycle_template = infer_lifecycle_template(stage_plan)
+    run.lifecycle_template = lifecycle_template or (work_item.lifecycle_template if work_item is not None else "recursive_experiment")
+    run.stage_plan = list(stage_plan)
+    return stage_plan
 
 
 def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
@@ -245,6 +292,16 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                     str(config_file.relative_to(config.root)) if config_file.is_relative_to(config.root) else str(config_file)
                 )
                 branch_payload["code_state_ref"] = code_state_ref
+                lifecycle_template = resolve_lifecycle_template(branch_payload)
+                stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
+                target_run_id = resolve_target_run_id(
+                    branch_payload,
+                    lifecycle_template=lifecycle_template,
+                    default_run_id=run.run_id,
+                )
+                branch_payload["lifecycle_template"] = lifecycle_template
+                branch_payload["stage_plan"] = list(stage_plan)
+                branch_payload["target_run_id"] = target_run_id
                 resolved_branches.append(branch_payload)
             if missing_config is not None:
                 status = "failed"
@@ -262,7 +319,9 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                             family=str(branch_payload["family"]),
                             config_path=str(branch_payload["config_path"]),
                             priority=int(branch_payload.get("priority", 50) or 50),
-                            pipeline=["execute", "evidence", "report", "research", "decision", "plan", "codegen", "critic", "validate", "submission"],
+                            pipeline=[str(item) for item in branch_payload.get("stage_plan", [])],
+                            lifecycle_template=str(branch_payload.get("lifecycle_template", "recursive_experiment")),
+                            target_run_id=str(branch_payload.get("target_run_id", "")),
                             depends_on=[str(item) for item in branch_payload.get("depends_on", [run.work_item_id])],
                             dedupe_key=str(branch_payload.get("dedupe_key", "")),
                             source_run_id=run.run_id,
@@ -298,6 +357,9 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
                             "work_item_id": work_item_id,
                             "spec_id": spec.spec_id,
                             "config_path": str(branch_payload.get("config_path", "")),
+                            "lifecycle_template": str(branch_payload.get("lifecycle_template", "")),
+                            "stage_plan": [str(item) for item in branch_payload.get("stage_plan", [])],
+                            "target_run_id": str(branch_payload.get("target_run_id", "")),
                             "knowledge_card_ids": [str(item) for item in branch_payload.get("knowledge_card_ids", [])],
                             "policy_trace": [str(item) for item in branch_payload.get("policy_trace", [])],
                             "branch_memory_ids": [str(item) for item in branch_payload.get("branch_memory_ids", [])],
@@ -333,7 +395,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
             f"- Branch count: {payload['branch_count']}",
             *(["", "## Dispatch Summary"] if dispatch_summary else []),
             *(
-                f"- rank={item.get('branch_rank', 0)} | role={item.get('branch_role', '')} | idea={item.get('idea_class', '')} | work_item=`{item.get('work_item_id', '')}` | spec=`{item.get('spec_id', '')}`"
+                f"- rank={item.get('branch_rank', 0)} | role={item.get('branch_role', '')} | idea={item.get('idea_class', '')} | lifecycle=`{item.get('lifecycle_template', '')}` | stages=`{' -> '.join(item.get('stage_plan', []))}` | target_run=`{item.get('target_run_id', '') or 'n/a'}` | work_item=`{item.get('work_item_id', '')}` | spec=`{item.get('spec_id', '')}`"
                 for item in dispatch_summary
             ),
         ],
@@ -357,6 +419,7 @@ def _run_validate_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: 
 
 def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     run = next(item for item in state.runs if item.run_id == run_id)
+    work_item = next((item for item in state.work_items if item.id == run.work_item_id), None)
     decision = latest_stage_payload(state, run_id, "decision")
     plan = latest_stage_payload(state, run_id, "plan")
     validation = latest_stage_payload(state, run_id, "validate")
@@ -376,14 +439,50 @@ def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id
             "validation": validation,
         },
     )
-    should_build = (
+    submission_from_target_run = work_item is not None and work_item.lifecycle_template == "submission_from_target_run"
+    should_build = submission_from_target_run or (
         str(decision.get("submission_recommendation", "no")) == "candidate"
         or str(plan.get("plan_status", "")) == "submission_candidate"
     )
-    work_item = next((item for item in state.work_items if item.id == run.work_item_id), None)
     branch_origin = _submission_branch_origin(work_item)
-    if should_build:
-        candidate = build_submission_candidate(config, state, run_id)
+    target_run_id = ""
+    if work_item is not None:
+        target_run_id = str(work_item.target_run_id or "").strip()
+    source_run_id = target_run_id or run_id
+    if should_build and submission_from_target_run and not target_run_id:
+        payload = {
+            "stage": "submission",
+            "status": "failed",
+            "reason": "Submission lifecycle requires a target_run_id.",
+            "branch_origin": branch_origin,
+            "target_run_id": "",
+        }
+        markdown = stage_markdown(
+            f"Submission {run_id}",
+            [
+                "- Status: `failed`",
+                "- Reason: Submission lifecycle requires a target_run_id.",
+                f"- Branch origin: `{branch_origin}`",
+            ],
+        )
+    elif should_build and source_run_id not in {item.run_id for item in state.runs}:
+        payload = {
+            "stage": "submission",
+            "status": "failed",
+            "reason": f"Submission target run not found: {source_run_id}",
+            "branch_origin": branch_origin,
+            "target_run_id": source_run_id,
+        }
+        markdown = stage_markdown(
+            f"Submission {run_id}",
+            [
+                "- Status: `failed`",
+                f"- Reason: Submission target run not found: `{source_run_id}`",
+                f"- Branch origin: `{branch_origin}`",
+            ],
+        )
+    elif should_build:
+        candidate = build_submission_candidate(config, state, source_run_id)
         slot_plan = plan_submission_slots(config, state)
         payload = {
             "stage": "submission",
@@ -392,12 +491,14 @@ def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id
             "cpu_ready": candidate.cpu_ready,
             "slot_plan": slot_plan,
             "branch_origin": branch_origin,
+            "target_run_id": source_run_id,
         }
         markdown = stage_markdown(
             f"Submission {run_id}",
             [
                 "- Status: `candidate_created`",
                 f"- Candidate id: `{candidate.id}`",
+                f"- Target run: `{source_run_id}`",
                 f"- CPU ready: `{candidate.cpu_ready}`",
                 f"- Remaining daily slots: {slot_plan['remaining_daily_slots']}",
                 f"- Remaining final slots: {slot_plan['remaining_final_slots']}",
@@ -406,9 +507,15 @@ def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id
     else:
         payload = {"stage": "submission", "status": "skipped", "reason": "No submission recommendation for this run."}
         payload["branch_origin"] = branch_origin
+        payload["target_run_id"] = source_run_id if submission_from_target_run else ""
         markdown = stage_markdown(
             f"Submission {run_id}",
-            ["- Status: `skipped`", f"- Reason: {payload['reason']}", f"- Branch origin: `{branch_origin}`"],
+            [
+                "- Status: `skipped`",
+                f"- Reason: {payload['reason']}",
+                f"- Branch origin: `{branch_origin}`",
+                f"- Target run: `{payload['target_run_id'] or 'n/a'}`",
+            ],
         )
     complete_stage_run(stage_run, state=state, payload=payload, markdown=markdown)
     return stage_run
@@ -416,13 +523,21 @@ def _run_submission_stage(config: WorkspaceConfig, state: WorkspaceState, run_id
 
 def _finalize_work_item_status(state: WorkspaceState, run_id: str) -> None:
     run = next(item for item in state.runs if item.run_id == run_id)
-    work_item = find_work_item(state, run.work_item_id)
+    work_item = next((item for item in state.work_items if item.id == run.work_item_id), None)
+    if work_item is None:
+        return
     decision = latest_stage_payload(state, run_id, "decision")
+    validate = latest_stage_payload(state, run_id, "validate")
+    submission = latest_stage_payload(state, run_id, "submission")
     if run.stage_error:
+        work_item.status = "failed"
+    elif str(validate.get("status", "")) == "failed":
+        work_item.status = "failed"
+    elif str(submission.get("status", "")) == "failed":
         work_item.status = "failed"
     elif run.status == "failed" and str(decision.get("decision_type", "")) == "blocked":
         work_item.status = "blocked"
-    elif latest_stage_payload(state, run_id, "submission").get("status") == "candidate_created":
+    elif str(submission.get("status", "")) == "candidate_created":
         work_item.status = "submitted"
     else:
         work_item.status = "complete" if run.status == "succeeded" else "failed"
@@ -432,46 +547,44 @@ def _finalize_work_item_status(state: WorkspaceState, run_id: str) -> None:
 def _process_run_stage_chain(config: WorkspaceConfig, state: WorkspaceState, run_id: str) -> None:
     run = next(item for item in state.runs if item.run_id == run_id)
     while run.status in FINAL_RUN_STATUSES and run.stage_cursor and run.stage_cursor != "complete":
+        stage_plan = _run_stage_plan(config, state, run)
         if run.stage_error:
             if _should_auto_retry_stage_error(run):
                 run.stage_error = ""
             else:
                 break
         try:
-            if run.stage_cursor == "evidence":
+            current_stage = run.stage_cursor
+            if current_stage == "evidence":
                 build_evidence(config, state, run_id)
-                run.stage_cursor = "report"
-            elif run.stage_cursor == "report":
+            elif current_stage == "report":
                 build_report(config, state, run_id)
-                run.stage_cursor = "research"
-            elif run.stage_cursor == "research":
+            elif current_stage == "research":
                 build_research(config, state, run_id)
-                run.stage_cursor = "decision"
-            elif run.stage_cursor == "decision":
+            elif current_stage == "decision":
                 build_decision(config, state, run_id)
-                run.stage_cursor = "plan"
-            elif run.stage_cursor == "plan":
+            elif current_stage == "plan":
                 build_plan(config, state, run_id)
-                run.stage_cursor = "codegen"
-            elif run.stage_cursor == "codegen":
+            elif current_stage == "codegen":
                 build_codegen(config, state, run_id)
-                run.stage_cursor = "critic"
-            elif run.stage_cursor == "critic":
+            elif current_stage == "critic":
                 build_critic(config, state, run_id)
-                if _should_retry_codegen_after_critic_reject(state, run_id):
+                if "codegen" in stage_plan and _should_retry_codegen_after_critic_reject(state, run_id):
                     run.stage_cursor = "codegen"
                     run.stage_updated_at = now_utc_iso()
                     break
-                run.stage_cursor = "validate"
-            elif run.stage_cursor == "validate":
+            elif current_stage == "validate":
                 _run_validate_stage(config, state, run_id)
-                run.stage_cursor = "submission"
-            elif run.stage_cursor == "submission":
+            elif current_stage == "submission":
                 _run_submission_stage(config, state, run_id)
+            else:
+                raise ValueError(f"Unknown stage cursor: {current_stage}")
+            next_stage_name = next_stage(stage_plan, current_stage)
+            if next_stage_name is None:
                 run.stage_cursor = "complete"
                 _finalize_work_item_status(state, run_id)
             else:
-                raise ValueError(f"Unknown stage cursor: {run.stage_cursor}")
+                run.stage_cursor = next_stage_name
             run.stage_updated_at = now_utc_iso()
         except Exception as error:  # noqa: BLE001
             latest = latest_stage_run(state, run_id)
@@ -511,6 +624,10 @@ def maybe_start_next_run(
         return None, False
     run_in_background = background if background is not None else next_work_item.work_type != "deep_dive_analysis"
     run = start_run(config, state, next_work_item.id, background=run_in_background)
+    if run.status in FINAL_RUN_STATUSES and run.stage_cursor and run.stage_cursor != "complete":
+        _process_run_stage_chain(config, state, run.run_id)
+        if run.stage_cursor == "complete" or run.stage_error:
+            synchronize_branch_memory(state, run.run_id)
     return run, run_in_background
 
 
@@ -519,6 +636,10 @@ def _auto_start_ready_runs(config: WorkspaceConfig, state: WorkspaceState) -> li
     for work_item in choose_next_work_items(config, state):
         run = start_run(config, state, work_item.id, background=True)
         started.append(run.run_id)
+        if run.status in FINAL_RUN_STATUSES and run.stage_cursor and run.stage_cursor != "complete":
+            _process_run_stage_chain(config, state, run.run_id)
+            if run.stage_cursor == "complete" or run.stage_error:
+                synchronize_branch_memory(state, run.run_id)
     return started
 
 

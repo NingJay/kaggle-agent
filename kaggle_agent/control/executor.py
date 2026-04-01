@@ -7,6 +7,13 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from kaggle_agent.control.lifecycle import (
+    entry_stage_for_plan,
+    infer_lifecycle_template,
+    next_stage,
+    resolve_stage_plan,
+    validate_stage_plan,
+)
 from kaggle_agent.control.scheduler import ensure_seed_spec, register_experiment_for_work_item
 from kaggle_agent.control.store import find_run, find_work_item
 from kaggle_agent.layout import current_attempt_slug, run_label
@@ -149,6 +156,25 @@ def _launch_script(config: WorkspaceConfig, work_item_id: str, spec: SpecRecord,
     return "\n".join(lines) + "\n"
 
 
+def _resolved_work_item_stage_plan(config: WorkspaceConfig, work_item) -> list[str]:
+    lifecycle_template = str(work_item.lifecycle_template or "").strip()
+    if work_item.pipeline:
+        stage_plan = validate_stage_plan(work_item.pipeline, strict=config.automation.strict_stage_graph)
+        inferred = infer_lifecycle_template(stage_plan)
+        if not lifecycle_template or (
+            lifecycle_template == "recursive_experiment"
+            and stage_plan != resolve_stage_plan("recursive_experiment", strict=False)
+        ):
+            lifecycle_template = inferred
+    else:
+        if not lifecycle_template:
+            lifecycle_template = "recursive_experiment"
+        stage_plan = resolve_stage_plan(lifecycle_template, strict=config.automation.strict_stage_graph)
+    work_item.lifecycle_template = lifecycle_template or "recursive_experiment"
+    work_item.pipeline = list(stage_plan)
+    return stage_plan
+
+
 def start_run(
     config: WorkspaceConfig,
     state: WorkspaceState,
@@ -157,6 +183,9 @@ def start_run(
     background: bool = True,
 ) -> RunRecord:
     work_item = find_work_item(state, work_item_id)
+    stage_plan = _resolved_work_item_stage_plan(config, work_item)
+    lifecycle_template = str(work_item.lifecycle_template or "recursive_experiment")
+    entry_stage = entry_stage_for_plan(stage_plan)
     spec = _validated_spec_for_work_item(state, work_item)
     if spec is None:
         spec = ensure_seed_spec(state, work_item)
@@ -167,46 +196,55 @@ def start_run(
     run_dir = config.run_runtime_dir(attempt_slug, readable_run_label)
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = config.run_log_path(attempt_slug, readable_run_label)
-    gpu_id = choose_idle_gpu() or ""
-    execution_root, config_path, train_entrypoint = _resolve_execution_workspace(config, spec, RunRecord(
-        run_id=run_id,
-        experiment_id=experiment.id,
-        work_item_id=work_item.id,
-        spec_id=spec.spec_id,
-        status="running",
-        command="",
-        cwd="",
-        run_dir=str(run_dir),
-        log_path=str(log_path),
-    ))
-    command = f"python {config.runtime.train_entrypoint} --config {spec.config_path}"
+    started_at = now_utc_iso()
     run = RunRecord(
         run_id=run_id,
         experiment_id=experiment.id,
         work_item_id=work_item.id,
         spec_id=spec.spec_id,
-        status="running",
-        command=f"python {train_entrypoint} --config {config_path}",
-        cwd=str(execution_root),
+        status="running" if entry_stage == "execute" else "succeeded",
+        command="" if entry_stage == "execute" else f"synthetic:{entry_stage}",
+        cwd="" if entry_stage == "execute" else str(config.root),
         run_dir=str(run_dir),
         log_path=str(log_path),
-        started_at=now_utc_iso(),
-        gpu_id=gpu_id,
+        started_at=started_at,
+        completed_at=started_at if entry_stage != "execute" else "",
+        gpu_id="",
         code_state_ref=spec.code_state_ref,
+        lifecycle_template=lifecycle_template,
+        stage_plan=list(stage_plan),
+        stage_cursor=entry_stage if entry_stage != "execute" else "",
+        stage_updated_at=started_at if entry_stage != "execute" else "",
+        root_cause="synthetic_lifecycle_entry" if entry_stage != "execute" else "",
+        verdict="synthetic_lifecycle_entry" if entry_stage != "execute" else "",
     )
-    launch_script = run_dir / "launch.sh"
-    atomic_write_text(launch_script, _launch_script(config, work_item.id, spec, run))
-    launch_script.chmod(0o755)
+    if entry_stage == "execute":
+        gpu_id = choose_idle_gpu() or ""
+        execution_root, config_path, train_entrypoint = _resolve_execution_workspace(config, spec, run)
+        run.command = f"python {train_entrypoint} --config {config_path}"
+        run.cwd = str(execution_root)
+        run.gpu_id = gpu_id
+        launch_script = run_dir / "launch.sh"
+        atomic_write_text(launch_script, _launch_script(config, work_item.id, spec, run))
+        launch_script.chmod(0o755)
+    else:
+        atomic_write_text(
+            log_path,
+            f"synthetic lifecycle entry for `{entry_stage}` using template `{lifecycle_template}`\n",
+        )
     work_item.status = "running"
     work_item.latest_run_id = run.run_id
     work_item.latest_spec_id = spec.spec_id
     work_item.updated_at = now_utc_iso()
-    experiment.status = "running"
+    experiment.status = run.status
     experiment.latest_run_id = run.run_id
     experiment.spec_id = spec.spec_id
     experiment.updated_at = now_utc_iso()
     state.runs.append(run)
-    state.runtime.active_run_ids.append(run.run_id)
+    if entry_stage == "execute":
+        state.runtime.active_run_ids.append(run.run_id)
+    else:
+        return run
 
     with log_path.open("w", encoding="utf-8") as handle:
         if background:
@@ -309,6 +347,11 @@ def reconcile_active_run_ids(state: WorkspaceState) -> None:
 def finalize_run(config: WorkspaceConfig, state: WorkspaceState, run_id: str) -> RunRecord:
     run = find_run(state, run_id)
     work_item = find_work_item(state, run.work_item_id)
+    stage_plan = list(run.stage_plan) if run.stage_plan else _resolved_work_item_stage_plan(config, work_item)
+    if not run.stage_plan:
+        run.stage_plan = list(stage_plan)
+    if not run.lifecycle_template:
+        run.lifecycle_template = work_item.lifecycle_template
     experiment = next(item for item in state.experiments if item.id == run.experiment_id)
     exit_code_path = Path(run.run_dir) / "exit_code.txt"
     result_path = Path(run.run_dir) / "result.json"
@@ -353,7 +396,8 @@ def finalize_run(config: WorkspaceConfig, state: WorkspaceState, run_id: str) ->
     work_item.status = "reviewing"
     work_item.updated_at = now_utc_iso()
     if not run.stage_cursor:
-        run.stage_cursor = "evidence"
+        next_stage_name = next_stage(stage_plan, "execute") if "execute" in stage_plan else None
+        run.stage_cursor = next_stage_name or "complete"
         run.stage_error = ""
         run.stage_updated_at = run.completed_at
     return run
