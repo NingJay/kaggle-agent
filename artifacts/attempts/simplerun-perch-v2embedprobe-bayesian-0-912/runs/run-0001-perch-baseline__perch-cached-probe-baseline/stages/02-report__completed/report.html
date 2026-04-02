@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run Report run-0001-perch-baseline</title>
+  <style>
+    body { margin: 0; font-family: Georgia, serif; background: #f5f1e8; color: #1f2937; }
+    main { max-width: 900px; margin: 0 auto; padding: 32px 20px 48px; }
+    article { background: #fffdfa; border: 1px solid #d9d1c5; border-radius: 16px; padding: 24px; }
+    pre { white-space: pre-wrap; font: 14px/1.6 "SFMono-Regular", Consolas, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <article>
+    <pre>## Report: run-0001-perch-baseline (Perch cached-probe baseline)
+
+**Verdict:** submission-required
+
+### Primary Metric
+
+| Metric | Value |
+|---|---|
+| val_soundscape_macro_roc_auc | **0.66497** |
+| soundscape_macro_roc_auc (train) | 0.99179 |
+| padded_cmap | 0.06253 |
+| val_prior_fusion_macro_roc_auc | 0.66221 |
+| oof_probe_macro_roc_auc | 0.52006 |
+
+### Situation Summary
+
+The first end-to-end run of the Perch cached-probe baseline pipeline completed successfully in ~2 minutes. The pipeline uses pre-cached Perch embeddings with a Bayesian prior and linear probe classifier. This run is now the leaderboard leader by default (first run).
+
+Key observations:
+
+1. **Large train-val gap on soundscape ROC-AUC** (0.992 vs 0.665): The model fits training soundscapes almost perfectly but generalizes poorly to validation. This points to overfitting on the 708 fully-labeled windows across 59 files, or a distribution mismatch between train and val splits.
+
+2. **Prior fusion provides negligible lift**: val_prior_fusion_macro_roc_auc (0.662) is essentially the same as val_soundscape_macro_roc_auc (0.665), meaning the Bayesian prior fusion layer is not adding discriminative power beyond the raw soundscape predictions.
+
+3. **OOF probe is weak** (0.520): The out-of-fold probe macro ROC-AUC is barely above random (0.5), which explains why the prior fusion does not help — the probe itself is not producing useful class-conditional signals.
+
+4. **Dataset coverage**: 75 active classes but only 52 fitted classes, meaning 23 classes lack sufficient probe data. This likely contributes to the weak probe performance.
+
+### Root Cause
+
+The baseline pipeline is structurally complete but the embedding probe is underfitting (OOF AUC 0.52). With only 708 labeled windows and 52 fitted classes, the linear probe lacks the data volume to learn discriminative class boundaries. The prior fusion cannot compensate for a weak probe. The immediate blocker is not a code defect but a data/calibration gap.
+
+### Next Steps
+
+1. **Build submission bundle** (`build-submission`) to get a scored Kaggle result and anchor the leaderboard.
+2. **Research calibration** — temperature scaling or Platt scaling on the probe outputs to improve prior fusion contribution.
+3. **Investigate the 23 unfitted classes** — determine if they have zero or near-zero training samples and whether upsampling or label smoothing could help.
+4. **Consider data augmentation** on the 708 labeled windows to strengthen the probe.
+</pre>
+  </article>
+</main>
+</body>
+</html>

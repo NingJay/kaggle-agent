@@ -1,0 +1,1059 @@
+{
+  "run": {
+    "run_id": "run-0001-perch-baseline",
+    "experiment_id": "exp-perch-baseline",
+    "work_item_id": "workitem-perch-baseline",
+    "spec_id": "spec-0001",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/train.log",
+    "started_at": "2026-04-02T13:24:39+00:00",
+    "completed_at": "2026-04-02T13:26:41+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6649679056916058,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917904323285178,
+      "padded_cmap": 0.06253383177547682,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "recursive_experiment",
+    "stage_plan": [
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "codegen",
+      "critic",
+      "validate",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "research",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-02T13:27:21+00:00",
+    "latest_stage_run_id": "stage-0003-research"
+  },
+  "experiment": {
+    "id": "exp-perch-baseline",
+    "title": "Perch cached-probe baseline",
+    "hypothesis": "Work item workitem-perch-baseline: Perch cached-probe baseline",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "priority": 20,
+    "work_item_id": "workitem-perch-baseline",
+    "spec_id": "spec-0001",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0001-perch-baseline",
+    "latest_decision_id": "",
+    "created_at": "2026-04-02T13:24:39+00:00",
+    "updated_at": "2026-04-02T13:26:41+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-perch-baseline:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "",
+    "idea_class": "",
+    "branch_role": "",
+    "branch_rank": 0,
+    "knowledge_card_ids": []
+  },
+  "report": {
+    "stage": "report",
+    "headline": "Perch cached-probe baseline succeeded at val ROC-AUC 0.665, submission bundle parity needed next.",
+    "focus": "Submission bundle assembly and calibration for run-0001-perch-baseline",
+    "best_run_id": "run-0001-perch-baseline",
+    "best_run_metric": 0.6649679056916058,
+    "primary_metric_value": 0.6649679056916058,
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline completed its first end-to-end run. The training+validation pipeline is functional but the submission bundle has not been built yet. The gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) signals meaningful overfitting or distribution shift, and prior fusion is not yet contributing (val prior fusion 0.662 vs val soundscape 0.665 — nearly identical). Calibration and bundle parity are the immediate blockers.",
+    "verdict": "submission-required",
+    "finding_titles": [
+      "Perch cached-probe baseline completed"
+    ],
+    "issue_titles": []
+  },
+  "retrieved_knowledge": {
+    "problem_frame": {
+      "stage": "research",
+      "run_id": "run-0001-perch-baseline",
+      "family": "perch_cached_probe",
+      "title": "Perch cached-probe baseline",
+      "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline completed its first end-to-end run. The training+validation pipeline is functional but the submission bundle has not been built yet. The gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) signals meaningful overfitting or distribution shift, and prior fusion is not yet contributing (val prior fusion 0.662 vs val soundscape 0.665 — nearly identical). Calibration and bundle parity are the immediate blockers.",
+      "hypothesis": "",
+      "objective_metric": "val_soundscape_macro_roc_auc",
+      "current_metric_value": 0.6649679056916058,
+      "focus": "Submission bundle assembly and calibration for run-0001-perch-baseline",
+      "next_action": "",
+      "adopt_now": [],
+      "consider": [],
+      "reject": [],
+      "query_terms": [
+        "perch_cached_probe",
+        "perch",
+        "cached",
+        "probe",
+        "baseline",
+        "the",
+        "notebook",
+        "derived",
+        "bayesian",
+        "prior",
+        "embedding",
+        "pipeline",
+        "completed",
+        "its",
+        "first",
+        "end",
+        "run",
+        "training",
+        "validation",
+        "functional",
+        "but",
+        "submission",
+        "bundle",
+        "has"
+      ]
+    },
+    "knowledge_files_seen": 5,
+    "knowledge_card_ids": [
+      "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+      "imports-kaggle-agent-research-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state-md-verdict-continue-iterating-override",
+      "imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+      "imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics",
+      "imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+      "imports-kaggle-agent-experiment-conclusions-md-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+      "imports-kaggle-agent-04-submission-bar-md-example",
+      "imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+    ],
+    "knowledge_sources": [
+      {
+        "source_kind": "workspace",
+        "source_label": "workspace",
+        "source_root": ".",
+        "comparison_root": "."
+      },
+      {
+        "source_kind": "imported",
+        "source_label": "kaggle-agent",
+        "source_root": "/home/staff/jiayining/kaggle/kaggle_agent/knowledge",
+        "comparison_root": ".",
+        "destination_root": "imports/kaggle-agent",
+        "copied_files": 0,
+        "preserved_files": 42
+      }
+    ],
+    "branch_memory_ids": [],
+    "cards": [
+      {
+        "card_id": "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+        "source_path": "imports/kaggle-agent/experiment_conclusions.md",
+        "source_kind": "imported",
+        "source_label": "kaggle-agent",
+        "comparison_path": "experiment_conclusions.md",
+        "title": "run-0001-perch-baseline",
+        "summary": "Experiment: `exp-perch-baseline`",
+        "text": "- Experiment: `exp-perch-baseline`\n- Best AUC: 0.664958\n- Root cause: Round 1 baseline completed with val ROC-AUC 0.665, but only 52/75 classes are fitted (31% coverage deficit). The report stage's submission-required verdict is overridden: this is the first run of a simple linear probe with no iteration history, and the family name contains \"baseline\" — it fails all four submission bar criteria from 04_submission_bar.md. The structural class coverage gap is the single blocking issue; no downstream work (calibration, post-processing, ensemble) is meaningful until the probe covers all active classes.\n- Verdict: submission-required",
+        "stance": "positive",
+        "component": "class_coverage",
+        "policy_type": "prefer",
+        "confidence": 0.7,
+        "applies_to": [
+          "class_coverage",
+          "imports",
+          "kaggle",
+          "agent",
+          "experiment_conclusions"
+        ],
+        "override_required": false,
+        "keywords": [
+          "imports",
+          "kaggle",
+          "agent",
+          "experiment_conclusions",
+          "run",
+          "0001",
+          "perch",
+          "baseline",
+          "experiment",
+          "exp",
+          "best",
+          "auc",
+          "664958",
+          "root",
+          "cause",
+          "round",
+          "completed",
+          "with",
+          "val",
+          "roc",
+          "665",
+          "but",
+          "only",
+          "classes"
+        ],
+        "score": 23.6
+      },
+      {
+        "card_id": "imports-kaggle-agent-research-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state-md-verdict-continue-iterating-override",
+        "source_path": "imports/kaggle-agent/research/run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state.md",
+        "source_kind": "imported",
+        "source_label": "kaggle-agent",
+        "comparison_path": "research/run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state.md",
+        "title": "Verdict: Continue-Iterating (Override)",
+        "summary": "The report stage returned `submission-required`. This is **overridden to continue-iterating** because:",
+        "text": "The report stage returned `submission-required`. This is **overridden to continue-iterating** because:\n\n1. **Regression, not improvement**: val ROC-AUC dropped from 0.6777 (leader) to 0.6652, a -0.0125 regression.\n2. **This is the 4th consecutive failure** (rounds 3, 5, 6, 7).\n3. **Family name** `perch_cached_probe` triggers the probe exclusion.\n4. **No validated pipeline**: only 1 structural technique (coverage expansion) has succeeded across 7 rounds.\n5. **Temperature was not the bottleneck**: the hypothesis that 7.39 was abnormally high and inflating logits toward uniformity is falsified — reducing to 1.0 made things worse, not better.",
+        "stance": "negative",
+        "component": "class_coverage",
+        "policy_type": "veto",
+        "confidence": 0.78,
+        "applies_to": [
+          "class_coverage",
+          "imports",
+          "kaggle",
+          "agent",
+          "research"
+        ],
+        "override_required": true,
+        "keywords": [
+          "imports",
+          "kaggle",
+          "agent",
+          "research",
+          "run",
+          "0007",
+          "0006",
+          "perch",
+          "probe",
+          "round",
+          "audit",
+          "training",
+          "temperature",
+          "reduce",
+          "from",
+          "0002",
+          "leader",
+          "code",
+          "state",
+          "verdict",
+          "continue",
+          "iterating",
+          "override",
+          "the"
+        ],
+        "score": 21.84
+      },
+      {
+        "card_id": "imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+        "source_path": "imports/kaggle-agent/00_experiment_rules.md",
+        "source_kind": "imported",
+        "source_label": "kaggle-agent",
+        "comparison_path": "00_experiment_rules.md",
+        "title": "Current Runtime Interpretation",
+        "summary": "For the current cached-probe runtime, treat holdout-aware soundscape validation as the intended local primary signal whenever it is produced.",
+        "text": "- For the current cached-probe runtime, treat holdout-aware soundscape validation as the intended local primary signal whenever it is produced.\n- If holdout validation is absent, fall back to `prior_fusion_macro_roc_auc` as a weaker reference, not as an equivalent substitute.",
+        "stance": "conditional",
+        "component": "probe_head",
+        "policy_type": "conditional",
+        "confidence": 0.62,
+        "applies_to": [
+          "probe_head",
+          "imports",
+          "kaggle",
+          "agent",
+          "00_experiment_rules"
+        ],
+        "override_required": false,
+        "keywords": [
+          "imports",
+          "kaggle",
+          "agent",
+          "00_experiment_rules",
+          "current",
+          "runtime",
+          "interpretation",
+          "for",
+          "the",
+          "cached",
+          "probe",
+          "treat",
+          "holdout",
+          "aware",
+          "soundscape",
+          "validation",
+          "intended",
+          "local",
+          "primary",
+          "signal",
+          "whenever",
+          "produced",
+          "absent",
+          "fall"
+        ],
+        "score": 21.86
+      },
+      {
+        "card_id": "imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics",
+        "source_path": "imports/kaggle-agent/01_validated_findings.md",
+        "source_kind": "imported",
+        "source_label": "kaggle-agent",
+        "comparison_path": "01_validated_findings.md",
+        "title": "Validation And Metric Semantics",
+        "summary": "Holdout validation is the most trustworthy local signal for iteration.",
+        "text": "- Holdout validation is the most trustworthy local signal for iteration.\n- Small soundscape validation subsets can be useful, but they are not a universal ranking metric across different training regimes.\n- Historical reports repeatedly show that one metric can look weak while another better-matched split shows the model is actually strong.",
+        "stance": "positive",
+        "component": "backbone",
+        "policy_type": "require",
+        "confidence": 0.88,
+        "applies_to": [
+          "backbone",
+          "imports",
+          "kaggle",
+          "agent",
+          "01_validated_findings"
+        ],
+        "override_required": false,
+        "keywords": [
+          "imports",
+          "kaggle",
+          "agent",
+          "01_validated_findings",
+          "validation",
+          "and",
+          "metric",
+          "semantics",
+          "holdout",
+          "the",
+          "most",
+          "trustworthy",
+          "local",
+          "signal",
+          "for",
+          "iteration",
+          "small",
+          "soundscape",
+          "subsets",
+          "can",
+          "useful",
+          "but",
+          "they",
+          "are"
+        ],
+        "score": 23.14
+      },
+      {
+        "card_id": "imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+        "source_path": "imports/kaggle-agent/experiment_conclusions.md",
+        "source_kind": "imported",
+        "source_label": "kaggle-agent",
+        "comparison_path": "experiment_conclusions.md",
+        "title": "run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+        "summary": "Experiment: `exp-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state`",
+        "text": "- Experiment: `exp-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state`\n- Best AUC: 0.665297\n- Root cause: Run-0010 grid-searched the blend weight between the MLP probe (val AUC 0.6801) and the Bayesian prior (val AUC 0.662), producing a best fused val AUC of 0.6653 — a -0.0148 regression. The prior does not carry complementary holdout signal relative to the MLP probe; the two sets of predictions are correlated rather than corrective, so blending dilutes the MLP's discriminative power. Prior fusion holdout remained stable at 0.662, confirming the regression is entirely in the fusion logic, not a pipeline health issue.\n- Verdict: submission-required",
+        "stance": "negative",
+        "component": "prior_calibration",
+        "policy_type": "veto",
+        "confidence": 0.8,
+        "applies_to": [
+          "prior_calibration",
+          "imports",
+          "kaggle",
+          "agent",
+          "experiment_conclusions"
+        ],
+        "override_required": true,
+        "keywords": [
+          "imports",
+          "kaggle",
+          "agent",
+          "experiment_conclusions",
+          "run",
+          "0010",
+          "0008",
+          "perch",
+          "probe",
+          "round",
+          "prior",
+          "fusion",
+          "blend",
+          "ratio",
+          "grid",
+          "search",
+          "mlp",
+          "code",
+          "state",
+          "experiment",
+          "exp",
+          "best",
+          "auc",
+          "665297"
+        ],
+        "score": 21.4
+      },
+      {
+        "card_id": "imports-kaggle-agent-experiment-conclusions-md-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+        "source_path": "imports/kaggle-agent/experiment_conclusions.md",
+        "source_kind": "imported",
+        "source_label": "kaggle-agent",
+        "comparison_path": "experiment_conclusions.md",
+        "title": "run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+        "summary": "Experiment: `exp-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state`",
+        "text": "- Experiment: `exp-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state`\n- Best AUC: 0.665170\n- Root cause: Run-0007 reduced training temperature from 7.39 to 1.0, producing a -0.0125 regression (0.6777→0.6652 val ROC-AUC). This is the 4th consecutive failure (rounds 3, 5, 6, 7) across four distinct axes: coupled calibration, post-hoc temperature scaling, focal loss, and training temperature reduction. The loss/calibration/temperature axis is definitively exhausted. The frozen Perch embedding linear probe has hit a representational capacity ceiling — no output-level or gradient-level intervention can improve it beyond run-0002's 0.6777. The bottleneck is discriminative capacity of frozen embeddings for the target domain.\n- Verdict: submission-required",
+        "stance": "negative",
+        "component": "probe_head",
+        "policy_type": "veto",
+        "confidence": 0.8,
+        "applies_to": [
+          "probe_head",
+          "imports",
+          "kaggle",
+          "agent",
+          "experiment_conclusions"
+        ],
+        "override_required": true,
+        "keywords": [
+          "imports",
+          "kaggle",
+          "agent",
+          "experiment_conclusions",
+          "run",
+          "0007",
+          "0006",
+          "perch",
+          "probe",
+          "round",
+          "audit",
+          "training",
+          "temperature",
+          "reduce",
+          "from",
+          "0002",
+          "leader",
+          "code",
+          "state",
+          "experiment",
+          "exp",
+          "best",
+          "auc",
+          "665170"
+        ],
+        "score": 21.4
+      },
+      {
+        "card_id": "imports-kaggle-agent-04-submission-bar-md-example",
+        "source_path": "imports/kaggle-agent/04_submission_bar.md",
+        "source_kind": "imported",
+        "source_label": "kaggle-agent",
+        "comparison_path": "04_submission_bar.md",
+        "title": "Example",
+        "summary": "Bad**:",
+        "text": "**Bad**:\n- \"Perch baseline\" scores 0.75 → submit ❌\n- Why: It's just cached embeddings + linear probe\n\n**Good**:\n- Round 1: \"Perch baseline\" → iterate\n- Round 2: \"Perch + calibration\" → iterate\n- Round 3: \"Perch + ensemble\" → iterate\n- Round 4: \"Perch + soundscape prior\" → iterate\n- Round 5: \"Perch + post-processing\" → iterate\n- Round 6: \"Perch full pipeline\" → submit ✅\n- Why: 6 rounds, multiple techniques, validated approach",
+        "stance": "general",
+        "component": "probe_head",
+        "policy_type": "context",
+        "confidence": 0.6,
+        "applies_to": [
+          "probe_head",
+          "imports",
+          "kaggle",
+          "agent",
+          "04_submission_bar"
+        ],
+        "override_required": false,
+        "keywords": [
+          "imports",
+          "kaggle",
+          "agent",
+          "04_submission_bar",
+          "example",
+          "bad",
+          "perch",
+          "baseline",
+          "scores",
+          "submit",
+          "why",
+          "just",
+          "cached",
+          "embeddings",
+          "linear",
+          "probe",
+          "good",
+          "round",
+          "iterate",
+          "calibration",
+          "ensemble",
+          "soundscape",
+          "prior",
+          "post"
+        ],
+        "score": 21.3
+      },
+      {
+        "card_id": "imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings",
+        "source_path": "imports/kaggle-agent/01_validated_findings.md",
+        "source_kind": "imported",
+        "source_label": "kaggle-agent",
+        "comparison_path": "01_validated_findings.md",
+        "title": "Perch And Embedding Findings",
+        "summary": "Embedding-head style models can add complementary signal even when their standalone score is not the best.",
+        "text": "- Embedding-head style models can add complementary signal even when their standalone score is not the best.\n- Joint use of focal and soundscape-derived information is valuable because it improves coverage and representation alignment across domains.\n- When fitted class count is much lower than active class count, the next move should target coverage first, not just threshold tuning.",
+        "stance": "positive",
+        "component": "probe_head",
+        "policy_type": "require",
+        "confidence": 0.88,
+        "applies_to": [
+          "probe_head",
+          "imports",
+          "kaggle",
+          "agent",
+          "01_validated_findings"
+        ],
+        "override_required": false,
+        "keywords": [
+          "imports",
+          "kaggle",
+          "agent",
+          "01_validated_findings",
+          "perch",
+          "and",
+          "embedding",
+          "findings",
+          "head",
+          "style",
+          "models",
+          "can",
+          "add",
+          "complementary",
+          "signal",
+          "even",
+          "when",
+          "their",
+          "standalone",
+          "score",
+          "not",
+          "the",
+          "best",
+          "joint"
+        ],
+        "score": 21.14
+      }
+    ],
+    "policy_rules": [
+      {
+        "rule_id": "policy-backbone",
+        "card_id": "policy-backbone",
+        "title": "Backbone",
+        "summary": "backbone has stronger supporting evidence than contradictory evidence.",
+        "rationale": "empirical(+0/-0), seeded(+1/-0)",
+        "family": "",
+        "component": "backbone",
+        "policy_type": "prefer",
+        "confidence": 0.36,
+        "override_required": false,
+        "claim_ids": [
+          "claim-seed-imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics"
+        ],
+        "contradiction_ids": [],
+        "scope_tags": [
+          "backbone",
+          "global"
+        ]
+      },
+      {
+        "rule_id": "policy-prior-calibration",
+        "card_id": "policy-prior-calibration",
+        "title": "Prior Calibration",
+        "summary": "prior_calibration has stronger contradictory evidence than supporting evidence.",
+        "rationale": "empirical(-0/+0), seeded(-1/+0)",
+        "family": "",
+        "component": "prior_calibration",
+        "policy_type": "avoid",
+        "confidence": 0.36,
+        "override_required": false,
+        "claim_ids": [
+          "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state"
+        ],
+        "contradiction_ids": [],
+        "scope_tags": [
+          "prior_calibration",
+          "global"
+        ]
+      },
+      {
+        "rule_id": "policy-class-coverage",
+        "card_id": "policy-class-coverage",
+        "title": "Class Coverage",
+        "summary": "class_coverage remains conditional because the evidence is mixed or incomplete.",
+        "rationale": "mixed evidence: empirical(+0/-0), seeded(+1/-1)",
+        "family": "",
+        "component": "class_coverage",
+        "policy_type": "conditional",
+        "confidence": 0.28,
+        "override_required": true,
+        "claim_ids": [
+          "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+          "claim-seed-imports-kaggle-agent-research-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state-md-verdict-continue-iterating-override"
+        ],
+        "contradiction_ids": [
+          "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline"
+        ],
+        "scope_tags": [
+          "class_coverage",
+          "global"
+        ]
+      },
+      {
+        "rule_id": "policy-probe-head",
+        "card_id": "policy-probe-head",
+        "title": "Probe Head",
+        "summary": "probe_head remains conditional because the evidence is mixed or incomplete.",
+        "rationale": "mixed evidence: empirical(+0/-0), seeded(+1/-1)",
+        "family": "",
+        "component": "probe_head",
+        "policy_type": "conditional",
+        "confidence": 0.28,
+        "override_required": true,
+        "claim_ids": [
+          "claim-seed-imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+          "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+          "claim-seed-imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+        ],
+        "contradiction_ids": [
+          "claim-seed-imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+        ],
+        "scope_tags": [
+          "probe_head",
+          "global"
+        ]
+      }
+    ],
+    "policy_cards": [
+      {
+        "rule_id": "policy-backbone",
+        "card_id": "policy-backbone",
+        "title": "Backbone",
+        "summary": "backbone has stronger supporting evidence than contradictory evidence.",
+        "rationale": "empirical(+0/-0), seeded(+1/-0)",
+        "family": "",
+        "component": "backbone",
+        "policy_type": "prefer",
+        "confidence": 0.36,
+        "override_required": false,
+        "claim_ids": [
+          "claim-seed-imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics"
+        ],
+        "contradiction_ids": [],
+        "scope_tags": [
+          "backbone",
+          "global"
+        ]
+      },
+      {
+        "rule_id": "policy-prior-calibration",
+        "card_id": "policy-prior-calibration",
+        "title": "Prior Calibration",
+        "summary": "prior_calibration has stronger contradictory evidence than supporting evidence.",
+        "rationale": "empirical(-0/+0), seeded(-1/+0)",
+        "family": "",
+        "component": "prior_calibration",
+        "policy_type": "avoid",
+        "confidence": 0.36,
+        "override_required": false,
+        "claim_ids": [
+          "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state"
+        ],
+        "contradiction_ids": [],
+        "scope_tags": [
+          "prior_calibration",
+          "global"
+        ]
+      },
+      {
+        "rule_id": "policy-class-coverage",
+        "card_id": "policy-class-coverage",
+        "title": "Class Coverage",
+        "summary": "class_coverage remains conditional because the evidence is mixed or incomplete.",
+        "rationale": "mixed evidence: empirical(+0/-0), seeded(+1/-1)",
+        "family": "",
+        "component": "class_coverage",
+        "policy_type": "conditional",
+        "confidence": 0.28,
+        "override_required": true,
+        "claim_ids": [
+          "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+          "claim-seed-imports-kaggle-agent-research-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state-md-verdict-continue-iterating-override"
+        ],
+        "contradiction_ids": [
+          "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline"
+        ],
+        "scope_tags": [
+          "class_coverage",
+          "global"
+        ]
+      },
+      {
+        "rule_id": "policy-probe-head",
+        "card_id": "policy-probe-head",
+        "title": "Probe Head",
+        "summary": "probe_head remains conditional because the evidence is mixed or incomplete.",
+        "rationale": "mixed evidence: empirical(+0/-0), seeded(+1/-1)",
+        "family": "",
+        "component": "probe_head",
+        "policy_type": "conditional",
+        "confidence": 0.28,
+        "override_required": true,
+        "claim_ids": [
+          "claim-seed-imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+          "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+          "claim-seed-imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+        ],
+        "contradiction_ids": [
+          "claim-seed-imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+        ],
+        "scope_tags": [
+          "probe_head",
+          "global"
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "claim-seed-imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+        "family": "",
+        "component": "probe_head",
+        "stance": "conditional",
+        "summary": "For the current cached-probe runtime, treat holdout-aware soundscape validation as the intended local primary signal whenever it is produced.",
+        "title": "Current Runtime Interpretation",
+        "source_type": "curated_seed",
+        "source_ref": "imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+        "confidence": 0.45,
+        "claim_kind": "knowledge_seed",
+        "claim_status": "seed",
+        "override_required": false,
+        "support_ids": [
+          "imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation"
+        ],
+        "contradict_ids": []
+      },
+      {
+        "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+        "family": "",
+        "component": "prior_calibration",
+        "stance": "negative",
+        "summary": "Experiment: `exp-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state`",
+        "title": "run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+        "source_type": "curated_seed",
+        "source_ref": "imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+        "confidence": 0.45,
+        "claim_kind": "knowledge_seed",
+        "claim_status": "seed",
+        "override_required": false,
+        "support_ids": [
+          "imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state"
+        ],
+        "contradict_ids": []
+      },
+      {
+        "claim_id": "claim-seed-imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings",
+        "family": "",
+        "component": "probe_head",
+        "stance": "positive",
+        "summary": "Embedding-head style models can add complementary signal even when their standalone score is not the best.",
+        "title": "Perch And Embedding Findings",
+        "source_type": "curated_seed",
+        "source_ref": "imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings",
+        "confidence": 0.45,
+        "claim_kind": "knowledge_seed",
+        "claim_status": "seed",
+        "override_required": false,
+        "support_ids": [
+          "imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+        ],
+        "contradict_ids": []
+      },
+      {
+        "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+        "family": "",
+        "component": "probe_head",
+        "stance": "negative",
+        "summary": "Experiment: `exp-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state`",
+        "title": "run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+        "source_type": "curated_seed",
+        "source_ref": "imports-kaggle-agent-experiment-conclusions-md-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+        "confidence": 0.45,
+        "claim_kind": "knowledge_seed",
+        "claim_status": "seed",
+        "override_required": false,
+        "support_ids": [
+          "imports-kaggle-agent-experiment-conclusions-md-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state"
+        ],
+        "contradict_ids": []
+      },
+      {
+        "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+        "family": "",
+        "component": "class_coverage",
+        "stance": "positive",
+        "summary": "Experiment: `exp-perch-baseline`",
+        "title": "run-0001-perch-baseline",
+        "source_type": "curated_seed",
+        "source_ref": "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+        "confidence": 0.45,
+        "claim_kind": "knowledge_seed",
+        "claim_status": "seed",
+        "override_required": false,
+        "support_ids": [
+          "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline"
+        ],
+        "contradict_ids": []
+      },
+      {
+        "claim_id": "claim-seed-imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics",
+        "family": "",
+        "component": "backbone",
+        "stance": "positive",
+        "summary": "Holdout validation is the most trustworthy local signal for iteration.",
+        "title": "Validation And Metric Semantics",
+        "source_type": "curated_seed",
+        "source_ref": "imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics",
+        "confidence": 0.45,
+        "claim_kind": "knowledge_seed",
+        "claim_status": "seed",
+        "override_required": false,
+        "support_ids": [
+          "imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics"
+        ],
+        "contradict_ids": []
+      },
+      {
+        "claim_id": "claim-seed-imports-kaggle-agent-research-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state-md-verdict-continue-iterating-override",
+        "family": "",
+        "component": "class_coverage",
+        "stance": "negative",
+        "summary": "The report stage returned `submission-required`. This is **overridden to continue-iterating** because:",
+        "title": "Verdict: Continue-Iterating (Override)",
+        "source_type": "curated_seed",
+        "source_ref": "imports-kaggle-agent-research-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state-md-verdict-continue-iterating-override",
+        "confidence": 0.45,
+        "claim_kind": "knowledge_seed",
+        "claim_status": "seed",
+        "override_required": false,
+        "support_ids": [
+          "imports-kaggle-agent-research-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state-md-verdict-continue-iterating-override"
+        ],
+        "contradict_ids": []
+      }
+    ],
+    "branch_memories": [],
+    "contradictions": [
+      {
+        "rule_id": "policy-class-coverage",
+        "type": "conditional_rule_has_counterevidence",
+        "component": "class_coverage",
+        "summary": "class_coverage remains conditional because the evidence is mixed or incomplete. Counterevidence: Experiment: `exp-perch-baseline`",
+        "contradiction_ids": [
+          "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline"
+        ]
+      },
+      {
+        "rule_id": "policy-probe-head",
+        "type": "conditional_rule_has_counterevidence",
+        "component": "probe_head",
+        "summary": "probe_head remains conditional because the evidence is mixed or incomplete. Counterevidence: Embedding-head style models can add complementary signal even when their standalone score is not the best.",
+        "contradiction_ids": [
+          "claim-seed-imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+        ]
+      }
+    ],
+    "constraints": [],
+    "semantic_memory_files": [],
+    "capability_packs": [
+      {
+        "pack_id": "veto_checker",
+        "title": "Veto Checker",
+        "when_to_use": "Use when deterministic policy rules and decision constraints should mechanically block weak branches.",
+        "returns": "Forbidden patterns, override-required components, and active veto rule summaries.",
+        "applies_to": [
+          "research",
+          "decision",
+          "plan"
+        ],
+        "tags": [
+          "veto",
+          "policy",
+          "constraints",
+          "negative"
+        ],
+        "priority_hint": 3.8,
+        "budget_limit": 1,
+        "cache_key": "family+stage",
+        "cache_break_policy": "refresh_on_state_change",
+        "source_path": "",
+        "selection_reason": "policy-rules"
+      },
+      {
+        "pack_id": "branch_typing_compiler",
+        "title": "Branch Typing Compiler",
+        "when_to_use": "Use when branch selection should be constrained by typed axis, low-information patterns, and active envelope rules.",
+        "returns": "Supported axis tags, low-information patterns, and active typing constraints.",
+        "applies_to": [
+          "research",
+          "decision",
+          "plan",
+          "critic"
+        ],
+        "tags": [
+          "typing",
+          "compiler",
+          "constraint",
+          "branch"
+        ],
+        "priority_hint": 3.1,
+        "budget_limit": 1,
+        "cache_key": "family+stage",
+        "cache_break_policy": "refresh_on_state_change",
+        "source_path": "",
+        "selection_reason": "typing-enforcement"
+      },
+      {
+        "pack_id": "ledger_miner",
+        "title": "Ledger Miner",
+        "when_to_use": "Use when recent run history should bias the next frontier.",
+        "returns": "Top components, repeated failures, and strong axes mined from branch history.",
+        "applies_to": [
+          "research",
+          "decision",
+          "plan"
+        ],
+        "tags": [
+          "ledger",
+          "history",
+          "portfolio",
+          "regression"
+        ],
+        "priority_hint": 3.4,
+        "budget_limit": 1,
+        "cache_key": "family+stage",
+        "cache_break_policy": "refresh_on_state_change",
+        "source_path": "",
+        "selection_reason": "stage-default"
+      }
+    ],
+    "capability_results": {
+      "veto_checker": {
+        "forbidden_patterns": [
+          "prior_calibration"
+        ],
+        "override_required_components": [],
+        "active_veto_rules": [
+          {
+            "rule_id": "policy-prior-calibration",
+            "family": "",
+            "component": "prior_calibration",
+            "policy_type": "avoid",
+            "summary": "prior_calibration has stronger contradictory evidence than supporting evidence.",
+            "confidence": 0.36,
+            "override_required": false,
+            "claim_ids": [
+              "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state"
+            ],
+            "contradiction_ids": []
+          }
+        ]
+      },
+      "branch_typing_compiler": {
+        "supported_axis_tags": [
+          "backbone",
+          "class_coverage",
+          "data_filtering",
+          "optimization",
+          "preprocessing_aug",
+          "prior_calibration",
+          "probe_head",
+          "pseudo_label"
+        ],
+        "low_information_patterns": [
+          "calibration_only",
+          "blend_only",
+          "blend",
+          "calibration",
+          "prior",
+          "temperature",
+          "threshold"
+        ],
+        "forbidden_patterns": [],
+        "required_patterns": [],
+        "minimum_information_gain_bar": 0.0,
+        "summary": "Branch typing compiler context from active reducer constraints."
+      },
+      "ledger_miner": {
+        "top_components": [],
+        "repeated_failures": [],
+        "strong_components": []
+      }
+    },
+    "session_memory": {
+      "current_objective": "Submission bundle assembly and calibration for run-0001-perch-baseline",
+      "current_leader_run_id": "run-0001-perch-baseline",
+      "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+      "current_leader_metric_value": 0.6649679056916058,
+      "active_portfolios": [],
+      "top_positive_priors": [
+        "backbone: backbone has stronger supporting evidence than contradictory evidence."
+      ],
+      "top_negative_vetoes": [
+        "prior_calibration: prior_calibration has stronger contradictory evidence than supporting evidence."
+      ],
+      "unresolved_questions": [
+        "Resolve contradiction on class_coverage: class_coverage remains conditional because the evidence is mixed or incomplete. Counterevidence: Experiment: `exp-perch-baseline`",
+        "Resolve contradiction on probe_head: probe_head remains conditional because the evidence is mixed or incomplete. Counterevidence: Embedding-head style models can add complementary signal even when their standalone score is not the best.",
+        "What removes the current bottleneck: The notebook-derived Bayesian prior + embedding probe pipeline completed its first end-to-end run. The training+validation pipeline is functional but the submission bundle has not been built yet. The gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) signals meaningful overfitting or distribution shift, and prior fusion is not yet contributing (val prior fusion 0.662 vs val soundscape 0.665 — nearly identical). Calibration and bundle parity are the immediate blockers.?"
+      ],
+      "current_bottlenecks": [
+        "The notebook-derived Bayesian prior + embedding probe pipeline completed its first end-to-end run. The training+validation pipeline is functional but the submission bundle has not been built yet. The gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) signals meaningful overfitting or distribution shift, and prior fusion is not yet contributing (val prior fusion 0.662 vs val soundscape 0.665 — nearly identical). Calibration and bundle parity are the immediate blockers.",
+        "Submission bundle assembly and calibration for run-0001-perch-baseline"
+      ],
+      "pending_decisions": [
+        "Choose the next perch_cached_probe branch portfolio."
+      ],
+      "selected_memory_files": [],
+      "selected_capability_packs": [
+        "veto_checker",
+        "branch_typing_compiler",
+        "ledger_miner"
+      ],
+      "knowledge_card_ids": [
+        "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+        "imports-kaggle-agent-research-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state-md-verdict-continue-iterating-override",
+        "imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+        "imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics",
+        "imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+        "imports-kaggle-agent-experiment-conclusions-md-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+        "imports-kaggle-agent-04-submission-bar-md-example",
+        "imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+      ],
+      "source_stage": "research",
+      "run_id": "run-0001-perch-baseline",
+      "updated_at": "2026-04-02T13:27:21+00:00"
+    }
+  }
+}

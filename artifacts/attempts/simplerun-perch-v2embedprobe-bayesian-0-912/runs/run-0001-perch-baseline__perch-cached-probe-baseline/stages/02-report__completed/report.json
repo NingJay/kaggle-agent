@@ -1,0 +1,14 @@
+{
+  "stage": "report",
+  "headline": "Perch cached-probe baseline succeeded at val ROC-AUC 0.665, submission bundle parity needed next.",
+  "focus": "Submission bundle assembly and calibration for run-0001-perch-baseline",
+  "best_run_id": "run-0001-perch-baseline",
+  "best_run_metric": 0.6649679056916058,
+  "primary_metric_value": 0.6649679056916058,
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline completed its first end-to-end run. The training+validation pipeline is functional but the submission bundle has not been built yet. The gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) signals meaningful overfitting or distribution shift, and prior fusion is not yet contributing (val prior fusion 0.662 vs val soundscape 0.665 — nearly identical). Calibration and bundle parity are the immediate blockers.",
+  "verdict": "submission-required",
+  "finding_titles": [
+    "Perch cached-probe baseline completed"
+  ],
+  "issue_titles": []
+}

@@ -1,0 +1,44 @@
+{
+  "current_objective": "Submission bundle assembly and calibration for run-0001-perch-baseline",
+  "current_leader_run_id": "run-0001-perch-baseline",
+  "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+  "current_leader_metric_value": 0.6649679056916058,
+  "active_portfolios": [],
+  "top_positive_priors": [
+    "backbone: backbone has stronger supporting evidence than contradictory evidence."
+  ],
+  "top_negative_vetoes": [
+    "prior_calibration: prior_calibration has stronger contradictory evidence than supporting evidence."
+  ],
+  "unresolved_questions": [
+    "Resolve contradiction on class_coverage: class_coverage remains conditional because the evidence is mixed or incomplete. Counterevidence: Experiment: `exp-perch-baseline`",
+    "Resolve contradiction on probe_head: probe_head remains conditional because the evidence is mixed or incomplete. Counterevidence: Embedding-head style models can add complementary signal even when their standalone score is not the best.",
+    "What removes the current bottleneck: The notebook-derived Bayesian prior + embedding probe pipeline completed its first end-to-end run. The training+validation pipeline is functional but the submission bundle has not been built yet. The gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) signals meaningful overfitting or distribution shift, and prior fusion is not yet contributing (val prior fusion 0.662 vs val soundscape 0.665 — nearly identical). Calibration and bundle parity are the immediate blockers.?"
+  ],
+  "current_bottlenecks": [
+    "The notebook-derived Bayesian prior + embedding probe pipeline completed its first end-to-end run. The training+validation pipeline is functional but the submission bundle has not been built yet. The gap between train soundscape ROC-AUC (0.992) and validation soundscape ROC-AUC (0.665) signals meaningful overfitting or distribution shift, and prior fusion is not yet contributing (val prior fusion 0.662 vs val soundscape 0.665 — nearly identical). Calibration and bundle parity are the immediate blockers.",
+    "Submission bundle assembly and calibration for run-0001-perch-baseline"
+  ],
+  "pending_decisions": [
+    "Choose the next perch_cached_probe branch portfolio."
+  ],
+  "selected_memory_files": [],
+  "selected_capability_packs": [
+    "veto_checker",
+    "branch_typing_compiler",
+    "ledger_miner"
+  ],
+  "knowledge_card_ids": [
+    "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+    "imports-kaggle-agent-research-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state-md-verdict-continue-iterating-override",
+    "imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+    "imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics",
+    "imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+    "imports-kaggle-agent-experiment-conclusions-md-run-0007-0006-perch-probe-round-7-audit-training-temperature-reduce-from-7-39-to-1-0-on-run-0002-leader-code-state",
+    "imports-kaggle-agent-04-submission-bar-md-example",
+    "imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+  ],
+  "source_stage": "research",
+  "run_id": "run-0001-perch-baseline",
+  "updated_at": "2026-04-02T13:27:21+00:00"
+}

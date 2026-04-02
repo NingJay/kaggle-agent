@@ -1,0 +1,111 @@
+{
+  "run_id": "run-0001-perch-baseline",
+  "run_label": "run-0001-perch-baseline__perch-cached-probe-baseline",
+  "lifecycle_template": "recursive_experiment",
+  "status": "running",
+  "current_cursor": "complete",
+  "note": "Stage directory prefixes keep canonical stage ids. Actual execution order follows `stage_plan` below.",
+  "steps": [
+    {
+      "sequence": 1,
+      "stage_name": "execute",
+      "canonical_dir_hint": "execute",
+      "status": "running",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 2,
+      "stage_name": "evidence",
+      "canonical_dir_hint": "01-evidence__*",
+      "status": "pending",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 3,
+      "stage_name": "report",
+      "canonical_dir_hint": "02-report__*",
+      "status": "pending",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 4,
+      "stage_name": "research",
+      "canonical_dir_hint": "03-research__*",
+      "status": "pending",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 5,
+      "stage_name": "decision",
+      "canonical_dir_hint": "04-decision__*",
+      "status": "pending",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 6,
+      "stage_name": "plan",
+      "canonical_dir_hint": "05-plan__*",
+      "status": "pending",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 7,
+      "stage_name": "codegen",
+      "canonical_dir_hint": "06-codegen__*",
+      "status": "pending",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 8,
+      "stage_name": "critic",
+      "canonical_dir_hint": "07-critic__*",
+      "status": "pending",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 9,
+      "stage_name": "validate",
+      "canonical_dir_hint": "08-validate__*",
+      "status": "pending",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    },
+    {
+      "sequence": 10,
+      "stage_name": "submission",
+      "canonical_dir_hint": "09-submission__*",
+      "status": "pending",
+      "artifact_label": "",
+      "artifact_dir": "",
+      "artifact_json": "",
+      "artifact_md": ""
+    }
+  ],
+  "latest_stage_label": "n/a"
+}

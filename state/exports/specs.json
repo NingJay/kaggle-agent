@@ -1,0 +1,23 @@
+[
+  {
+    "spec_id": "spec-0001",
+    "work_item_id": "workitem-perch-baseline",
+    "source_stage_run_id": "",
+    "spec_type": "experiment",
+    "title": "Perch cached-probe baseline",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "payload_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "status": "validated",
+    "dedupe_key": "seed:workitem-perch-baseline:spec",
+    "portfolio_id": "",
+    "idea_class": "",
+    "branch_role": "",
+    "branch_rank": 0,
+    "knowledge_card_ids": [],
+    "created_at": "2026-04-02T13:24:39+00:00",
+    "updated_at": "2026-04-02T13:24:39+00:00"
+  }
+]

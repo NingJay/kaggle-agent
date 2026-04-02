@@ -1,0 +1,286 @@
+BirdCLEF 2026 — Public SED vs. Our Implementation: Difference Report
+🦜 Public SED vs. Our Implementation — Difference Report
+BirdCLEF 2026 · Generated 2026-03-17 ·
+Public: emanuellcs/birdclef-2026-training ·
+Ours: train_sed.py + src/model/sed_model.py
+Techniques to Adopt
+5
+High-priority upgrades
+We Are Already Ahead
+4
+Areas where ours is stronger
+Parity / Style Difference
+6
+Functionally equivalent
+Public Best Val AUC
+~0.75
+Ours: 0.7755 @ep20 (v9-asl)
+1 · Audio Frontend
+Aspect
+Public (emanuellcs)
+Our Implementation
+Verdict
+Mel representation
+PCEN (Per-Channel Energy Normalisation)
+Learnable parameters: alpha, delta, r, s — all trained jointly with backbone.
+IIR background smoother via depthwise 1D causal convolution (ONNX-safe).
+Forced @float32 even inside AMP context (eps=1e-6 guard).
+MelSpectrogram + AmplitudeToDB (torchaudio)
+Fixed log-mel, peak-normalised per clip.
+No adaptive gain normalisation. Parameters frozen.
+ADOPT
+Mel parameters
+n_fft=1024, hop=512, n_mels=128
+fmin=40 Hz, fmax=14,000 Hz
+norm='slaney', htk= False
+n_fft=2048, hop=512, n_mels=224
+fmin=0 Hz, fmax=16,000 Hz
+norm='slaney', htk=True
+AHEAD
+Input channels
+in_chans=1 — PCEN output fed as single-channel image
+in_chans=3 — mel replicated 3× for ImageNet-pretrained backbone
+PARITY
+GPU mel computation
+torch.stft() entirely on GPU — zero CPU audio processing during training
+use_gpu_mel=True : torchaudio MelSpectrogram on GPU — also zero CPU audio
+PARITY
+PCEN vs. Log-Mel — Why it matters
+PCEN replaces the fixed log-compression with an adaptive gain control: each mel band tracks its own
+background energy via an IIR smoother, then normalises the signal against it. This suppresses constant
+background noise (wind, rain) and makes brief vocalisations stand out regardless of recording conditions.
+The parameters are learned end-to-end, so the model self-tunes frequency sensitivity per species.
+# PCEN formula (public implementation)
+denom = (eps + M_hat).pow(alpha) # M_hat = adaptive background estimate
+pcen = (S / denom + delta).pow(r) - delta.pow(r)
+# Our current approach (fixed log-mel)
+mel = AmplitudeToDB(MelSpectrogram(wav))
+mel = (mel - mel.min()) / (mel.max() - mel.min() + 1e-7) # per-clip normalisation
+2 · Model Architecture
+Aspect
+Public (emanuellcs)
+Our Implementation
+Verdict
+SED pooling
+SEDAttentionHead :
+1. Mean-pool across frequency dim → (B, C, T)
+2. Linear(C→num_classes) for framewise logits
+3. Separate attention branch : Linear(C→128)→Tanh→Linear(128→num_classes)
+4. Softmax over time → weighted sum of framewise logits
+GEMFreqPool + AttentionSEDHead :
+1. GEM pool across frequency → (B, C, T)
+2. Two heads: framewise classifier + attention weight
+3. Clip-level: attention-weighted mean of frame probs
+Also outputs separate framewise predictions for dual loss
+AHEAD
+Frequency pooling
+torch.mean(x, dim=2) — simple average over mel bands
+GEMFreqPool : generalised mean with learnable exponent p (init=3.0) — focuses on peak activations per frequency band
+AHEAD
+Backbone variant
+efficientnet_b0 via timm, global_pool='' (no pool)
+tf_efficientnet_b0.ns_jft_in1k — noisy-student pretrained, generally stronger initialisation
+AHEAD
+Dual-loss (clip + frame)
+Single clip-level BCE only — no framewise supervision
+Dual loss : clip_loss_weight + frame_loss_weight (v5: 0.5+0.5). This gave +0.17 holdout AUC over single-loss models.
+AHEAD
+Multi-GPU training
+DDP (DistributedDataParallel) via NCCL all-reduce. True gradient averaging across GPUs, no GIL bottleneck.
+Single GPU per run (CUDA_VISIBLE_DEVICES). No DDP.
+ADOPT
+3 · Loss Function
+Aspect
+Public (emanuellcs)
+Our Implementation
+Verdict
+Primary loss
+MaskedBCEWithLogitsLoss :
+Combined target = primary OR secondary.
+Secondary-only classes masked out (mask=0) — model not penalised for predicting secondary species.
+Primary always has mask=1.
+ASL / BCE (v9: ASL with gamma_neg=4.0, clip=0.05).
+Secondary labels included as soft positives (use_secondary_labels=True) — no separate masking logic.
+ADOPT
+Secondary label handling
+Explicit gradient masking: secondary species contribute to the target but their loss is zeroed — prevents the model from being penalised for correctly not predicting ambiguous co-occurrences
+Secondary labels treated as equal positives; no masking. May introduce noise when secondary species are not actually vocalising in the clip.
+ADOPT
+Asymmetric loss
+Not used — only standard BCE with masking
+ASL implemented and active in v9+ (BirdCLEF 2025 1st/2nd/3rd place). gamma_neg=4 crushes easy negatives.
+AHEAD
+4 · Data Pipeline & Augmentation
+Aspect
+Public (emanuellcs)
+Our Implementation
+Verdict
+Data storage
+Memory-mapped float32 .npy ( np.load(..., mmap_mode='r') ).
+Pre-decoded to 11.91 GB mmap array → near-zero latency random access.
+Eliminates .ogg decode bottleneck on Kaggle NAS entirely.
+librosa.load() on-the-fly per epoch. Each file decoded from .ogg every time it is accessed. Slower but simpler; fits our local SSD setup.
+SKIP*
+Background mixing
+GPU-side waveform mixing at SNR 10–30 dB (prob=0.80).
+SNR-calibrated scale factor: scale = rms_focal / (rms_bg × 10^(snr/20)) .
+Background clips come from a separate pre-decoded background .npy array.
+Background noise from noise_dir (disabled in current configs: noise_dir=null).
+noise_level=0.005 Gaussian noise only.
+ADOPT
+MixUp
+Additive MixUp on raw waveforms (prob=0.50):
+wav = clamp(α·wav_a + β·wav_b, −1, 1)
+α, β drawn independently from Uniform(0.3, 0.7).
+Targets: max(target_a, target_b) (OR semantics).
+Mel-level MixUp on spectrograms.
+Single λ from Beta(alpha, alpha). Targets linearly interpolated.
+Waveform-level mixing would be more natural for audio.
+ADOPT
+Time shift aug.
+Circular time shift on waveform (prob=0.50):
+Random shift via torch.gather with modular indexing.
+Not implemented — only time masking on spectrogram.
+ADOPT
+Gain augmentation
+Random gain ±dB (prob=0.40), range=[−12, +2 dB] (asymmetric to avoid clipping)
+gain_range=[0.7, 1.3] linear scale — symmetric, no clipping protection
+PARITY
+SpecAugment
+2× FrequencyMasking (param=12) + 2× TimeMasking (param=24)
+Applied on-GPU after PCEN inside model.forward()
+time_mask_n=2, ratio=0.10–0.15 + freq_mask_param=30 (v9)
+Applied in DataLoader (CPU)
+PARITY
+Quality filtering
+min_rating=3.0 applied in I/O preprocessing — only high-quality recordings in mmap array (18,612 / 35,549 kept)
+min_rating=0.0 by default; v21 tests rating≥3 as an ablation
+PARITY
+* mmap pre-decoding is Kaggle-specific (NAS latency). On our local SSD, librosa on-the-fly is fast enough.
+5 · Pseudo-Labeling Pipeline
+Aspect
+Public (emanuellcs)
+Our Implementation
+Verdict
+Pseudo-label source
+5-fold ensemble of ONNX models run on all train soundscapes.
+Dual-GPU producer/consumer pipeline via shared memory.
+Perch + our SED model ensemble on train soundscapes (Perch ×3 weight).
+Single-GPU sequential inference.
+PARITY
+Power transform
+Babych Power Transform (1st place BirdCLEF 2025): P_final = P_raw ^ 2.0
+Crushes low-confidence noise, sharpens high-confidence peaks. Applied after ensemble average.
+Not implemented — raw probabilities used as pseudo-labels.
+ADOPT
+Temporal smoothing
+1D moving average across overlapping 5s windows (hop=2.5s) via scipy.ndimage.uniform_filter1d
+No temporal smoothing on pseudo-labels.
+ADOPT
+Thresholding
+Dynamic class-specific thresholds : 95th percentile confidence per class.
+Rare species get lower absolute thresholds than common ones.
+Fixed global threshold (0.5 for hard labels, or raw softmax).
+ADOPT
+Soft label integration
+Soft label blending during background mix :
+Pseudo-label contribution scales with the mixing volume:
+target += bg_pseudo * scale * mix_mask * weight(0.5)
+Pseudo-labels used as hard one-hot targets in soundscape training subset.
+ADOPT
+6 · Training Setup & Optimisation
+Aspect
+Public (emanuellcs)
+Our Implementation
+Verdict
+LLRD
+Layer-wise LR Decay : backbone LR = base_lr × 0.1.
+Frontend (PCEN) and head train at full LR. Prevents destroying pretrained features.
+Uniform LR across all parameters — backbone trains at same rate as head.
+ADOPT
+Mixed precision
+AMP fp16 with GradScaler (init_scale=2^16). PCEN forced fp32 via @autocast(enabled=False) .
+Not used — full fp32 training.
+ADOPT
+Gradient clipping
+clip_grad_norm_(max_norm=1.0) after unscale
+Not applied.
+ADOPT
+LR
+3e-4 (backbone: 3e-5), cosine annealing, eta_min=lr×0.01
+5e-4, cosine with linear warmup (2–3 ep), eta_min=0
+PARITY
+Batch size
+64 global (split across 2 GPUs → 32/GPU with DDP)
+32 per GPU (single GPU)
+PARITY
+Snapshot ensemble
+Save checkpoints at epochs [20,22,24,26,28,30] — 6 snapshots for ensemble
+Save top-3 checkpoints by val AUC; model soup (weight averaging) of top-k
+PARITY
+K-fold training
+5-fold cross-validation, all 5 folds trained and exported as ONNX
+Single fold per run (fold=0 implicit); no explicit k-fold loop
+ADOPT
+cuDNN benchmark
+torch.backends.cudnn.benchmark=True — autotuned kernels for fixed spectrogram shape, ~10–15% speedup
+Not explicitly set.
+ADOPT
+7 · Prioritised Action List
+🔴 High Priority — Adopt Now
+1
+MaskedBCE for secondary labels
+Public masks gradient for secondary-only classes. Our current approach treats them as full positives, introducing noise. Easy to implement, likely +0.003–0.008 holdout AUC.
+2
+Babych Power Transform on pseudo-labels (γ=2.0)
+1st place BirdCLEF 2025 technique. Crushes low-confidence noisy predictions before using them as training targets. Apply after ensemble averaging of soundscape predictions.
+3
+Waveform-level background mixing (SNR-calibrated)
+Mixes focal audio with background at controlled 10–30 dB SNR. More realistic than Gaussian noise. Works directly with the soundscape dataset we already have.
+4
+Layer-wise LR Decay (backbone × 0.1)
+Prevents fine-tuning from destroying ns-jft pretrained features early in training. One-line change to optimizer param groups.
+5
+Waveform-level circular time shift (prob=0.50)
+Augmentation on raw waveform before mel transform. More fundamental than spectrogram time masking; shifts the bird call to different temporal positions.
+🟡 Medium Priority — Consider for Round 4
+1
+PCEN audio frontend
+Replaces fixed log-mel with learnable adaptive gain normalisation. Significant but requires architectural change. Target for Round 4 creative experiments.
+2
+AMP fp16 + gradient clipping
+Speeds up training ~1.5–2× with minor code changes. Gradient clipping improves stability. Good practice even if not critical for accuracy.
+3
+Dynamic class-specific thresholding for pseudo-labels
+95th-percentile thresholds per class better handles class imbalance. Pairs well with power transform.
+4
+5-fold cross-validation ensemble
+5 models from different data splits, averaged at inference. Significant ensemble diversity at the cost of 5× training time.
+5
+DDP multi-GPU training
+Doubles effective batch size and cuts training time in half. Useful once architecture is stable. Requires refactoring of train_sed.py.
+8 · Where Our Implementation Leads
+✅ Asymmetric Loss (ASL)
+The public notebook uses plain masked-BCE. Our v9-asl uses ASL with gamma_neg=4, which is confirmed used by BirdCLEF 2025 1st/2nd/3rd place. Current val AUC 0.7755 already above public notebook's estimated performance.
+✅ Dual Loss (clip + frame)
+Public uses only clip-level BCE. Our v5/v17–v22 use framewise supervision alongside clip loss (0.5+0.5). This gave +0.17 holdout AUC — the single biggest discovered improvement this competition.
+✅ GEMFreqPool
+Public uses simple mean over frequency. Our GEMFreqPool with learnable exponent p≈3 focuses on peak activations, better separating overlapping frequency bands of different species.
+✅ ns-jft Pretrained Backbone
+tf_efficientnet_b0.ns_jft_in1k (noisy-student JFT pretraining) is a meaningfully stronger initialisation than the plain efficientnet_b0 used in the public notebook.
+9 · Quickest Wins to Add to Next Round
+The following can be added to a new config in <1 hour each without changing the overall architecture:
+# 1. MaskedBCE — gradient masking for secondary labels
+loss: masked_bce # new loss_mode in train_sed.py
+use_secondary_labels: true # already supported
+# 2. Waveform-level augmentations (in config)
+waveform_time_shift: true # circular shift prob=0.50
+waveform_bg_mix: true # SNR-calibrated soundscape mix prob=0.80
+snr_db_range: [10.0, 30.0]
+# 3. LLRD (one-line optimizer change)
+backbone_lr_mult: 0.1 # backbone gets lr × 0.1
+# 4. Power transform on pseudo-labels (post-processing step)
+pseudo_power_gamma: 2.0 # P_final = P_raw ^ 2.0 before writing CSV
+# 5. cuDNN benchmark
+torch.backends.cudnn.benchmark = True # in train_sed.py main()
+Report generated 2026-03-17 · BirdCLEF 2026 · Our best holdout: v5 = 0.9192 · v9-asl val best: 0.7755 @ep20

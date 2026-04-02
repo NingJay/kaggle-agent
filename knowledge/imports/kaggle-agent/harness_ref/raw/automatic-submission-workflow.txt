@@ -1,0 +1,141 @@
+# =========================================================
+# Automatic Kaggle Code Competition Submission Pipeline
+# Example: BirdCLEF 2026 (Code Competition)
+# =========================================================
+#
+# In a Kaggle Code Competition you CANNOT submit submission.csv directly.
+# Kaggle reruns your notebook/script and generates submission.csv itself.
+#
+# Pipeline:
+# Local training
+# ↓
+# Upload model as Kaggle Dataset
+# ↓
+# Push Kaggle notebook
+# ↓
+# Kaggle reruns notebook → generates submission.csv → submits
+#
+# =========================================================
+# 1. Install Kaggle CLI
+# =========================================================
+pip install kaggle
+# =========================================================
+# 2. Setup Kaggle API
+# =========================================================
+# Download kaggle.json from:
+# Kaggle → Account → Create New API Token
+mkdir -p ~/.kaggle
+mv kaggle.json ~/.kaggle/
+chmod 600 ~/.kaggle/kaggle.json
+# =========================================================
+# 3. Train Model Locally
+# =========================================================
+python train.py
+# Output example
+# model.pt
+# config.yaml
+# =========================================================
+# 4. Prepare Kaggle Dataset for Model Artifacts
+# =========================================================
+mkdir -p model_dataset
+cp model.pt model_dataset/
+# Create dataset metadata
+cat <<EOF > model_dataset/dataset-metadata.json
+{
+"title": "birdclef2026-model",
+"id": "YOUR_KAGGLE_USERNAME/birdclef2026-model",
+"licenses": [
+{
+"name": "CC0-1.0"
+}
+]
+}
+EOF
+# =========================================================
+# 5. Upload Dataset (first time)
+# =========================================================
+kaggle datasets create -p model_dataset
+# =========================================================
+# 6. Update Dataset (after new training)
+# =========================================================
+kaggle datasets version -p model_dataset -m "updated model"
+# =========================================================
+# 7. Prepare Kaggle Inference Notebook Folder
+# =========================================================
+mkdir -p kaggle_notebook
+# =========================================================
+# kernel-metadata.json
+# =========================================================
+cat <<EOF > kaggle_notebook/kernel-metadata.json
+{
+"id": "YOUR_KAGGLE_USERNAME/birdclef2026-inference",
+"title": "BirdCLEF2026 Inference",
+"code_file": "notebook.ipynb",
+"language": "python",
+"kernel_type": "notebook",
+"is_private": true,
+"enable_gpu": true,
+"competition_sources": ["birdclef-2026"],
+"dataset_sources": ["YOUR_KAGGLE_USERNAME/birdclef2026-model"]
+}
+EOF
+# =========================================================
+# Example inference notebook logic (simplified)
+# notebook.ipynb would contain something like:
+# =========================================================
+"""
+import torch
+import pandas as pd
+MODEL_PATH = "/kaggle/input/birdclef2026-model/model.pt"
+model = torch.load(MODEL_PATH)
+model.eval()
+# Load competition test data
+test_data = ...
+predictions = []
+for sample in test_data:
+pred = model(sample)
+predictions.append(pred)
+submission = pd.DataFrame({
+"row_id": ...,
+"prediction": predictions
+})
+submission.to_csv("submission.csv", index=False)
+"""
+# =========================================================
+# 8. Push Notebook to Kaggle (Triggers Submission)
+# =========================================================
+kaggle kernels push -p kaggle_notebook
+# =========================================================
+# 9. Full Automated Script
+# =========================================================
+cat <<EOF > submit_pipeline.sh
+#!/bin/bash
+echo "Training model..."
+python train.py
+echo "Copying model..."
+cp model.pt model_dataset/
+echo "Updating Kaggle dataset..."
+kaggle datasets version -p model_dataset -m "auto update model"
+echo "Submitting notebook..."
+kaggle kernels push -p kaggle_notebook
+echo "Done."
+EOF
+chmod +x submit_pipeline.sh
+# =========================================================
+# 10. Run Entire Pipeline
+# =========================================================
+./submit_pipeline.sh
+# =========================================================
+# Result
+# =========================================================
+#
+# Local machine:
+# train model
+#
+# Kaggle:
+# reruns notebook
+# loads dataset model
+# generates submission.csv
+# automatically submits to leaderboard
+#
+# =========================================================
