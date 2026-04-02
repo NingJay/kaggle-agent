@@ -1,0 +1,17 @@
+{
+  "spec_type": "experiment",
+  "title": "Bundle parity: CPU-only submission dry-run",
+  "family": "perch_cached_probe",
+  "config_path": "BirdCLEF-2026-Codebase/configs/generated/bundle-parity-cpu-only-submission-dry-run.yaml",
+  "launch_mode": "background",
+  "dedupe_key": "plan:run-0001-perch-baseline:portfolio-run-0001-perch-baseline-perch-cached-probe:00:bundle-parity-cpu-only-submission-dry-run",
+  "code_state_ref": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/workspace",
+  "verify_artifacts_ref": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/verify_runtime",
+  "verify_command": "/home/staff/jiayining/miniconda3/envs/kaggle-agent/bin/python ./train_sed.py --config configs/generated/bundle-parity-cpu-only-submission-dry-run.yaml",
+  "verify_status": "passed",
+  "verify_summary": "Verify run completed with val_soundscape_macro_roc_auc=0.6729548485798909 and verdict=submission-required.",
+  "changed_files": [
+    "BirdCLEF-2026-Codebase/inference.py"
+  ],
+  "provider_runtime": "claude_code mode:agentic"
+}

@@ -1,0 +1,281 @@
+{
+  "stage": "decision",
+  "decision_type": "iterate",
+  "next_action": "Launch a 3-branch portfolio targeting submission bundle parity (primary), prior calibration refinement (hedge), and probe-head class-count diagnostic (explore). Do not submit.",
+  "submission_recommendation": "hold",
+  "root_cause": "The perch cached-probe baseline achieved val_soundscape_macro_roc_auc=0.665 but submission bundle parity is not yet validated. The submission bar guidance explicitly requires multi-round iteration before consuming daily quota. The current state is round 1 of the expected iteration cycle.",
+  "why": "Three factors block immediate submission: (1) the CPU-only, internet-off bundle has not been dry-run locally, (2) the submission bar requires at least calibration and ensemble iteration beyond the raw baseline, and (3) open questions about fitted_class_count vs active_class_count remain unresolved. The veto checker blocks class_coverage axes, and the branch diversifier recommends backbone/probe_head/prior_calibration as the viable mix. Collapsing to a single low-information calibration sweep would waste branch budget when the bundle pipeline itself is unvalidated.",
+  "next_title": "Perch cached-probe round 2: bundle parity + calibration + diagnostic",
+  "next_family": "perch_cached_probe",
+  "next_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+  "priority_delta": 5,
+  "launch_mode": "background",
+  "requires_human": false,
+  "portfolio_intent": "Validate submission pipeline readiness while parallel-testing calibration improvement and resolving class-count uncertainty. Do not consume daily quota until bundle dry-run passes.",
+  "portfolio_mode": "parallel",
+  "portfolio_policy": {
+    "max_branches": 3,
+    "veto_compliance": "class_coverage blocked",
+    "submission_barrier": "round 2 of multi-round cycle — do not submit",
+    "minimum_rounds_before_submit": 4
+  },
+  "branch_mix": [
+    {
+      "branch_role": "primary",
+      "target_component": "backbone",
+      "expected_information_gain": 0.8,
+      "rationale": "Submission bundle parity is the single blocking task per all adopt-now cards."
+    },
+    {
+      "branch_role": "hedge",
+      "target_component": "prior_calibration",
+      "expected_information_gain": 0.5,
+      "rationale": "Test anchor-based calibration to close 0.662→0.665 gap. Conditional policy awaiting evidence."
+    },
+    {
+      "branch_role": "explore",
+      "target_component": "probe_head",
+      "expected_information_gain": 0.6,
+      "rationale": "Resolve fitted vs active class count open question. Low cost, high diagnostic value."
+    }
+  ],
+  "deprioritized_axes": [
+    "class_coverage",
+    "data_filtering",
+    "preprocessing_aug",
+    "pseudo_label",
+    "optimization"
+  ],
+  "branch_portfolio": [
+    {
+      "title": "Bundle parity: CPU-only submission dry-run",
+      "family": "perch_cached_probe",
+      "hypothesis": "Packaging the Perch embedding cache + linear probe + Bayesian prior into a CPU-only, internet-off notebook will reproduce val_soundscape_macro_roc_auc=0.665 within tolerance.",
+      "rationale": "Adopt-now card explicitly identifies this as the single blocking task. Without validated bundle parity, no Kaggle submission is safe.",
+      "branch_role": "primary",
+      "idea_class": "grounded",
+      "target_component": "backbone",
+      "priority_delta": 5,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-adopt-now",
+        "imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics",
+        "imports-kaggle-agent-01-validated-findings-md-submission-findings"
+      ],
+      "policy_trace": [
+        "policy-backbone: prefer → slot justified"
+      ],
+      "branch_memory_ids": [],
+      "grounding_mode": "grounded",
+      "expected_information_gain": 0.8,
+      "falsification_criterion": "Dry-run prediction checksum does not match local run-0001 predictions within 1e-6 tolerance.",
+      "kill_criterion": "Bundle fails to run within 90-minute CPU limit or produces empty submission CSV.",
+      "avoided_vetoes": [
+        "class_coverage"
+      ],
+      "config_overrides": []
+    },
+    {
+      "title": "Prior calibration: anchor-based refinement",
+      "family": "perch_cached_probe",
+      "hypothesis": "Anchor-based calibration against LB history will close the val_prior_fusion (0.662) to val_probe (0.665) gap, yielding a net positive when fused.",
+      "rationale": "Post-parity consideration card identifies the Bayesian prior as close but not optimal. Prior calibration policy is conditional — this branch provides evidence for promotion or relegation.",
+      "branch_role": "hedge",
+      "idea_class": "grounded",
+      "target_component": "prior_calibration",
+      "priority_delta": 3,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-consider-post-parity"
+      ],
+      "policy_trace": [
+        "policy-prior-calibration: conditional → testing for promotion"
+      ],
+      "branch_memory_ids": [],
+      "grounding_mode": "grounded",
+      "expected_information_gain": 0.5,
+      "falsification_criterion": "Calibrated prior fusion score does not improve over 0.662 on the same holdout split.",
+      "kill_criterion": "Calibration introduces regression below 0.65 on any holdout metric.",
+      "avoided_vetoes": [
+        "class_coverage"
+      ],
+      "config_overrides": []
+    },
+    {
+      "title": "Probe diagnostic: fitted vs active class count",
+      "family": "perch_cached_probe",
+      "hypothesis": "Inspecting probe output dimensions will reveal whether fitted_class_count >= active_class_count, resolving the conditional probe_head and class_coverage policy states.",
+      "rationale": "Open question from research stage. Answer is required before any coverage or threshold-tuning branch can be safely proposed. Low cost, high diagnostic value.",
+      "branch_role": "explore",
+      "idea_class": "novel",
+      "target_component": "probe_head",
+      "priority_delta": 2,
+      "launch_mode": "background",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-open-questions-for-decision-stage",
+        "imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings"
+      ],
+      "policy_trace": [
+        "policy-probe-head: conditional → providing evidence"
+      ],
+      "branch_memory_ids": [],
+      "grounding_mode": "diagnostic",
+      "expected_information_gain": 0.6,
+      "falsification_criterion": "N/A — diagnostic branch produces a measurement, not a score comparison.",
+      "kill_criterion": "Probe output cannot be loaded or dimensions are unreadable.",
+      "avoided_vetoes": [
+        "class_coverage"
+      ],
+      "config_overrides": []
+    }
+  ],
+  "grounded_branch_slots": 2,
+  "novel_branch_slots": 1,
+  "branch_budget_by_role": {
+    "primary": 1,
+    "hedge": 1,
+    "explore": 1
+  },
+  "selected_capability_packs": [
+    "veto_checker",
+    "branch_diversifier",
+    "branch_typing_compiler",
+    "ledger_miner"
+  ],
+  "selected_policy_cards": [
+    "policy-backbone",
+    "policy-class-coverage",
+    "policy-probe-head",
+    "policy-prior-calibration"
+  ],
+  "selected_memory_files": [],
+  "branch_memory_ids": [],
+  "knowledge_card_ids": [
+    "research-run-0001-perch-baseline-md-adopt-now",
+    "research-run-0001-perch-baseline-md-consider-post-parity",
+    "research-run-0001-perch-baseline-md-current-state",
+    "research-run-0001-perch-baseline-md-open-questions-for-decision-stage",
+    "imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics",
+    "imports-kaggle-agent-01-validated-findings-md-perch-and-embedding-findings",
+    "imports-kaggle-agent-04-submission-bar-md-example",
+    "imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-actionable-guidance"
+  ],
+  "rejected_axes": [
+    "class_coverage"
+  ],
+  "open_questions": [
+    "What is the fitted_class_count vs active_class_count for the run-0001 probe head?",
+    "Does the current code produce a submission-ready CSV, or does the bundle need new inference glue code?",
+    "What is the expected LB score range given 0.665 local validation?"
+  ],
+  "hypothesis_backlog": [
+    {
+      "hypothesis": "Anchor-based prior calibration closes 0.662→0.665 gap",
+      "component": "prior_calibration",
+      "status": "testing",
+      "branch_role": "hedge"
+    },
+    {
+      "hypothesis": "Second complementary probe head adds ensemble signal",
+      "component": "probe_head",
+      "status": "deferred",
+      "branch_role": "explore",
+      "defer_reason": "Blocked on single-probe baseline validation"
+    }
+  ],
+  "session_memory": {
+    "current_objective": "Build and validate submission bundle parity for the perch cached-probe baseline before consuming daily submission quota.",
+    "current_leader_run_id": "run-0001-perch-baseline",
+    "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+    "current_leader_metric_value": 0.6649754967376823,
+    "active_portfolios": [
+      "perch_cached_probe_round2_bundle_calibration_diagnostic"
+    ],
+    "top_positive_priors": [
+      "backbone: Holdout validation is the most trustworthy local signal.",
+      "prior_calibration: Submission is not just notebook packaging.",
+      "probe_head: Embedding-head models add complementary signal."
+    ],
+    "top_negative_vetoes": [
+      "class_coverage: Past regression from round 3 — avoid without evidence.",
+      "submission_bar: Raw perch baseline without iteration is rejected."
+    ],
+    "unresolved_questions": [
+      "What is the fitted_class_count vs active_class_count for the run-0001 probe head?",
+      "Does the current code produce a submission-ready CSV, or does the bundle need new inference glue code?",
+      "What is the expected LB score range given 0.665 local validation?"
+    ],
+    "current_bottlenecks": [
+      "Submission bundle parity not yet validated.",
+      "Prior fusion 0.662 underperforms probe 0.665 — calibration gap."
+    ],
+    "pending_decisions": [
+      "After round 2 results: choose submission candidates vs further iteration."
+    ],
+    "updated_at": "2026-04-03T00:00:00+00:00"
+  },
+  "problem_frame": {
+    "stage": "decision",
+    "run_id": "run-0001-perch-baseline",
+    "family": "perch_cached_probe",
+    "title": "Perch cached-probe baseline",
+    "root_cause": "Submission bundle parity not validated; round 1 of multi-round cycle.",
+    "objective_metric": "val_soundscape_macro_roc_auc",
+    "current_metric_value": 0.6649754967376823,
+    "focus": "Validate submission bundle, test calibration, resolve class-count diagnostic."
+  },
+  "search_envelope": {
+    "family": "perch_cached_probe",
+    "axes": [
+      "backbone",
+      "prior_calibration",
+      "probe_head"
+    ],
+    "excluded_axes": [
+      "class_coverage"
+    ],
+    "max_branches": 3,
+    "minimum_information_gain_bar": 0.3,
+    "turn_id": "stage-0004-decision"
+  },
+  "minimum_information_gain_bar": 0.3,
+  "capability_results": {
+    "veto_checker": {
+      "forbidden_patterns": [
+        "class_coverage"
+      ],
+      "override_required_components": [],
+      "active_veto_rules": [
+        {
+          "rule_id": "policy-class-coverage",
+          "component": "class_coverage",
+          "policy_type": "avoid"
+        }
+      ]
+    },
+    "branch_diversifier": {
+      "recommended_components": [
+        "backbone",
+        "probe_head",
+        "prior_calibration"
+      ],
+      "target_branch_count": 3
+    },
+    "branch_typing_compiler": {
+      "low_information_patterns": [
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "calibration",
+        "prior",
+        "temperature",
+        "threshold"
+      ]
+    },
+    "ledger_miner": {
+      "top_components": [],
+      "repeated_failures": []
+    }
+  },
+  "memory_ops": []
+}

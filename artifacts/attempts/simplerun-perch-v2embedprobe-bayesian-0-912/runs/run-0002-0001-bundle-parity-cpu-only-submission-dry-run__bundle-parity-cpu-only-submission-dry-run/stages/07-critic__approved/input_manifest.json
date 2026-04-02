@@ -1,0 +1,154 @@
+{
+  "run": {
+    "run_id": "run-0002-0001-bundle-parity-cpu-only-submission-dry-run",
+    "experiment_id": "exp-0001-bundle-parity-cpu-only-submission-dry-run",
+    "work_item_id": "workitem-0001-bundle-parity-cpu-only-submission-dry-run",
+    "spec_id": "spec-0002",
+    "status": "succeeded",
+    "command": "synthetic:codegen",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0001-bundle-parity-cpu-only-submission-dry-run__bundle-parity-cpu-only-submission-dry-run/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0001-bundle-parity-cpu-only-submission-dry-run__bundle-parity-cpu-only-submission-dry-run/runtime/train.log",
+    "started_at": "2026-04-02T21:03:55+00:00",
+    "completed_at": "2026-04-02T21:03:55+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "",
+    "primary_metric_value": null,
+    "secondary_metrics": {},
+    "code_state_ref": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/workspace",
+    "lifecycle_template": "branch_experiment",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {},
+    "root_cause": "synthetic_lifecycle_entry",
+    "verdict": "synthetic_lifecycle_entry",
+    "stage_cursor": "critic",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-02T21:03:55+00:00",
+    "latest_stage_run_id": "stage-0011-critic"
+  },
+  "plan": {},
+  "codegen": {
+    "stage": "codegen",
+    "status": "noop",
+    "reason": "plan_status=hold",
+    "generated_config_path": "",
+    "run_bundle_path": "",
+    "patch_path": "",
+    "code_state_ref": "",
+    "verify_artifacts_ref": "",
+    "verify_command": "",
+    "verify_status": "skipped",
+    "verify_summary": "Codegen provider was not invoked because the plan is `hold`.",
+    "worktree_path": "",
+    "base_commit": "",
+    "head_commit": "",
+    "changed_files": [],
+    "provider_runtime": "deterministic-skip",
+    "allowed_edit_roots": [
+      "train_sed.py",
+      "BirdCLEF-2026-Codebase/configs",
+      "BirdCLEF-2026-Codebase/src",
+      "BirdCLEF-2026-Codebase/train.py",
+      "BirdCLEF-2026-Codebase/inference.py",
+      "BirdCLEF-2026-Codebase/scripts"
+    ],
+    "smoke_status": "skipped",
+    "smoke_summary": "Codegen provider was not invoked because the plan is `hold`.",
+    "portfolio_id": "",
+    "branch_role": "",
+    "idea_class": "",
+    "knowledge_card_ids": [],
+    "policy_trace": [],
+    "branch_memory_ids": [],
+    "scheduler_hints": {},
+    "proposal_typing": {},
+    "proposal_typing_id": "",
+    "info_gain_estimate": {},
+    "info_gain_estimate_id": "",
+    "source_config_path": "",
+    "motivation_summary": "",
+    "realized_typing": {
+      "realized_typing_id": "realized-run-0002-0001-bundle-parity-cpu-only-submission-dry-run-run-0002-0001-bundle-parity-cpu-only-submission-dry-run-general-un",
+      "run_id": "run-0002-0001-bundle-parity-cpu-only-submission-dry-run",
+      "stage_run_id": "stage-0010-codegen",
+      "title": "run-0002-0001-bundle-parity-cpu-only-submission-dry-run",
+      "family": "",
+      "config_path": "",
+      "typing_signature": "general|unknown|2cc0e35d8a6d",
+      "typing_payload": {
+        "typing_kind": "realized",
+        "typing_signature": "general|unknown|2cc0e35d8a6d",
+        "signature_payload": {
+          "axis_tags": [
+            "general"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "general",
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "low_information_flag": true,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "generated_config_path": "",
+        "source_config_path": ""
+      },
+      "proposal_typing_id": "",
+      "drift_summary": [],
+      "typing_kind": "realized",
+      "signature_payload": {
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "changes": [],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "general",
+      "axis_tags": [
+        "general"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "pattern_tags": [],
+      "changed_paths": [],
+      "change_count": 0,
+      "low_information_flag": true,
+      "grounding_mode": "grounded",
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "generated_config_path": "",
+      "source_config_path": "",
+      "created_at": "2026-04-02T21:03:55+00:00"
+    },
+    "realized_typing_id": "realized-run-0002-0001-bundle-parity-cpu-only-submission-dry-run-run-0002-0001-bundle-parity-cpu-only-submission-dry-run-general-un"
+  }
+}

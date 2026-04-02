@@ -1,0 +1,12 @@
+# Harness Reference Raw Inventory
+
+See `knowledge/harness_ref/raw/` for the normalized text extracts created from:
+
+- `/home/staff/jiayining/kaggle/harness_ref/kaggle_exist`
+
+These raw extracts are archival only. Future experiment stages should consume the distilled memory in:
+
+- `knowledge/00_experiment_rules.md`
+- `knowledge/01_validated_findings.md`
+- `knowledge/02_submission_intelligence.md`
+- `knowledge/03_next_experiment_priors.md`

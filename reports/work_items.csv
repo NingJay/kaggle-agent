@@ -1,0 +1,5 @@
+id,title,status,priority,family,latest_run_id
+workitem-perch-baseline,Perch cached-probe baseline,complete,20,perch_cached_probe,run-0001-perch-baseline
+workitem-0001-bundle-parity-cpu-only-submission-dry-run,Bundle parity: CPU-only submission dry-run,running,25,perch_cached_probe,run-0002-0001-bundle-parity-cpu-only-submission-dry-run
+workitem-0002-bundle-parity-cpu-only-submission-dry-run,Bundle parity: CPU-only submission dry-run,queued,25,perch_cached_probe,
+workitem-0003-prior-calibration-anchor-based-refinement,Prior calibration: anchor-based refinement,running,23,perch_cached_probe,run-0003-0003-prior-calibration-anchor-based-refinement

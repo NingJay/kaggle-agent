@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Report</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --card: #fffdf9;
+      --ink: #1f2937;
+      --line: #d6cec2;
+      --accent: #0f766e;
+    }
+    body { margin: 0; background: linear-gradient(135deg, #f7f2e9, #ece3d4); color: var(--ink); font-family: Georgia, serif; }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px 18px 48px; }
+    h1 { margin: 0 0 20px; }
+    .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+    th { background: #faf6ee; }
+    code { font-family: Consolas, monospace; }
+    ul { margin: 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Research Report</h1>
+  <div class="grid"><section class='card'><h2>Research Notes</h2><ul><li>Research summary for run-0001-perch-baseline | adopt_now | [adopt] Validate submission bundle parity for run-0001-perch-baseline before consuming any daily submission quota — this is the single blocking task. [card: imports-kaggle-agent-01-validated-findings-md-submission-findings]; [adopt] Treat val_soundscape_macro_roc_auc=0.665 as the authoritative local signal for this run. Do not over-index on soundscape_macro_roc_auc=0.992 (train-side) or prior_fusion_macro_roc_auc=0.487 (unseen). [card: imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics, imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation]; [adopt] Build the CPU-only, internet-off submission bundle now by packaging the Perch embedding cache + linear probe + Bayesian prior into the scored notebook format. Dry-run locally to confirm the bundle reproduces predictions. [card: imports-kaggle-agent-01-validated-findings-md-submission-findings]</li></ul></section>
+<section class='card'><h2>Branch Memories</h2><ul><li>run-0001-perch-baseline | leader | branch perch_cached_probe -&gt; leader; val_soundscape_macro_roc_auc=0.664975; critic=approved; validate=validated</li></ul></section></div>
+</main>
+</body>
+</html>

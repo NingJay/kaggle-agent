@@ -1,0 +1,15 @@
+{
+  "provider": "claude",
+  "model": "",
+  "schema_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/schemas/research.schema.json",
+  "raw_stdout_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/03-research__completed/raw_stdout.txt",
+  "raw_stderr_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/03-research__completed/raw_stderr.txt",
+  "raw_event_log_path": "",
+  "session_id": "a8aebbae-1c40-463a-9cfc-67af4ce5b959",
+  "thread_id": "",
+  "exit_code": 0,
+  "started_at": "2026-04-02T20:52:36+00:00",
+  "completed_at": "2026-04-02T20:53:53+00:00",
+  "materialization_mode": "structured",
+  "provider_runtime": ""
+}

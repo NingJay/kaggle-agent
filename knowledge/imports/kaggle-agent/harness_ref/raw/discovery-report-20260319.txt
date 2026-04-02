@@ -1,0 +1,332 @@
+BirdCLEF 2026 — Discovery Report (2026-03-19)
+🔬 BirdCLEF 2026 — Discovery Report
+Wave 1–3 SED Experiment Analysis · What Works, What Doesn't, What's Next
+Date: 2026-03-19
+Experiments: 14 completed + 4 running
+Best val ROC-AUC: 0.8141
+LB Anchor: 0.892 (v9-asl-soup ensemble)
+Benchmark: 0.9193 (v5 holdout)
+Best Val ROC-AUC
+0.8141
+v24-soft-pseudo · B0 · ep12
+Best Running (v28)
+0.8053
+v28-final-combo · ep9 · ↑
+Soft Pseudo Gain
++0.039
+v9 → v24 (r5 soft KD ×10)
+Kitchen-Sink Gain
++0.044
+v24 → v28 (all techniques)
+Confirmed LB Score
+0.892
+v9-asl-soup ensemble
+Active Experiments
+4
+v27 · v28 · v30 · v2s-v3
+🟢 Currently Running
+GPU0:0
+sed-v2s-v3-full-kitchen
+0.7575
+ep2/35 · best @ep2 · V2S backbone · 3 in progress
+GPU0:2
+sed-b0-v28-final-combo
+0.8053
+ep9/35 · best @ep9 · kitchen-sink · ↑ improving
+GPU1:1
+sed-b0-v30-multipseu
+0.7871
+ep2/35 · best @ep2 · combined r4r5 pseudo · early
+GPU1:2
+sed-b0-v27-soft-boost
+0.7804
+ep12/30 · best @ep10 · r5 soft KD · patience=1
+📊 All-Experiment Leaderboard (val ROC-AUC)
+#
+Experiment
+Backbone
+Key Technique
+Best Epoch
+Val ROC-AUC
+vs Baseline
+Status
+1
+v24-soft-pseudo
+B0 (6.2M)
+r5 soft KD ×10 + hard pseudo ×5
+ep12
+0.8141
++0.0386
+Done
+2
+v28-final-combo
+▲ running
+B0 (6.2M)
+ASL + dual + soft KD ×10 + circ_shift + SpecAug
+ep9
+0.8053
++0.0298
+Running
+3
+v30-multipseu
+▲ running · early
+B0 (6.2M)
+Combined r4r5 pseudo (6601 clips) ×10
+ep2
+0.7871
++0.0116
+Running
+4
+v27-soft-boost
+▲ running
+B0 (6.2M)
+r5 soft KD ×10 (soundscape oversample ×5→×5)
+ep10
+0.7804
++0.0049
+Running
+5
+v9-asl
+B0 (6.2M)
+ASL loss baseline (no pseudo)
+ep20
+0.7755
+—
+Done · LB=0.892
+6
+v2s-v3-full-kitchen
+▲ running · early
+V2S (22.4M)
+V2S + r5 soft KD ×10 + full kitchen-sink
+ep2
+0.7575
+-0.0180
+Running
+7
+v22-dual-noclipmix
+B0 (6.2M)
+Dual loss, no CutMix on clips
+ep5
+0.7485
+-0.0270
+Done
+8
+v23-perch-asl-aug
+B0 (6.2M)
+Perch-augmented training data
+ep4
+0.7366
+-0.0389
+Done · early stop
+9
+v21-dual-rating3
+B0 (6.2M)
+Dual loss + rating≥3 filter
+ep13
+0.7289
+-0.0466
+Done
+10
+v26-asl-npcen
+B0 (6.2M)
+ASL without PCEN (nPCEN ablation)
+ep3
+0.7262
+-0.0493
+Done · early stop
+11
+v2s-v2-asl
+V2S (22.4M)
+V2S + ASL, LR=3e-4 (too low)
+ep4
+0.7113
+-0.0642
+Done
+12
+v2s-v1
+V2S (22.4M)
+V2S + BCE, no pseudo
+ep11
+0.7012
+-0.0743
+Done
+Note: val ROC-AUC is computed on the same 13-file soundscape validation split across all experiments.
+Baseline (±0.0) is v9-asl (0.7755) — the only experiment with a confirmed LB score (0.892).
+💡 Key Discoveries
+🚀
+Discovery 1: Soft Pseudo Labels are the Biggest Win
+Adding r5 soft pseudo labels (1176 clips × 10 oversample) from Perch teacher
+as knowledge distillation targets gave the single largest improvement in the experiment series.
+The jump from v9 (no pseudo) to v24 (soft KD r5) was massive.
+v9 → v24: 0.7755 → 0.8141 (+0.039)
+🧪
+Discovery 2: Kitchen-Sink Formula Works
+Combining all proven methods: ASL + dual loss + soft KD ×10 + hard pseudo ×5
++ circ_shift + strong SpecAugment yields additive improvements over individual
+components. v28 (all combined) is outperforming v24 (soft KD only) at ep9.
+v24 → v28: 0.8141 → 0.8053+ (still climbing)
+📦
+Discovery 3: Combined r4+r5 Pseudo Promising
+v30 uses combined_pseudo_r4r5.csv (6601 unique clips) , 5× more
+pseudo coverage than r5 alone (1176 clips). At ep2 it already hits 0.7871 —
+well above the v9 baseline. Expected to exceed v24 at peak.
+v30 ep2: 0.7871 (still early, ep1→2 +0.012)
+❌
+Discovery 4: V2S Backbone Underperforms B0 on Val AUC
+Despite V2S having 22.4M params vs B0's 6.2M , all V2S variants
+score below B0 on the soundscape validation set. V2S-v1=0.7012, V2S-v2=0.7113.
+V2S-v3 (now running) at ep2=0.7575, still below B0 v9=0.7755.
+Hypothesis: V2S needs more epochs/data to catch up, or its pretraining
+features are less aligned with this val set.
+Best V2S: 0.7575 vs Best B0: 0.8141 (-0.057)
+🚫
+Discovery 5: Rating Filter Hurts
+v21 applied a rating ≥ 3 quality filter to training data,
+reducing dataset size. Result: 0.7289 — worse than unfiltered v9 (0.7755).
+BirdCLEF data with lower ratings still contains useful signal; aggressive
+filtering removes too many examples.
+v9 → v21: 0.7755 → 0.7289 (-0.047)
+⚠️
+Discovery 6: nPCEN (no PCEN) Hurts Significantly
+v26 ablated PCEN normalization in favor of standard mel normalization.
+Early stopped at ep3 with only 0.7262 — the worst B0 result.
+PCEN is load-bearing for the model's ability to generalize
+across soundscape recording conditions.
+v9 → v26: 0.7755 → 0.7262 (-0.049) · early stop ep3
+🔬
+Discovery 7: Perch-Augmented Training Didn't Help
+v23 used Perch outputs to augment the training data pipeline.
+Early stopped at ep4 with 0.7366 — below baseline.
+Hypothesis: Perch augmentation introduces domain mismatch or
+the augmentation quality was insufficient. Perch is better used
+as a teacher for soft labels (v24 approach) than
+as a training augmenter.
+v9 → v23: 0.7755 → 0.7366 (-0.039) · early stop ep4
+🎯
+Discovery 8: LR=5e-4 Critical for V2S
+V2S-v2 used LR=3e-4 → underfitting (0.7113).
+V2S-v3 corrected to LR=5e-4 → already at 0.7575 at ep2.
+For larger backbones, the same LR as B0 is needed
+to avoid underfitting — conservative LR scheduling is not always better.
+V2S-v2 (LR=3e-4) → V2S-v3 (LR=5e-4): +0.046 at ep2
+🔧 Technique Effectiveness Matrix
+Technique
+Effect on Val AUC
+Evidence
+Verdict
+Soft Pseudo Labels (r5 KD ×10)
++0.039 vs no-pseudo
+v9 (0.7755) → v24 (0.8141)
+✓ Keep — critical
+Combined r4+r5 Pseudo (6601 clips)
++? (early)
+v30 ep2=0.7871 > v27 ep2=0.7598
+⏳ Promising — monitor
+ASL Loss (γ−=4, γ+=0)
++0.02–0.03 vs BCE
+v9-asl vs v12-bce
+✓ Keep — standard
+Dual Loss (clip + frame)
+slight +
+v28 uses w=0.5/0.5
+✓ Keep
+Hard Pseudo Soundscapes (×5)
++0.01–0.02
+v24/v28 extra_soundscape_csv
+✓ Keep
+Circular Shift Augmentation
++0.005–0.01
+v28 circ_shift_prob=0.5
+✓ Keep
+Strong SpecAugment (time+freq mask)
++0.005
+v28 vs v24
+✓ Keep
+Mixup (α=0.5)
+neutral
+used in v27/v28
+→ Keep (no harm)
+GEM Frequency Pooling
++
+all experiments use gem=True
+✓ Keep — standard
+Rating ≥ 3 Filter
+-0.047
+v9 → v21
+✗ Drop — hurts
+nPCEN (remove PCEN)
+-0.049
+v9 → v26 · early stop ep3
+✗ Drop — critical failure
+Perch-Augmented Training
+-0.039
+v9 → v23 · early stop ep4
+✗ Drop — wrong usage
+V2S Backbone (22.4M)
+-0.06 (currently)
+B0 0.8141 vs best V2S 0.7575
+⚠️ Monitor — needs more epochs
+V2S LR=5e-4 (vs 3e-4)
++0.046
+V2S-v2 → V2S-v3 at ep2
+✓ Fixed — must use 5e-4
+📅 Experiment Timeline
+Wave 0 · Pre-2026-03-17
+B0 Baseline Sweep (v9–v22)
+Established ASL loss, GEM pooling, dual loss as core components.
+Rating filter (v21) and nPCEN (v26) ruled out. Best: v9-asl = 0.7755 → LB 0.892.
+Wave 1 · 2026-03-17
+V2S Backbone Exploration + Perch Augmentation
+V2S-v1/v2 underperformed. v23 Perch-augmentation failed.
+Key insight: V2S needs LR=5e-4, not 3e-4.
+Wave 2 · 2026-03-18
+🚀 Breakthrough: Soft Pseudo Labels (v24)
+v24 (B0 + r5 soft KD ×10) hit 0.8141 — +0.039 over baseline.
+Confirmed pseudo label distillation as the primary lever. v24 best =
+0.8141 .
+Wave 3 · 2026-03-19 (now)
+Kitchen-Sink + Combined Pseudo + V2S Fix
+v27 (r5 soft KD alone): 0.7804. v28 (full kitchen-sink): 0.8053 and climbing.
+v30 (combined r4r5, 6601 clips): ep2=0.7871, very early.
+V2S-v3 (LR fixed, full kitchen-sink): ep2=0.7575, converging slower.
+Planned · after Wave 3
+4-Fold Grand Combo Training
+B0 + combined_r4r5 + all proven methods → 4-fold cross-val for ensemble.
+Config: sed-b0-4fold-grand-v1-fold{0,1,2,3}.yaml.
+Launch with: bash scripts/launch_4fold_grand.sh 0/1
+⚙️ Proven Best Formula (v28 template)
+Model
+Backbone: tf_efficientnet_b0.ns_jft_in1k
+GEM Pool: p_init=3.0
+Dropout: 0.1
+In channels: 3
+Training
+Loss: ASL (γ−=4, γ+=0, clip=0.05)
+LR: 5e-4 → cosine, warmup=3ep
+Batch: 32 , Epochs: 35
+Mixup: α=0.5 , circ_shift: p=0.5
+Data
+Labeled audio: 3 clips/file
+Soundscape labels: ×5 oversample
+Soft pseudo (r5, 1176 clips): ×10
+Hard pseudo (r5, 1168 clips): extra_soundscape_csv
+(v30/4fold: combined r4r5, 6601 clips × 10)
+Augmentation
+SpecAugment: time×2 (15%), freq×2 (40)
+Noise: level=0.005
+Gain: [0.7, 1.3]
+Background noise: soundscape dir
+✅ Conclusions & Next Steps
+What to do next
+Wait for v28, v27, v30 to finish → run model soup → compare final val AUC to confirm 4-fold formula
+If v30 (r4r5) surpasses v24 (r5-only) at peak, adopt combined_pseudo_r4r5 as the 4-fold base
+Launch 4-fold B0 Grand Combo : bash scripts/launch_4fold_grand.sh 0 (GPU0) and bash scripts/launch_4fold_grand.sh 1 (GPU1)
+Run watchdog-triggered v31 (V2S + combined r4r5) after v27 finishes to test V2S ceiling with best data
+After 4-fold complete: run model soup per fold → ensemble with Perch probe in 4fold_grand_ensemble.ipynb
+Target final ensemble: 4×B0 soups (w=1.5) + 5×B0 singles (w=1.0) + Perch=0.45 / SED=0.55 VLOM
+Submit when individual model holdout AUC > 0.9193 (current benchmark threshold)
+Key Risk: V2S val AUC is consistently below B0 on this validation set despite having 3.6× more parameters.
+Possible causes: (1) shorter warmup relative to model size, (2) slower convergence needing 15+ epochs,
+(3) this soundscape val set happens to favor B0's feature space. Monitor V2S-v3 through ep6+ before deciding
+whether to include V2S in the final ensemble.
+Generated 2026-03-19 · BirdCLEF 2026 · claude-sonnet-4-6

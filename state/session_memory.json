@@ -1,0 +1,43 @@
+{
+  "current_objective": "Three factors block immediate submission: (1) the CPU-only, internet-off bundle has not been dry-run locally, (2) the submission bar requires at least calibration and ensemble iteration beyond the raw baseline, and (3) open questions about fitted_class_count vs active_class_count remain unresolved. The veto checker blocks class_coverage axes, and the branch diversifier recommends backbone/probe_head/prior_calibration as the viable mix. Collapsing to a single low-information calibration sweep would waste branch budget when the bundle pipeline itself is unvalidated.",
+  "current_leader_run_id": "run-0001-perch-baseline",
+  "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+  "current_leader_metric_value": 0.6649754967376823,
+  "active_portfolios": [],
+  "top_positive_priors": [
+    "backbone: backbone has stronger supporting evidence than contradictory evidence.",
+    "preprocessing_aug: preprocessing_aug has stronger supporting evidence than contradictory evidence."
+  ],
+  "top_negative_vetoes": [],
+  "unresolved_questions": [
+    "Resolve contradiction on probe_head: probe_head remains conditional because the evidence is mixed or incomplete. Counterevidence: 1. **Validate submission bundle parity.** Package the Perch embedding cache + linear probe + Bayesian prior into a CP...",
+    "What removes the current bottleneck: The perch cached-probe baseline (val_soundscape_macro_roc_auc=0.665) is live but submission bundle parity is not yet validated. The immediate gap is not model performance but submission pipeline readiness: the notebook-derived Bayesian prior + embedding probe pipeline needs a CPU-only, internet-off bundle that reproduces the local score before any daily submission quota is consumed. The val_prior_fusion_macro_roc_auc (0.662) is close to the primary metric (0.665), confirming the probe head is working but calibration refinement remains conditional.?"
+  ],
+  "current_bottlenecks": [
+    "The perch cached-probe baseline (val_soundscape_macro_roc_auc=0.665) is live but submission bundle parity is not yet validated. The immediate gap is not model performance but submission pipeline readiness: the notebook-derived Bayesian prior + embedding probe pipeline needs a CPU-only, internet-off bundle that reproduces the local score before any daily submission quota is consumed. The val_prior_fusion_macro_roc_auc (0.662) is close to the primary metric (0.665), confirming the probe head is working but calibration refinement remains conditional."
+  ],
+  "pending_decisions": [
+    "Choose the next perch_cached_probe branch portfolio.",
+    "Compile grounded and novel branch slots without violating veto rules."
+  ],
+  "selected_memory_files": [],
+  "selected_capability_packs": [
+    "veto_checker",
+    "branch_diversifier",
+    "branch_typing_compiler",
+    "novel_hypothesis_generator"
+  ],
+  "knowledge_card_ids": [
+    "research-run-0001-perch-baseline-md-adopt-now",
+    "imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-actionable-guidance",
+    "research-run-0001-perch-baseline-md-consider-post-parity",
+    "research-run-0001-perch-baseline-md-current-state",
+    "imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-progress-tracker",
+    "imports-kaggle-agent-04-submission-bar-md-example",
+    "imports-kaggle-agent-experiment-conclusions-md-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration",
+    "research-run-0001-perch-baseline-md-reject"
+  ],
+  "source_stage": "plan",
+  "run_id": "run-0001-perch-baseline",
+  "updated_at": "2026-04-02T20:55:12+00:00"
+}

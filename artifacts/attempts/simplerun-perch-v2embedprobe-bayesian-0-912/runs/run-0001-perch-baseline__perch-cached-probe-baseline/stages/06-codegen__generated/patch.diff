@@ -1,0 +1,421 @@
+diff --git a/BirdCLEF-2026-Codebase/inference.py b/BirdCLEF-2026-Codebase/inference.py
+index af8e1a3..1b18075 100644
+--- a/BirdCLEF-2026-Codebase/inference.py
++++ b/BirdCLEF-2026-Codebase/inference.py
+@@ -1,11 +1,17 @@
+ from __future__ import annotations
+ 
+ import argparse
+-import csv
+ import json
++import os
++import pickle
++import re
+ import sys
+ from pathlib import Path
+ 
++import numpy as np
++import pandas as pd
++from scipy.ndimage import convolve1d
++
+ RUNTIME_ROOT = Path(__file__).resolve().parent
+ SRC_ROOT = RUNTIME_ROOT / "src"
+ if str(SRC_ROOT) not in sys.path:
+@@ -13,32 +19,387 @@ if str(SRC_ROOT) not in sys.path:
+ 
+ from birdclef_runtime.config import load_config
+ 
++FILENAME_RE = re.compile(r"BC2026_(?:Train|Test)_(\d+)_(S\d+)_(\d{8})_(\d{6})\.ogg")
++
++
++def _parse_soundscape_filename(name: str) -> dict[str, object]:
++    match = FILENAME_RE.match(name)
++    if match is None:
++        return {"site": None, "hour_utc": -1}
++    _clip_id, site, _ymd, hms = match.groups()
++    return {"site": site, "hour_utc": int(hms[:2])}
++
++
++def _prior_logits(
++    sites: np.ndarray,
++    hours: np.ndarray,
++    tables: dict,
++    *,
++    eps: float = 1e-4,
++) -> np.ndarray:
++    n_rows = len(sites)
++    probabilities = np.repeat(tables["global_p"][None, :], n_rows, axis=0).astype(np.float32, copy=True)
++    site_indices = np.fromiter((tables["site_to_i"].get(str(s), -1) for s in sites), np.int32, n_rows)
++    hour_indices = np.fromiter(
++        (tables["hour_to_i"].get(int(h), -1) if int(h) >= 0 else -1 for h in hours),
++        np.int32,
++        n_rows,
++    )
++    sh_indices = np.fromiter(
++        (
++            tables["sh_to_i"].get((str(s), int(h)), -1) if int(h) >= 0 else -1
++            for s, h in zip(sites, hours, strict=False)
++        ),
++        np.int32,
++        n_rows,
++    )
++    valid = hour_indices >= 0
++    if valid.any():
++        counts = tables["hour_n"][hour_indices[valid]][:, None]
++        probabilities[valid] = counts / (counts + 8.0) * tables["hour_p"][hour_indices[valid]] + (
++            1.0 - counts / (counts + 8.0)
++        ) * probabilities[valid]
++    valid = site_indices >= 0
++    if valid.any():
++        counts = tables["site_n"][site_indices[valid]][:, None]
++        probabilities[valid] = counts / (counts + 8.0) * tables["site_p"][site_indices[valid]] + (
++            1.0 - counts / (counts + 8.0)
++        ) * probabilities[valid]
++    valid = sh_indices >= 0
++    if valid.any():
++        counts = tables["sh_n"][sh_indices[valid]][:, None]
++        probabilities[valid] = counts / (counts + 4.0) * tables["sh_p"][sh_indices[valid]] + (
++            1.0 - counts / (counts + 4.0)
++        ) * probabilities[valid]
++    np.clip(probabilities, eps, 1.0 - eps, out=probabilities)
++    return (np.log(probabilities) - np.log1p(-probabilities)).astype(np.float32)
++
++
++def _smooth_cols(scores: np.ndarray, columns: np.ndarray, *, windows_per_file: int, alpha: float) -> np.ndarray:
++    if alpha <= 0.0 or len(columns) == 0:
++        return scores.copy()
++    smoothed = scores.copy()
++    view = smoothed.reshape(-1, windows_per_file, smoothed.shape[1])
++    subset = view[:, :, columns]
++    previous = np.concatenate([subset[:, :1, :], subset[:, :-1, :]], axis=1)
++    next_values = np.concatenate([subset[:, 1:, :], subset[:, -1:, :]], axis=1)
++    view[:, :, columns] = (1.0 - alpha) * subset + 0.5 * alpha * (previous + next_values)
++    return smoothed
++
++
++def _gaussian_smooth(scores: np.ndarray, weights: np.ndarray, windows_per_file: int) -> np.ndarray:
++    smoothed = scores.reshape(-1, windows_per_file, scores.shape[1]).copy()
++    for i in range(smoothed.shape[0]):
++        smoothed[i] = convolve1d(smoothed[i], weights, axis=0, mode="nearest")
++    return smoothed.reshape(-1, scores.shape[1])
++
++
++def _fuse_scores(
++    base_scores: np.ndarray,
++    *,
++    sites: np.ndarray,
++    hours: np.ndarray,
++    tables: dict,
++    mapping_ctx: dict,
++    lambda_event: float,
++    lambda_texture: float,
++    lambda_proxy_texture: float,
++    smooth_texture_alpha: float,
++    windows_per_file: int,
++) -> np.ndarray:
++    scores = base_scores.copy()
++    prior = _prior_logits(sites, hours, tables)
++    idx_mapped_active_event = np.array(mapping_ctx["idx_mapped_active_event"], dtype=np.int32)
++    idx_mapped_active_texture = np.array(mapping_ctx["idx_mapped_active_texture"], dtype=np.int32)
++    idx_selected_proxy_active_texture = np.array(mapping_ctx["idx_selected_proxy_active_texture"], dtype=np.int32)
++    idx_selected_prioronly_active_event = np.array(mapping_ctx["idx_selected_prioronly_active_event"], dtype=np.int32)
++    idx_selected_prioronly_active_texture = np.array(mapping_ctx["idx_selected_prioronly_active_texture"], dtype=np.int32)
++    idx_unmapped_inactive = np.array(mapping_ctx["idx_unmapped_inactive"], dtype=np.int32)
++    idx_active_texture = np.array(mapping_ctx["idx_active_texture"], dtype=np.int32)
++    if len(idx_mapped_active_event):
++        scores[:, idx_mapped_active_event] += lambda_event * prior[:, idx_mapped_active_event]
++    if len(idx_mapped_active_texture):
++        scores[:, idx_mapped_active_texture] += lambda_texture * prior[:, idx_mapped_active_texture]
++    if len(idx_selected_proxy_active_texture):
++        scores[:, idx_selected_proxy_active_texture] += (
++            lambda_proxy_texture * prior[:, idx_selected_proxy_active_texture]
++        )
++    if len(idx_selected_prioronly_active_event):
++        scores[:, idx_selected_prioronly_active_event] = (
++            lambda_event * prior[:, idx_selected_prioronly_active_event]
++        )
++    if len(idx_selected_prioronly_active_texture):
++        scores[:, idx_selected_prioronly_active_texture] = (
++            lambda_texture * prior[:, idx_selected_prioronly_active_texture]
++        )
++    if len(idx_unmapped_inactive):
++        scores[:, idx_unmapped_inactive] = -8.0
++    scores = _smooth_cols(scores, idx_active_texture, windows_per_file=windows_per_file, alpha=smooth_texture_alpha)
++    return scores.astype(np.float32)
++
++
++def _seq_features_1d(values: np.ndarray, *, windows_per_file: int):
++    reshaped = values.reshape(-1, windows_per_file)
++    previous = np.concatenate([reshaped[:, :1], reshaped[:, :-1]], axis=1).reshape(-1)
++    next_values = np.concatenate([reshaped[:, 1:], reshaped[:, -1:]], axis=1).reshape(-1)
++    mean_values = np.repeat(reshaped.mean(axis=1), windows_per_file)
++    max_values = np.repeat(reshaped.max(axis=1), windows_per_file)
++    min_values = np.repeat(reshaped.min(axis=1), windows_per_file)
++    range_values = max_values - min_values
++    return previous, next_values, mean_values, max_values, min_values, range_values
++
++
++def _cosine_sim_to_prototype(embeddings: np.ndarray, prototype: np.ndarray) -> np.ndarray:
++    embeddings_norm = embeddings / (np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-8)
++    prototype_norm = prototype / (np.linalg.norm(prototype) + 1e-8)
++    return (embeddings_norm @ prototype_norm).astype(np.float32)
++
++
++def _family_mean_features(
++    class_index: int,
++    base_scores: np.ndarray,
++    class_family: dict[int, str],
++    family_idx_map: dict[str, list],
++) -> np.ndarray | None:
++    family_name = class_family.get(class_index, "Unknown")
++    family_indices = np.array(family_idx_map.get(family_name, []), dtype=np.int32)
++    other_indices = family_indices[family_indices != class_index]
++    if len(other_indices) == 0:
++        return None
++    return base_scores[:, other_indices].mean(axis=1).astype(np.float32)
++
++
++def _build_class_features(
++    reduced_embeddings: np.ndarray,
++    *,
++    raw_scores_col: np.ndarray,
++    prior_scores_col: np.ndarray,
++    base_scores_col: np.ndarray,
++    windows_per_file: int,
++    use_raw_scores: bool,
++    use_sequential_features: bool,
++    prototype_similarity: np.ndarray | None = None,
++    family_mean: np.ndarray | None = None,
++) -> np.ndarray:
++    parts: list[np.ndarray] = [reduced_embeddings.astype(np.float32)]
++    if use_raw_scores:
++        parts.append(raw_scores_col[:, None].astype(np.float32))
++    parts.append(prior_scores_col[:, None].astype(np.float32))
++    parts.append(base_scores_col[:, None].astype(np.float32))
++    if use_sequential_features:
++        previous, next_values, mean_values, max_values, min_values, range_values = _seq_features_1d(
++            base_scores_col,
++            windows_per_file=windows_per_file,
++        )
++        parts.extend(
++            [
++                previous[:, None].astype(np.float32),
++                next_values[:, None].astype(np.float32),
++                mean_values[:, None].astype(np.float32),
++                max_values[:, None].astype(np.float32),
++                min_values[:, None].astype(np.float32),
++                range_values[:, None].astype(np.float32),
++            ]
++        )
++    if prototype_similarity is not None:
++        parts.append(prototype_similarity[:, None].astype(np.float32))
++    if family_mean is not None:
++        parts.append(family_mean[:, None].astype(np.float32))
++    return np.concatenate(parts, axis=1).astype(np.float32)
++
+ 
+ def build_parser() -> argparse.ArgumentParser:
+-    parser = argparse.ArgumentParser(description="Generate a BirdCLEF submission scaffold.")
++    parser = argparse.ArgumentParser(description="Generate a BirdCLEF submission from probe bundle.")
+     parser.add_argument("--config", required=True)
+     parser.add_argument("--checkpoint", required=False, default="")
+     parser.add_argument("--output", required=False, default="submission.csv")
+     return parser
+ 
+ 
++def _run_inference(config: dict, checkpoint_path: Path, output_path: Path) -> dict:
++    """Load probe bundle and generate predictions for submission."""
++    data_cfg = config.get("data", {})
++    paths_cfg = config.get("paths", {})
++    training_cfg = config.get("training", {})
++    data_root = (RUNTIME_ROOT / paths_cfg.get("data_root", "./birdclef-2026")).resolve()
++
++    cache_root_value = str(data_cfg.get("perch_cache_dir", "")).strip()
++    if not cache_root_value:
++        raise ValueError("data.perch_cache_dir is required for inference")
++    cache_root = (Path(cache_root_value).expanduser() if Path(cache_root_value).is_absolute()
++                  else (RUNTIME_ROOT / cache_root_value).resolve())
++
++    sample_submission_path = data_root / data_cfg.get("sample_submission_csv", "sample_submission.csv")
++    if not sample_submission_path.exists():
++        raise FileNotFoundError(f"sample_submission.csv not found at {sample_submission_path}")
++
++    sample_df = pd.read_csv(sample_submission_path)
++    labels = sample_df.columns[1:].tolist()
++
++    # Load probe bundle
++    with checkpoint_path.open("rb") as f:
++        bundle = pickle.load(f)
++
++    bundle_labels = bundle["labels"]
++    scaler = bundle["scaler"]
++    pca = bundle["pca"]
++    models = bundle["models"]
++    prior_tables = bundle["prior_tables"]
++    probe_use_raw_scores = bundle.get("probe_use_raw_scores", True)
++    probe_alpha = bundle.get("probe_alpha", 0.40)
++    mapping_ctx = bundle.get("mapping_context", {})
++    class_prototypes = bundle.get("class_prototypes", {})
++    class_family = bundle.get("class_family", {})
++    family_idx_map = bundle.get("family_idx_map", {})
++    gaussian_weights = np.array(bundle.get("gaussian_weights", [0.1, 0.2, 0.4, 0.2, 0.1]), dtype=np.float32)
++    final_gaussian_smoothing = bundle.get("final_gaussian_smoothing", True)
++    bundle_config = bundle.get("config", {})
++    windows_per_file = int(bundle_config.get("windows_per_file", 12))
++    lambda_event = float(training_cfg.get("prior_lambda_event", bundle_config.get("prior_lambda_event", 0.4)))
++    lambda_texture = float(training_cfg.get("prior_lambda_texture", bundle_config.get("prior_lambda_texture", 1.0)))
++    lambda_proxy_texture = float(training_cfg.get("prior_lambda_proxy_texture", bundle_config.get("prior_lambda_proxy_texture", 0.8)))
++    smooth_texture_alpha = float(training_cfg.get("smooth_texture_alpha", bundle_config.get("smooth_texture_alpha", 0.35)))
++    use_sequential_features = bool(bundle_config.get("use_sequential_features", True))
++    use_prototype_similarity = bool(bundle_config.get("use_prototype_similarity", True))
++    use_family_mean = bool(bundle_config.get("use_family_mean", True))
++
++    # Load test soundscape Perch cache
++    test_cache_meta = cache_root / "test_perch_meta.parquet"
++    test_cache_arrays = cache_root / "test_perch_arrays.npz"
++
++    if test_cache_meta.exists() and test_cache_arrays.exists():
++        meta_df = pd.read_parquet(test_cache_meta)
++        cached = np.load(test_cache_arrays)
++        raw_scores = cached["scores_full_raw"].astype(np.float32)
++        embeddings = cached["emb_full"].astype(np.float32)
++        row_ids = meta_df["row_id"].to_numpy()
++    else:
++        # Local dry-run: use train soundscape data
++        meta_path = cache_root / "full_perch_meta.parquet"
++        arrays_path = cache_root / "full_perch_arrays.npz"
++        if not meta_path.exists() or not arrays_path.exists():
++            raise FileNotFoundError(f"Missing cached Perch artifacts in {cache_root}")
++        meta_df = pd.read_parquet(meta_path)
++        cached = np.load(arrays_path)
++        raw_scores = cached["scores_full_raw"].astype(np.float32)
++        embeddings = cached["emb_full"].astype(np.float32)
++        row_ids = meta_df["row_id"].to_numpy()
++
++    # Build site/hour metadata
++    sites = meta_df["site"].fillna("unknown").astype(str).to_numpy() if "site" in meta_df.columns else np.array(["unknown"] * len(meta_df))
++    hours = meta_df["hour_utc"].fillna(-1).astype(int).to_numpy() if "hour_utc" in meta_df.columns else np.full(len(meta_df), -1, dtype=int)
++
++    # Reduce embeddings
++    reduced = pca.transform(scaler.transform(embeddings)).astype(np.float32)
++
++    # Apply Bayesian prior fusion
++    n_classes = len(labels)
++    if raw_scores.shape[1] != n_classes:
++        raw_scores_padded = np.zeros((len(raw_scores), n_classes), dtype=np.float32)
++        common = min(raw_scores.shape[1], n_classes)
++        raw_scores_padded[:, :common] = raw_scores[:, :common]
++        raw_scores = raw_scores_padded
++
++    base_scores = _fuse_scores(
++        raw_scores,
++        sites=sites,
++        hours=hours,
++        tables=prior_tables,
++        mapping_ctx=mapping_ctx,
++        lambda_event=lambda_event,
++        lambda_texture=lambda_texture,
++        lambda_proxy_texture=lambda_proxy_texture,
++        smooth_texture_alpha=smooth_texture_alpha,
++        windows_per_file=windows_per_file,
++    )
++
++    # Compute prior scores for feature building
++    prior_scores = _prior_logits(sites, hours, prior_tables)
++
++    # Apply per-class probe models
++    predictions = base_scores.copy()
++    for class_index, clf in models.items():
++        if class_index >= n_classes:
++            continue
++        proto_sim = None
++        if use_prototype_similarity and class_index in class_prototypes:
++            proto_sim = _cosine_sim_to_prototype(reduced, class_prototypes[class_index])
++        family_mean = (
++            _family_mean_features(class_index, predictions, class_family, family_idx_map)
++            if use_family_mean else None
++        )
++        features = _build_class_features(
++            reduced,
++            raw_scores_col=raw_scores[:, class_index],
++            prior_scores_col=prior_scores[:, class_index],
++            base_scores_col=base_scores[:, class_index],
++            windows_per_file=windows_per_file,
++            use_raw_scores=probe_use_raw_scores,
++            use_sequential_features=use_sequential_features,
++            prototype_similarity=proto_sim,
++            family_mean=family_mean,
++        )
++        probe_logits = clf.decision_function(features).astype(np.float32)
++        predictions[:, class_index] = (
++            (1.0 - probe_alpha) * base_scores[:, class_index] + probe_alpha * probe_logits
++        )
++
++    if final_gaussian_smoothing:
++        predictions = _gaussian_smooth(predictions, gaussian_weights, windows_per_file)
++
++    # Sigmoid to get probabilities
++    predictions = 1.0 / (1.0 + np.exp(-predictions.astype(np.float64)))
++    predictions = predictions.astype(np.float32)
++
++    # Build submission CSV
++    submission_rows = []
++    for i, row_id in enumerate(row_ids):
++        row = [row_id] + [f"{predictions[i, j]:.4f}" for j in range(n_classes)]
++        submission_rows.append(row)
++
++    with output_path.open("w", encoding="utf-8", newline="") as f:
++        import csv as csv_mod
++        writer = csv_mod.writer(f)
++        writer.writerow(["row_id"] + labels)
++        writer.writerows(submission_rows)
++
++    return {"output": str(output_path), "rows": len(submission_rows), "classes": n_classes}
++
++
+ def main(argv: list[str] | None = None) -> int:
+     parser = build_parser()
+     args = parser.parse_args(argv)
+     config = load_config(args.config)
+-    data_root = (RUNTIME_ROOT / config["paths"]["data_root"]).resolve()
+-    sample_submission = data_root / config["data"].get("sample_submission_csv", "sample_submission.csv")
+     output_path = Path(args.output).resolve()
+-    if sample_submission.exists():
+-        rows = list(csv.reader(sample_submission.open("r", encoding="utf-8", newline="")))
+-        with output_path.open("w", encoding="utf-8", newline="") as handle:
+-            writer = csv.writer(handle)
+-            writer.writerows(rows)
++
++    checkpoint_arg = args.checkpoint
++    if not checkpoint_arg:
++        experiment_name = config.get("experiment", {}).get("name", "unknown")
++        output_root = (RUNTIME_ROOT / config["paths"]["output_root"]).resolve()
++        checkpoint_path = output_root / experiment_name / "probe_bundle.pkl"
++        run_dir_env = os.environ.get("KAGGLE_AGENT_RUN_DIR", "").strip()
++        if run_dir_env:
++            alt_path = Path(run_dir_env).resolve() / "probe_bundle.pkl"
++            if alt_path.exists():
++                checkpoint_path = alt_path
+     else:
+-        with output_path.open("w", encoding="utf-8", newline="") as handle:
+-            writer = csv.writer(handle)
+-            writer.writerow(["row_id", "prediction"])
+-    print(json.dumps({"output": str(output_path), "checkpoint": args.checkpoint}, ensure_ascii=True))
++        checkpoint_path = Path(checkpoint_arg).resolve()
++
++    if not checkpoint_path.exists():
++        # Fallback: copy sample_submission.csv
++        data_root = (RUNTIME_ROOT / config["paths"]["data_root"]).resolve()
++        sample_submission = data_root / config["data"].get("sample_submission_csv", "sample_submission.csv")
++        if sample_submission.exists():
++            import shutil
++            shutil.copy2(sample_submission, output_path)
++        else:
++            output_path.write_text("row_id,prediction\n", encoding="utf-8")
++        print(json.dumps({"output": str(output_path), "checkpoint": str(checkpoint_path), "mode": "stub"}, ensure_ascii=True))
++        return 0
++
++    result = _run_inference(config, checkpoint_path, output_path)
++    result["checkpoint"] = str(checkpoint_path)
++    print(json.dumps(result, ensure_ascii=True))
+     return 0

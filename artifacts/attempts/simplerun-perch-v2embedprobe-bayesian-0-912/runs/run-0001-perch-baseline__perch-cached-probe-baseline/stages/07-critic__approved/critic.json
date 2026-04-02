@@ -1,0 +1,277 @@
+{
+  "stage": "critic",
+  "status": "approved",
+  "concerns": [
+    "realized_typing axis drifted from backbone (proposal) to general (realized) — the codegen changed experiment.name in config and touched inference.py, which is a surface change not cleanly mapped to the backbone axis. The proposal_typing promised backbone-level structural work but the realized typing shows general/config with only 1 config rename change. This is a minor drift, not a contract violation, since the inference.py edit is the substantive bundle-parity change.",
+    "The verify run produced val_soundscape_macro_roc_auc=0.6729, which is notably higher than the parent run's 0.6650. A 0.008 jump from an inference.py change warrants scrutiny — the codegen may have altered the inference path in a way that changes scoring behavior, which should be validated for correctness rather than assumed as improvement.",
+    "The realized_typing low_information_flag flipped from false (proposal) to true (realized) because change_count=1 and the only detected change is a config experiment.name rename. The inference.py file change is captured in changed_paths but not in the typed changes array, suggesting the typing compiler did not detect the code-level edit. This is a measurement gap in the typing system.",
+    "The prior-calibration hedge branch was pruned with reason 'policy_veto' but also appears in the branch_plans as branch_rank=2. The dual appearance (pruned AND planned) suggests a deduplication issue — the grounded-idea-class version was kept while the prior_calibration-axis version was correctly vetoed for low-information typing.",
+    "No branch_memory_ids are populated on any candidate branch. This is the first round of branch-search for this portfolio so empty memory is expected, but the critic should note this for future round traceability."
+  ],
+  "warnings": [
+    "The verify score (0.6729) exceeds the parent baseline (0.6650) by 0.008. If this is due to a genuine inference improvement in inference.py, it should be documented. If it is a scoring artifact (e.g., changed validation split or metric computation), it must be flagged before the validate stage.",
+    "The search_envelope excludes class_coverage, which is correct given the conditional_avoid policy and past round-3 regression. However, the open question about fitted_class_count vs active_class_count remains unresolved. The probe diagnostic explore branch was pruned by grounded_budget — if bundle parity succeeds, the next portfolio should prioritize this diagnostic.",
+    "The proposal_typing for the primary branch used structural_hint_only=true, meaning the typing was inferred from metadata rather than actual code diff. The realized typing should be treated as the ground truth going forward.",
+    "The codegen changed exactly one file (BirdCLEF-2026-Codebase/inference.py) but the generated config only renames experiment.name. The substantive inference change is in the code file, not the config. Ensure the validate stage checks that the inference.py change is replay-safe and CPU-compatible.",
+    "lost axes: backbone",
+    "added axes: general",
+    "lost patterns: conditional_backbone_recovery"
+  ],
+  "required_fixes": [],
+  "branch_memory_ids": [],
+  "reusable_judgments": [
+    "bundle-parity-branch-0: typing-drift-backbone-to-general-acceptable — The proposal typed backbone but codegen produced a general/config surface with an inference.py code edit. Accepted because the inference.py edit is the bundle-parity packaging work and the axis drift reflects measurement limitations in the typing compiler, not a misaligned experiment.",
+    "bundle-parity-verify-score-0.673-vs-baseline-0.665: requires-validation-attention — The +0.008 score delta from a single inference.py edit is larger than expected for a pure packaging change. The validate stage must confirm this is not a metric computation artifact.",
+    "prior-calibration-hedge-pruned-correctly: policy-veto-low-information — The prior_calibration-axis variant of the calibration hedge was correctly vetoed for low-information typing (blend_only, calibration_only patterns). The grounded-idea-class variant was correctly kept as branch_rank=2.",
+    "class-coverage-conditional-avoid-upheld: The search envelope correctly excluded class_coverage based on past regression history and the conditional_avoid policy trace. No veto was violated.",
+    "probe-diagnostic-exploration-deferred-not-rejected: The probe diagnostic branch was pruned by grounded_budget, not by policy veto. This is a budget-driven deferral that should be revisited in the next portfolio round.",
+    "Typing drift was detected between the planned branch intent and the realized code/config surface."
+  ],
+  "branch_quality": {
+    "primary_bundle_parity": {
+      "proposal_axis": "backbone",
+      "realized_axis": "general",
+      "typing_drift": "minor",
+      "policy_score": 19.48,
+      "verify_passed": true,
+      "verify_metric": 0.6729548485798909,
+      "low_information_flag_realized": true,
+      "concern_level": "low",
+      "recommendation": "Approve for validate stage with attention to score delta explanation."
+    },
+    "hedge_prior_calibration": {
+      "proposal_axis": "grounded",
+      "realized_axis": "not yet realized",
+      "typing_drift": "n/a",
+      "policy_score": 14.08,
+      "branch_rank": 2,
+      "status": "planned_not_yet_dispatched",
+      "concern_level": "none",
+      "recommendation": "Correctly retained for downstream execution."
+    },
+    "pruned_branches": {
+      "count": 6,
+      "pruned_reasons": {
+        "grounded_budget": 5,
+        "policy_veto": 1
+      },
+      "veto_correctness": "confirmed",
+      "budget_deferral_correctness": "confirmed"
+    },
+    "branch_role": "primary",
+    "idea_class": "backbone",
+    "verify_status": "passed",
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+    "realized_typing_id": "realized-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-general-co",
+    "grounding_mode": "grounded",
+    "cost_tier": "low"
+  },
+  "proposal_typing": {
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "Bundle parity: CPU-only submission dry-run",
+    "family": "perch_cached_probe",
+    "config_path": "",
+    "typing_signature": "backbone|unknown|852ef6680bc7",
+    "typing_signature_json": "{\"axis_tags\": [\"backbone\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+    "typing_payload": {
+      "typing_kind": "proposal",
+      "typing_signature": "backbone|unknown|852ef6680bc7",
+      "signature_payload": {
+        "axis_tags": [
+          "backbone"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "changes": [],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "backbone",
+      "axis_tags": [
+        "backbone"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "pattern_tags": [
+        "conditional_backbone_recovery"
+      ],
+      "changed_paths": [],
+      "change_count": 0,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "requires_override": false,
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "structural_hint_only": true
+    },
+    "typing_kind": "proposal",
+    "signature_payload": {
+      "axis_tags": [
+        "backbone"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "changes": [],
+      "work_type": "experiment_iteration"
+    },
+    "idea_class": "backbone",
+    "axis_tags": [
+      "backbone"
+    ],
+    "change_surface": [
+      "unknown"
+    ],
+    "pattern_tags": [
+      "conditional_backbone_recovery"
+    ],
+    "changed_paths": [],
+    "change_count": 0,
+    "novelty_score": 1.0,
+    "low_information_flag": false,
+    "requires_override": false,
+    "grounding_mode": "grounded",
+    "unsupported_claims": [],
+    "required_evidence": [],
+    "cost_tier": "low",
+    "work_type": "experiment_iteration",
+    "structural_hint_only": true,
+    "created_at": "2026-04-02T20:56:48+00:00"
+  },
+  "realized_typing": {
+    "realized_typing_id": "realized-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-general-co",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0006-codegen",
+    "title": "Bundle parity: CPU-only submission dry-run",
+    "family": "perch_cached_probe",
+    "config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+    "typing_signature": "general|config|76e37b9ae92c",
+    "typing_payload": {
+      "typing_kind": "realized",
+      "typing_signature": "general|config|76e37b9ae92c",
+      "signature_payload": {
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "config"
+        ],
+        "changes": [
+          {
+            "path": "experiment.name",
+            "after": "bundle-parity-cpu-only-submission-dry-run"
+          }
+        ],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "backbone",
+      "axis_tags": [
+        "general"
+      ],
+      "change_surface": [
+        "config"
+      ],
+      "pattern_tags": [],
+      "changed_paths": [
+        "BirdCLEF-2026-Codebase/inference.py"
+      ],
+      "change_count": 1,
+      "low_information_flag": true,
+      "grounding_mode": "grounded",
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "generated_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+      "source_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml"
+    },
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+    "drift_summary": [],
+    "typing_kind": "realized",
+    "signature_payload": {
+      "axis_tags": [
+        "general"
+      ],
+      "change_surface": [
+        "config"
+      ],
+      "changes": [
+        {
+          "path": "experiment.name",
+          "after": "bundle-parity-cpu-only-submission-dry-run"
+        }
+      ],
+      "work_type": "experiment_iteration"
+    },
+    "idea_class": "backbone",
+    "axis_tags": [
+      "general"
+    ],
+    "change_surface": [
+      "config"
+    ],
+    "pattern_tags": [],
+    "changed_paths": [
+      "BirdCLEF-2026-Codebase/inference.py"
+    ],
+    "change_count": 1,
+    "low_information_flag": true,
+    "grounding_mode": "grounded",
+    "cost_tier": "low",
+    "work_type": "experiment_iteration",
+    "generated_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+    "source_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml",
+    "created_at": "2026-04-02T21:02:23+00:00"
+  },
+  "info_gain_estimate": {
+    "estimate_id": "gain-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "Bundle parity: CPU-only submission dry-run",
+    "family": "perch_cached_probe",
+    "idea_class": "backbone",
+    "grounding_mode": "grounded",
+    "novelty_score": 1.0,
+    "estimated_gain": 0.84,
+    "cost_tier": "low",
+    "rationale": [
+      "structural axis change",
+      "cheap branch"
+    ],
+    "created_at": "2026-04-02T20:56:48+00:00",
+    "low_information_flag": false,
+    "required_patterns_matched": [],
+    "branch_role": "primary"
+  },
+  "typing_drift": {
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+    "realized_typing_id": "realized-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-general-co",
+    "drifted": true,
+    "severe": false,
+    "summary": [
+      "lost axes: backbone",
+      "added axes: general",
+      "lost patterns: conditional_backbone_recovery"
+    ]
+  },
+  "search_envelope": {
+    "family": "perch_cached_probe",
+    "axes": [
+      "backbone",
+      "prior_calibration",
+      "probe_head"
+    ],
+    "excluded_axes": [
+      "class_coverage"
+    ],
+    "max_branches": 3,
+    "minimum_information_gain_bar": 0.3,
+    "turn_id": "stage-0004-decision"
+  },
+  "envelope_violations": [],
+  "amp_probe_summary": ""
+}

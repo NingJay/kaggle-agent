@@ -1,0 +1,14 @@
+{
+  "stage": "report",
+  "headline": "Perch cached-probe baseline established with val ROC-AUC 0.665, submission pipeline now required.",
+  "focus": "Build and validate submission bundle parity for the perch cached-probe baseline before consuming daily submission quota.",
+  "best_run_id": "run-0001-perch-baseline",
+  "best_run_metric": 0.6649754967376823,
+  "primary_metric_value": 0.6649754967376823,
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+  "verdict": "submission-required",
+  "finding_titles": [
+    "Perch cached-probe baseline completed"
+  ],
+  "issue_titles": []
+}

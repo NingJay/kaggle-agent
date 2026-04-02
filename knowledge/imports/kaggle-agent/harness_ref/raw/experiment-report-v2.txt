@@ -1,0 +1,186 @@
+BirdCLEF 2026 — 實驗技術報告
+Technical Report · BirdCLEF 2026
+實驗技術報告
+Label-head Architecture · Human Voice Removal · Post-Processing Pipeline · Pseudo Label Strategy
+2026-03-15 報告日期
+17 個實驗
+0.837 當前最佳 LB
+0.855+ PP 後預估
+60+ Post-proc 配置
+🏆 Kaggle Leaderboard 結果
+🥇 #1 · label_head
+nohuman-label-pseudo
+0.837
+本地 ROC-AUC: 0.4910
+🥈 #2 · label_head
+nohuman-label-head
+0.834
+本地 ROC-AUC: 0.5347
+🥉 #3 · label_head
+perch-label-head
+0.827
+本地 ROC-AUC: 0.4900
+#4 · label_head
+label-head-pseudo
+0.825
+本地 ROC-AUC: 0.4902
+#5 · embedding_head
+no-human-voice
+~0.785
+本地 ROC-AUC: 0.5282
+Perch zero-shot baseline
+無訓練
+0.825
+label-head 超越 zero-shot
+📊 所有實驗結果總表
+實驗名稱 模式 最佳本地 ROC-AUC 最佳 Epoch Kaggle LB
+nohuman-label-pseudo label_head 0.9914 38/80 0.837
+nohuman-label-head label_head 0.9750 30/80 0.834
+perch-label-head label_head 0.9763 28/80 0.827
+label-head-pseudo label_head 0.9866 30/80 0.825
+nohuman-os3 embedding_head 0.9891 47/80 —
+bigger-head embedding_head 0.9856 37/80 —
+soundscape-os10 embedding_head 0.9808 12/80 —
+soundscape-in-train embedding_head 0.9757 12/50 —
+best-derived-v1 embedding_head 0.9750 12/50 —
+birdclef25-soundscape embedding_head 0.9750 12/50 —
+best-derived-v2 embedding_head 0.9738 12/80 —
+no-human-voice embedding_head 0.9663 7/50 —
+pseudo-r1 embedding_head 0.9559 38/80 —
+baseline embedding_head 0.8802 15/50 —
+birdclef25-base embedding_head 0.8756 15/50 —
+adamw-classweights embedding_head 0.8143 7/50 —
+focal-isolated embedding_head 0.8140 18/50 —
+📈 訓練曲線
+Label-head 實驗群 (Val ROC-AUC)
+Embedding-head 實驗群 (Val ROC-AUC)
+⚗️ Post-Processing Grid Search 結果
+nohuman-label-head
+Baseline: 0.5347 · 最大提升: +0.0093
+1
+amp_norm + TTA (plain avg)
+0.5440
++0.0093
+2
+TTA + slide_max(w=0.5,win=9)
+0.5430
++0.0083
+3
+TTA + 3stage(slide+file_max+gauss)
+0.5423
++0.0076
+4
+amp_norm + slide_max(w=0.5,win=9)
+0.5421
++0.0074
+5
+amp_norm inference (plain)
+0.5407
++0.0061
+6
+TTA ±2.5s (VLOM)
+0.5400
++0.0053
+7
+TTA ±2.5s (plain avg)
+0.5400
++0.0053
+8
+threshold(0.02)+slide_max(0.5,9)
+0.5398
++0.0051
+perch-label-head
+Baseline: 0.49 · 最大提升: +0.0185
+1
+quantile_mix(0.5)+slide_max(0.5,9)
+0.5085
++0.0185
+2
+quantile_mix(0.7)+slide_max(0.5,9)
+0.5083
++0.0183
+3
+quantile_mix(α=0.3)
+0.5025
++0.0125
+4
+quantile_mix(α=0.5)
+0.5024
++0.0125
+5
+quantile_mix(α=0.7)
+0.5023
++0.0124
+6
+quantile_mix(α=0.8)
+0.5020
++0.0120
+7
+quantile_mix(α=0.9)
+0.5011
++0.0111
+8
+slide_max(0.5,9)+quantile_mix(0.5)
+0.5003
++0.0103
+* PP 評估基於本地 66 個 soundscape。尚未提交 Kaggle，預計帶來類似幅度提升。
+💡 核心發現與洞察
+🥇
+nohuman-label-pseudo 最佳
+Kaggle LB = 0.837，結合人聲移除過濾 + pseudo labels。本地分數低 (0.491) 但 LB 最高，再次確認本地 metric 不可信。
+📈
+Label-head 模式關鍵突破
+使用 Perch label output (234-dim species logits) 取代 embedding (1536-dim) 作為特徵，比 embedding-head 高 +0.052 LB。
+🎯
+Pseudo Labels 在 LB 有效
+pseudo labels +0.012 LB，但會降低本地分數。原因：pseudo labels 讓模型更好地適應 soundscape domain。
+🔇
+Nohuman 資料過濾有效
+min_rating=3.0 過濾低品質音頻 +0.007 LB (0.827→0.834)，移除人聲後模型更專注於鳥音特徵。
+⚡
+Post-processing 潛力大
+amp_norm+TTA +0.0093 (nohuman)；quantile_mix+slide_max +0.0185 (perch)。尚未提交，預計可達 0.845–0.855。
+🔮
+本地 Metric 不可信
+本地 ROC-AUC 排名 ≠ LB 排名。nohuman-label-pseudo 本地第3但 LB 第1。應以 Kaggle submission 為唯一評判標準。
+🏗️ 架構比較：Label-head vs Embedding-head
+Kaggle LB Score 比較
+架構對比分析
+特性 Embedding-head Label-head ✓
+Perch 輸出維度 1536-dim embedding 234-dim species logits
+特徵類型 通用表徵 任務特定（物種分類）
+預訓練知識 容易被 fine-tune 覆蓋 直接利用物種先驗知識
+Domain shift 適應 train→test 分布差異大 更 robust 跨 domain
+Head 參數量 ~4.2M (512-dim hidden) ~120K (256-dim hidden)
+訓練時間 ~35min / 50 epoch ~50min / 80 epoch
+最佳 Kaggle LB ~0.785 0.837 (+0.052) 🏆
+📅 實驗時間軸
+Round 0
+Baseline embedding-head 實驗 完成
+baseline, birdclef25-base, soundscape-in-train, no-human-voice 等 10+ 實驗。最佳 LB ~0.785。發現 embedding-head fine-tuning 反而降低 Perch 預訓練知識的泛化能力。
+Round 1
+Label-head 架構突破 完成
+perch-label-head, nohuman-label-head, label-head-pseudo, nohuman-label-pseudo。最佳 Kaggle LB 0.837。確認 pseudo labels + nohuman 資料過濾組合效果最佳。
+Round 1.5
+Post-Processing 研究 完成
+60+ PP 配置 grid search。研究 BirdCLEF 2025 top 解法 (TTA ±2.5s, amp_norm, quantile_mix)。建立 10 個 PP notebook + 7 個 ONNX notebook + Silero VAD 離線包。
+Round 2
+PP 提交 + Ensemble + Round 2 訓練 待執行
+提交 nohuman_ampnorm_tta 和 perch_quantile_slide。設計 ensemble。執行 monitor_and_advance.sh 啟動 Round 2 nohuman-label pseudo pipeline。
+🚀 建議下一步
+立即
+提交 PP 版本
+提交 nohuman_ampnorm_tta.ipynb → 預估 LB ~0.846
+提交 perch_quantile_slide.ipynb → 預估 LB ~0.855
+提交 ONNX perch_onnx_quantile_slide
+本週
+Ensemble 實驗
+nohuman-pseudo + nohuman-head 平均 → ~0.840
+加入 perch-label-head 三模型 ensemble
+測試依 LB 分數加權 ensemble
+下週
+Round 2 訓練
+以最佳模型生成 Round 2 pseudo labels
+重訓 nohuman-label-pseudo (higher quality)
+嘗試 SED pipeline 提升時間精度
+BirdCLEF 2026 實驗技術報告 · 生成於 2026-03-15 · 基於 17 個訓練實驗 · 當前最佳 LB: 0.837

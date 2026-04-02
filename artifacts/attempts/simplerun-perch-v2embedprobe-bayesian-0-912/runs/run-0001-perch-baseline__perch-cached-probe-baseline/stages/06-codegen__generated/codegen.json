@@ -1,0 +1,246 @@
+{
+  "stage": "codegen",
+  "status": "generated",
+  "reason": "Materialized agentic codegen edits from the isolated stage workspace and recorded the deterministic verify result.",
+  "generated_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+  "run_bundle_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/run_bundle.json",
+  "patch_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/patch.diff",
+  "code_state_ref": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/workspace",
+  "verify_artifacts_ref": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/verify_runtime",
+  "verify_command": "/home/staff/jiayining/miniconda3/envs/kaggle-agent/bin/python ./train_sed.py --config configs/generated/bundle-parity-cpu-only-submission-dry-run.yaml",
+  "verify_status": "passed",
+  "verify_summary": "Verify run completed with val_soundscape_macro_roc_auc=0.6729548485798909 and verdict=submission-required.",
+  "worktree_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/workspace",
+  "base_commit": "4eb5717031f74bf46bc7891ca029d9bb4518b60f",
+  "head_commit": "df17f6190ae8971d41496b28434213a2f9285b63",
+  "changed_files": [
+    "BirdCLEF-2026-Codebase/inference.py"
+  ],
+  "provider_runtime": "claude_code mode:agentic",
+  "allowed_edit_roots": [
+    "train_sed.py",
+    "BirdCLEF-2026-Codebase/configs",
+    "BirdCLEF-2026-Codebase/src",
+    "BirdCLEF-2026-Codebase/train.py",
+    "BirdCLEF-2026-Codebase/inference.py",
+    "BirdCLEF-2026-Codebase/scripts"
+  ],
+  "smoke_status": "passed",
+  "smoke_summary": "Verify run completed with val_soundscape_macro_roc_auc=0.6729548485798909 and verdict=submission-required.",
+  "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+  "branch_role": "primary",
+  "idea_class": "backbone",
+  "knowledge_card_ids": [
+    "research-run-0001-perch-baseline-md-adopt-now",
+    "imports-kaggle-agent-01-validated-findings-md-validation-and-metric-semantics",
+    "imports-kaggle-agent-01-validated-findings-md-submission-findings"
+  ],
+  "policy_trace": [
+    "role:primary:8.0",
+    "policy:prefer:backbone:policy-backbone"
+  ],
+  "branch_memory_ids": [],
+  "scheduler_hints": {
+    "portfolio_cap": 1,
+    "idea_class_cap": 1,
+    "dispatch_priority": 19.48,
+    "expected_information_gain": 0.84,
+    "novelty_score": 1.0,
+    "low_information_flag": false,
+    "grounding_mode": "grounded",
+    "cost_tier": "low",
+    "cost_units": 1.0,
+    "cost_budget": 0.0,
+    "max_budget_share": 0.0,
+    "cost_caps": {},
+    "smoke_only_first": false,
+    "canary_eval_required": false,
+    "auto_kill_threshold": 0.0
+  },
+  "proposal_typing": {
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "Bundle parity: CPU-only submission dry-run",
+    "family": "perch_cached_probe",
+    "config_path": "",
+    "typing_signature": "backbone|unknown|852ef6680bc7",
+    "typing_signature_json": "{\"axis_tags\": [\"backbone\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+    "typing_payload": {
+      "typing_kind": "proposal",
+      "typing_signature": "backbone|unknown|852ef6680bc7",
+      "signature_payload": {
+        "axis_tags": [
+          "backbone"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "changes": [],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "backbone",
+      "axis_tags": [
+        "backbone"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "pattern_tags": [
+        "conditional_backbone_recovery"
+      ],
+      "changed_paths": [],
+      "change_count": 0,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "requires_override": false,
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "structural_hint_only": true
+    },
+    "typing_kind": "proposal",
+    "signature_payload": {
+      "axis_tags": [
+        "backbone"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "changes": [],
+      "work_type": "experiment_iteration"
+    },
+    "idea_class": "backbone",
+    "axis_tags": [
+      "backbone"
+    ],
+    "change_surface": [
+      "unknown"
+    ],
+    "pattern_tags": [
+      "conditional_backbone_recovery"
+    ],
+    "changed_paths": [],
+    "change_count": 0,
+    "novelty_score": 1.0,
+    "low_information_flag": false,
+    "requires_override": false,
+    "grounding_mode": "grounded",
+    "unsupported_claims": [],
+    "required_evidence": [],
+    "cost_tier": "low",
+    "work_type": "experiment_iteration",
+    "structural_hint_only": true,
+    "created_at": "2026-04-02T20:56:48+00:00"
+  },
+  "proposal_typing_id": "proposal-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+  "info_gain_estimate": {
+    "estimate_id": "gain-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "Bundle parity: CPU-only submission dry-run",
+    "family": "perch_cached_probe",
+    "idea_class": "backbone",
+    "grounding_mode": "grounded",
+    "novelty_score": 1.0,
+    "estimated_gain": 0.84,
+    "cost_tier": "low",
+    "rationale": [
+      "structural axis change",
+      "cheap branch"
+    ],
+    "created_at": "2026-04-02T20:56:48+00:00",
+    "low_information_flag": false,
+    "required_patterns_matched": [],
+    "branch_role": "primary"
+  },
+  "info_gain_estimate_id": "gain-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+  "source_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+  "motivation_summary": "Adopt-now card explicitly identifies bundle parity as the single blocking task. Highest info gain.",
+  "realized_typing": {
+    "realized_typing_id": "realized-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-general-co",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0006-codegen",
+    "title": "Bundle parity: CPU-only submission dry-run",
+    "family": "perch_cached_probe",
+    "config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+    "typing_signature": "general|config|76e37b9ae92c",
+    "typing_payload": {
+      "typing_kind": "realized",
+      "typing_signature": "general|config|76e37b9ae92c",
+      "signature_payload": {
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "config"
+        ],
+        "changes": [
+          {
+            "path": "experiment.name",
+            "after": "bundle-parity-cpu-only-submission-dry-run"
+          }
+        ],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "backbone",
+      "axis_tags": [
+        "general"
+      ],
+      "change_surface": [
+        "config"
+      ],
+      "pattern_tags": [],
+      "changed_paths": [
+        "BirdCLEF-2026-Codebase/inference.py"
+      ],
+      "change_count": 1,
+      "low_information_flag": true,
+      "grounding_mode": "grounded",
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "generated_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+      "source_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml"
+    },
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-backbone-u",
+    "drift_summary": [],
+    "typing_kind": "realized",
+    "signature_payload": {
+      "axis_tags": [
+        "general"
+      ],
+      "change_surface": [
+        "config"
+      ],
+      "changes": [
+        {
+          "path": "experiment.name",
+          "after": "bundle-parity-cpu-only-submission-dry-run"
+        }
+      ],
+      "work_type": "experiment_iteration"
+    },
+    "idea_class": "backbone",
+    "axis_tags": [
+      "general"
+    ],
+    "change_surface": [
+      "config"
+    ],
+    "pattern_tags": [],
+    "changed_paths": [
+      "BirdCLEF-2026-Codebase/inference.py"
+    ],
+    "change_count": 1,
+    "low_information_flag": true,
+    "grounding_mode": "grounded",
+    "cost_tier": "low",
+    "work_type": "experiment_iteration",
+    "generated_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+    "source_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml",
+    "created_at": "2026-04-02T21:02:23+00:00"
+  },
+  "realized_typing_id": "realized-run-0001-perch-baseline-bundle-parity-cpu-only-submission-dry-run-general-co"
+}

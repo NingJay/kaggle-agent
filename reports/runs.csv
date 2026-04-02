@@ -1,0 +1,4 @@
+run_id,experiment_id,work_item_id,status,stage_cursor,metric_name,metric_value
+run-0001-perch-baseline,exp-perch-baseline,workitem-perch-baseline,succeeded,complete,val_soundscape_macro_roc_auc,0.664975
+run-0002-0001-bundle-parity-cpu-only-submission-dry-run,exp-0001-bundle-parity-cpu-only-submission-dry-run,workitem-0001-bundle-parity-cpu-only-submission-dry-run,running,,,
+run-0003-0003-prior-calibration-anchor-based-refinement,exp-0003-prior-calibration-anchor-based-refinement,workitem-0003-prior-calibration-anchor-based-refinement,running,,,
