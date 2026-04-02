@@ -296,10 +296,19 @@ def _should_copy_seed_file(relative_path: Path) -> bool:
 def _seed_workspace_knowledge_from_sources(workspace_root: Path) -> list[dict[str, Any]]:
     knowledge_root = _knowledge_root_from_workspace(workspace_root)
     import_root = _knowledge_import_root_from_workspace(workspace_root)
+    manifest_path = _index_root_from_workspace(workspace_root) / "source_imports.json"
     ensure_directory(knowledge_root)
     ensure_directory(import_root)
+    candidates = _candidate_seed_knowledge_roots(workspace_root)
+    if not candidates and manifest_path.exists():
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            payload = []
+        if isinstance(payload, list):
+            return [item for item in payload if isinstance(item, dict)]
     manifest: list[dict[str, Any]] = []
-    for source_root in _candidate_seed_knowledge_roots(workspace_root):
+    for source_root in candidates:
         destination_root = import_root / _seed_import_label(source_root)
         copied_files = 0
         preserved_files = 0
@@ -325,7 +334,7 @@ def _seed_workspace_knowledge_from_sources(workspace_root: Path) -> list[dict[st
             }
         )
     ensure_directory(_index_root_from_workspace(workspace_root))
-    atomic_write_json(_index_root_from_workspace(workspace_root) / "source_imports.json", manifest)
+    atomic_write_json(manifest_path, manifest)
     return manifest
 
 

@@ -805,6 +805,33 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(all(card.get("source_label") == "legacy-repo" for card in imported_cards))
             self.assertTrue(all(card.get("comparison_path") == "03_next_experiment_priors.md" for card in imported_cards))
 
+    def test_ensure_knowledge_layout_preserves_existing_source_import_manifest_without_seed_candidates(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            legacy_root = Path(tmp) / "legacy_repo" / "knowledge"
+            legacy_root.mkdir(parents=True, exist_ok=True)
+            (legacy_root / "01_validated_findings.md").write_text(
+                "# Legacy Findings\n\n## Coverage first\n\nCoverage should be expanded before calibration.\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(root)
+            with patch.dict(os.environ, {"KAGGLE_AGENT_KNOWLEDGE_SEED_ROOTS": str(legacy_root)}, clear=False):
+                init_workspace(config, archive_legacy=False, force=True)
+
+            manifest_path = root / "knowledge" / "index" / "source_imports.json"
+            original_manifest = manifest_path.read_text(encoding="utf-8")
+
+            with patch.dict(os.environ, {"KAGGLE_AGENT_KNOWLEDGE_SEED_ROOTS": ""}, clear=False):
+                ensure_knowledge_layout(config)
+
+            self.assertEqual(original_manifest, manifest_path.read_text(encoding="utf-8"))
+
     def test_retrieved_knowledge_bundle_includes_branch_memories_and_policy_contradictions(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
