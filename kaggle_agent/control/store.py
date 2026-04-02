@@ -174,6 +174,20 @@ def _save_rows(config: WorkspaceConfig, table: str, rows) -> None:
         )
 
 
+def _dedupe_entities(rows):
+    deduped = []
+    index_by_id: dict[str, int] = {}
+    for item in rows:
+        entity_id = _entity_id(item)
+        existing_index = index_by_id.get(entity_id)
+        if existing_index is None:
+            index_by_id[entity_id] = len(deduped)
+            deduped.append(item)
+            continue
+        deduped[existing_index] = item
+    return deduped
+
+
 def ensure_layout(config: WorkspaceConfig) -> None:
     from kaggle_agent.knowledge import ensure_knowledge_layout
 
@@ -329,7 +343,9 @@ def save_state(config: WorkspaceConfig, state: WorkspaceState) -> None:
 
     _ensure_ledger(config)
     for table in STATE_TABLES:
-        _save_rows(config, table, getattr(state, table))
+        normalized_rows = _dedupe_entities(getattr(state, table))
+        setattr(state, table, normalized_rows)
+        _save_rows(config, table, normalized_rows)
     with _open_ledger(config) as conn:
         conn.execute("DELETE FROM runtime_state")
         conn.execute(

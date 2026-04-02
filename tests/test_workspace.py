@@ -38,7 +38,19 @@ from kaggle_agent.knowledge import (
 from kaggle_agent.knowledge_reducer import active_search_envelope, record_search_envelope, synchronize_claims
 from kaggle_agent.layout import run_label
 from kaggle_agent.control.store import load_state, save_state
-from kaggle_agent.schema import BranchMemoryRecord, EvidenceLinkRecord, ExperimentSpec, RunRecord, RuntimeState, SpecRecord, StageRun, ValidationRecord, WorkItem, WorkspaceState
+from kaggle_agent.schema import (
+    BranchMemoryRecord,
+    EvidenceLinkRecord,
+    ExperimentSpec,
+    RealizedTypingRecord,
+    RunRecord,
+    RuntimeState,
+    SpecRecord,
+    StageRun,
+    ValidationRecord,
+    WorkItem,
+    WorkspaceState,
+)
 from kaggle_agent.service import (
     build_submission,
     doctor_checks,
@@ -762,7 +774,7 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue((imported_root / "research" / "run-legacy.md").exists())
             self.assertFalse((imported_root / "index" / "cards.json").exists())
 
-    def test_compile_knowledge_index_from_root_includes_seeded_legacy_imports_without_overwriting_local_copy(self) -> None:
+    def test_compile_knowledge_index_from_root_syncs_seeded_legacy_imports_with_source_root(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp) / "workspace"
             root.mkdir(parents=True, exist_ok=True)
@@ -782,7 +794,11 @@ class WorkspaceTests(unittest.TestCase):
                 init_workspace(config, archive_legacy=False, force=True)
                 imported_path = root / "knowledge" / "imports" / "legacy-repo" / "03_next_experiment_priors.md"
                 self.assertTrue(imported_path.exists())
-                imported_path.write_text("# Local Override\n\n## Keep local\n\nDo not overwrite local imported edits.\n", encoding="utf-8")
+                imported_path.write_text("# Drifted Copy\n\n## Drift\n\nLocal imported mirror diverged.\n", encoding="utf-8")
+                legacy_root.joinpath("03_next_experiment_priors.md").write_text(
+                    "# Legacy Priors\n\n## Probe training change\n\nPrefer probe-surface changes before calibration-only sweeps.\n\n## Updated note\n\nKeep imported knowledge synchronized with the canonical source root.\n",
+                    encoding="utf-8",
+                )
                 ensure_knowledge_layout(config)
                 cards = retrieve_knowledge_bundle_from_root(
                     root,
@@ -793,7 +809,8 @@ class WorkspaceTests(unittest.TestCase):
                     stage="research",
                 )
 
-            self.assertIn("Local Override", imported_path.read_text(encoding="utf-8"))
+            self.assertIn("Updated note", imported_path.read_text(encoding="utf-8"))
+            self.assertNotIn("Drifted Copy", imported_path.read_text(encoding="utf-8"))
             self.assertTrue(any(item.get("source_label") == "legacy-repo" for item in cards.get("knowledge_sources", [])))
             imported_cards = [
                 card
@@ -804,6 +821,74 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(all(card.get("source_kind") == "imported" for card in imported_cards))
             self.assertTrue(all(card.get("source_label") == "legacy-repo" for card in imported_cards))
             self.assertTrue(all(card.get("comparison_path") == "03_next_experiment_priors.md" for card in imported_cards))
+
+    def test_ensure_knowledge_layout_removes_stale_imported_seed_files_when_source_changes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            legacy_root = Path(tmp) / "legacy_repo" / "knowledge"
+            (legacy_root / "research").mkdir(parents=True, exist_ok=True)
+            (legacy_root / "research" / "run-legacy.md").write_text(
+                "# Legacy Run\n\n## Why it mattered\n\nThis prior branch established the frontier.\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(root)
+            with patch.dict(os.environ, {"KAGGLE_AGENT_KNOWLEDGE_SEED_ROOTS": str(legacy_root)}, clear=False):
+                init_workspace(config, archive_legacy=False, force=True)
+                imported_path = root / "knowledge" / "imports" / "legacy-repo" / "research" / "run-legacy.md"
+                self.assertTrue(imported_path.exists())
+                legacy_root.joinpath("research", "run-legacy.md").unlink()
+                ensure_knowledge_layout(config)
+
+            self.assertFalse(imported_path.exists())
+
+    def test_save_state_dedupes_duplicate_realized_typing_ids(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            state.realized_typings = [
+                RealizedTypingRecord(
+                    realized_typing_id="realized-0001",
+                    run_id="run-0001",
+                    stage_run_id="stage-0001",
+                    title="first",
+                    family="perch_cached_probe",
+                    config_path="BirdCLEF-2026-Codebase/configs/default.yaml",
+                    typing_signature="sig-a",
+                    typing_payload={"axis_tags": ["coverage"]},
+                    created_at="2026-04-03T00:00:00+00:00",
+                ),
+                RealizedTypingRecord(
+                    realized_typing_id="realized-0001",
+                    run_id="run-0001",
+                    stage_run_id="stage-0002",
+                    title="second",
+                    family="perch_cached_probe",
+                    config_path="BirdCLEF-2026-Codebase/configs/default.yaml",
+                    typing_signature="sig-b",
+                    typing_payload={"axis_tags": ["coverage", "pseudo"]},
+                    created_at="2026-04-03T00:00:01+00:00",
+                ),
+            ]
+
+            save_state(config, state)
+            reloaded = load_state(config)
+
+            self.assertEqual(len(reloaded.realized_typings), 1)
+            self.assertEqual(reloaded.realized_typings[0].stage_run_id, "stage-0002")
+            self.assertEqual(reloaded.realized_typings[0].typing_signature, "sig-b")
 
     def test_ensure_knowledge_layout_preserves_existing_source_import_manifest_without_seed_candidates(self) -> None:
         with TemporaryDirectory() as tmp:

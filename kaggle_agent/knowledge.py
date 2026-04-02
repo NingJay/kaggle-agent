@@ -293,6 +293,77 @@ def _should_copy_seed_file(relative_path: Path) -> bool:
     return relative_path.suffix.lower() in KNOWLEDGE_SEED_ALLOWED_SUFFIXES
 
 
+def _read_source_import_manifest(manifest_path: Path) -> list[dict[str, Any]]:
+    if not manifest_path.exists():
+        return []
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def _prune_empty_directories(root: Path) -> None:
+    if not root.exists():
+        return
+    for path in sorted((item for item in root.rglob("*") if item.is_dir()), key=lambda item: len(item.parts), reverse=True):
+        try:
+            path.rmdir()
+        except OSError:
+            continue
+
+
+def _sync_seed_source_tree(source_root: Path, destination_root: Path) -> dict[str, int]:
+    ensure_directory(destination_root)
+    expected_files: set[Path] = set()
+    copied_files = 0
+    updated_files = 0
+    preserved_files = 0
+    removed_files = 0
+    for path in sorted(source_root.rglob("*")):
+        if not path.is_file():
+            continue
+        relative_path = path.relative_to(source_root)
+        if not _should_copy_seed_file(relative_path):
+            continue
+        expected_files.add(relative_path)
+        destination = destination_root / relative_path
+        if destination.exists():
+            try:
+                same_contents = destination.read_bytes() == path.read_bytes()
+            except OSError:
+                same_contents = False
+            if same_contents:
+                preserved_files += 1
+                continue
+            shutil.copy2(path, destination)
+            updated_files += 1
+            continue
+        ensure_directory(destination.parent)
+        shutil.copy2(path, destination)
+        copied_files += 1
+    for existing in sorted(destination_root.rglob("*")):
+        if not existing.is_file():
+            continue
+        relative_path = existing.relative_to(destination_root)
+        if not _should_copy_seed_file(relative_path):
+            continue
+        if relative_path in expected_files:
+            continue
+        existing.unlink()
+        removed_files += 1
+    _prune_empty_directories(destination_root)
+    return {
+        "copied_files": copied_files,
+        "updated_files": updated_files,
+        "preserved_files": preserved_files,
+        "removed_files": removed_files,
+        "synced_files": len(expected_files),
+    }
+
+
 def _seed_workspace_knowledge_from_sources(workspace_root: Path) -> list[dict[str, Any]]:
     knowledge_root = _knowledge_root_from_workspace(workspace_root)
     import_root = _knowledge_import_root_from_workspace(workspace_root)
@@ -301,38 +372,33 @@ def _seed_workspace_knowledge_from_sources(workspace_root: Path) -> list[dict[st
     ensure_directory(import_root)
     candidates = _candidate_seed_knowledge_roots(workspace_root)
     if not candidates and manifest_path.exists():
-        try:
-            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            payload = []
-        if isinstance(payload, list):
-            return [item for item in payload if isinstance(item, dict)]
+        return _read_source_import_manifest(manifest_path)
+    existing_manifest = _read_source_import_manifest(manifest_path)
+    previous_destination_roots = {
+        str(item.get("destination_root", "")).strip()
+        for item in existing_manifest
+        if str(item.get("destination_root", "")).strip()
+    }
     manifest: list[dict[str, Any]] = []
+    active_destination_roots: set[str] = set()
     for source_root in candidates:
         destination_root = import_root / _seed_import_label(source_root)
-        copied_files = 0
-        preserved_files = 0
-        for path in sorted(source_root.rglob("*")):
-            if not path.is_file():
-                continue
-            relative_path = path.relative_to(source_root)
-            if not _should_copy_seed_file(relative_path):
-                continue
-            destination = destination_root / relative_path
-            if destination.exists():
-                preserved_files += 1
-                continue
-            ensure_directory(destination.parent)
-            shutil.copy2(path, destination)
-            copied_files += 1
+        destination_relative = destination_root.relative_to(knowledge_root).as_posix()
+        active_destination_roots.add(destination_relative)
+        sync_stats = _sync_seed_source_tree(source_root, destination_root)
         manifest.append(
             {
                 "source_root": str(source_root),
-                "destination_root": destination_root.relative_to(knowledge_root).as_posix(),
-                "copied_files": copied_files,
-                "preserved_files": preserved_files,
+                "destination_root": destination_relative,
+                **sync_stats,
             }
         )
+    stale_destination_roots = sorted(previous_destination_roots - active_destination_roots)
+    for destination_relative in stale_destination_roots:
+        destination_root = knowledge_root / destination_relative
+        if destination_root.exists() and destination_root.is_dir():
+            shutil.rmtree(destination_root)
+    _prune_empty_directories(import_root)
     ensure_directory(_index_root_from_workspace(workspace_root))
     atomic_write_json(manifest_path, manifest)
     return manifest
