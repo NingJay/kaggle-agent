@@ -175,6 +175,8 @@ def _save_rows(config: WorkspaceConfig, table: str, rows) -> None:
 
 
 def ensure_layout(config: WorkspaceConfig) -> None:
+    from kaggle_agent.knowledge import ensure_knowledge_layout
+
     ensure_directory(config.state_root())
     ensure_directory(config.export_root())
     ensure_directory(config.snapshot_root())
@@ -183,12 +185,8 @@ def ensure_layout(config: WorkspaceConfig) -> None:
     ensure_directory(config.artifact_path("submissions"))
     ensure_directory(config.report_root())
     ensure_directory(config.legacy_root())
-    ensure_directory(config.knowledge_root())
     ensure_directory(config.prompt_root())
-    for category in ["research", "papers", "index"]:
-        ensure_directory(config.knowledge_path(category))
-    for category in ["memory", "capability_packs"]:
-        ensure_directory(config.knowledge_path(category))
+    ensure_knowledge_layout(config)
     ensure_directory(config.generated_config_root())
 
 
@@ -342,7 +340,7 @@ def save_state(config: WorkspaceConfig, state: WorkspaceState) -> None:
 
 
 def _clear_workspace_state(config: WorkspaceConfig) -> None:
-    for path in [config.artifact_root(), config.state_root(), config.report_root()]:
+    for path in [config.artifact_root(), config.state_root(), config.report_root(), config.knowledge_root()]:
         if path.exists():
             shutil.rmtree(path)
     for name in ROOT_SURFACE_DOC_NAMES:

@@ -28,7 +28,13 @@ from kaggle_agent.control.monitor import _process_run_stage_chain, _run_validate
 from kaggle_agent.decision.codegen import build_codegen
 from kaggle_agent.decision.critic import _apply_typing_contract, build_critic
 from kaggle_agent.decision.planner import _prune_branch_candidates, build_plan
-from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle, retrieve_knowledge_bundle_from_root, synchronize_branch_memory
+from kaggle_agent.knowledge import (
+    ensure_knowledge_layout,
+    render_retrieved_knowledge,
+    retrieve_knowledge_bundle,
+    retrieve_knowledge_bundle_from_root,
+    synchronize_branch_memory,
+)
 from kaggle_agent.knowledge_reducer import active_search_envelope, record_search_envelope, synchronize_claims
 from kaggle_agent.layout import run_label
 from kaggle_agent.control.store import load_state, save_state
@@ -686,6 +692,8 @@ class WorkspaceTests(unittest.TestCase):
             _copy_runtime(root)
             _write_workspace(root)
             _build_debug_dataset(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
             knowledge_root = root / "knowledge"
             knowledge_root.mkdir(parents=True, exist_ok=True)
             (knowledge_root / "01_validated_findings.md").write_text(
@@ -702,9 +710,6 @@ class WorkspaceTests(unittest.TestCase):
                 "If class imbalance is the blocking issue, expand coverage first and only then revisit calibration.\n",
                 encoding="utf-8",
             )
-
-            config = load_config(root)
-            init_workspace(config, archive_legacy=False, force=True)
             bundle = retrieve_knowledge_bundle(
                 config,
                 {
@@ -722,12 +727,92 @@ class WorkspaceTests(unittest.TestCase):
             self.assertIn("Conditional Leads", rendered)
             self.assertTrue(bundle["knowledge_card_ids"])
 
+    def test_init_workspace_force_reseeds_legacy_knowledge_and_drops_stale_workspace_knowledge(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            stale_path = root / "knowledge" / "stale.md"
+            stale_path.parent.mkdir(parents=True, exist_ok=True)
+            stale_path.write_text("# stale\n", encoding="utf-8")
+
+            legacy_root = Path(tmp) / "legacy_repo" / "knowledge"
+            (legacy_root / "research").mkdir(parents=True, exist_ok=True)
+            (legacy_root / "index").mkdir(parents=True, exist_ok=True)
+            (legacy_root / "01_validated_findings.md").write_text(
+                "# Legacy Findings\n\n## Coverage first\n\nCoverage should be expanded before calibration.\n",
+                encoding="utf-8",
+            )
+            (legacy_root / "research" / "run-legacy.md").write_text(
+                "# Legacy Run\n\n## Why it mattered\n\nThis prior branch established the class-coverage frontier.\n",
+                encoding="utf-8",
+            )
+            (legacy_root / "index" / "cards.json").write_text("[]", encoding="utf-8")
+
+            config = load_config(root)
+            with patch.dict(os.environ, {"KAGGLE_AGENT_KNOWLEDGE_SEED_ROOTS": str(legacy_root)}, clear=False):
+                init_workspace(config, archive_legacy=False, force=True)
+
+            self.assertFalse(stale_path.exists())
+            imported_root = root / "knowledge" / "imports" / "legacy-repo"
+            self.assertTrue((imported_root / "01_validated_findings.md").exists())
+            self.assertTrue((imported_root / "research" / "run-legacy.md").exists())
+            self.assertFalse((imported_root / "index" / "cards.json").exists())
+
+    def test_compile_knowledge_index_from_root_includes_seeded_legacy_imports_without_overwriting_local_copy(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            legacy_root = Path(tmp) / "legacy_repo" / "knowledge"
+            (legacy_root / "research").mkdir(parents=True, exist_ok=True)
+            (legacy_root / "03_next_experiment_priors.md").write_text(
+                "# Legacy Priors\n\n## Probe training change\n\nPrefer probe-surface changes before calibration-only sweeps.\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(root)
+            with patch.dict(os.environ, {"KAGGLE_AGENT_KNOWLEDGE_SEED_ROOTS": str(legacy_root)}, clear=False):
+                init_workspace(config, archive_legacy=False, force=True)
+                imported_path = root / "knowledge" / "imports" / "legacy-repo" / "03_next_experiment_priors.md"
+                self.assertTrue(imported_path.exists())
+                imported_path.write_text("# Local Override\n\n## Keep local\n\nDo not overwrite local imported edits.\n", encoding="utf-8")
+                ensure_knowledge_layout(config)
+                cards = retrieve_knowledge_bundle_from_root(
+                    root,
+                    {
+                        "run": {"run_id": "run-knowledge-index"},
+                        "experiment": {"family": "perch_cached_probe", "title": "Probe baseline"},
+                    },
+                    stage="research",
+                )
+
+            self.assertIn("Local Override", imported_path.read_text(encoding="utf-8"))
+            self.assertTrue(any(item.get("source_label") == "legacy-repo" for item in cards.get("knowledge_sources", [])))
+            imported_cards = [
+                card
+                for card in cards["cards"]
+                if str(card.get("source_path", "")).startswith("imports/legacy-repo/03_next_experiment_priors.md")
+            ]
+            self.assertTrue(imported_cards)
+            self.assertTrue(all(card.get("source_kind") == "imported" for card in imported_cards))
+            self.assertTrue(all(card.get("source_label") == "legacy-repo" for card in imported_cards))
+            self.assertTrue(all(card.get("comparison_path") == "03_next_experiment_priors.md" for card in imported_cards))
+
     def test_retrieved_knowledge_bundle_includes_branch_memories_and_policy_contradictions(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             _copy_runtime(root)
             _write_workspace(root)
             _build_debug_dataset(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
             knowledge_root = root / "knowledge"
             knowledge_root.mkdir(parents=True, exist_ok=True)
             (knowledge_root / "01_validated_findings.md").write_text(
@@ -738,9 +823,6 @@ class WorkspaceTests(unittest.TestCase):
                 "Calibration-only sweeps regressed holdout validation and should be vetoed.\n",
                 encoding="utf-8",
             )
-
-            config = load_config(root)
-            init_workspace(config, archive_legacy=False, force=True)
             state = load_state(config)
             state.branch_memories.append(
                 BranchMemoryRecord(
@@ -780,6 +862,8 @@ class WorkspaceTests(unittest.TestCase):
             _copy_runtime(root)
             _write_workspace(root)
             _build_debug_dataset(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
             knowledge_root = root / "knowledge"
             knowledge_root.mkdir(parents=True, exist_ok=True)
             (knowledge_root / "01_validated_findings.md").write_text(
@@ -794,9 +878,6 @@ class WorkspaceTests(unittest.TestCase):
                 "Address coverage before calibration-only tuning when class imbalance is visible.\n",
                 encoding="utf-8",
             )
-
-            config = load_config(root)
-            init_workspace(config, archive_legacy=False, force=True)
             state = load_state(config)
             work_item = next(item for item in state.work_items if item.id == "workitem-perch-baseline")
             experiment = ExperimentSpec(

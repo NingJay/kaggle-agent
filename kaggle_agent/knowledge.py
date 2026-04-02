@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import re
+import shutil
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -86,6 +88,10 @@ SOURCE_PRIORITY_HINTS = {
     "experiment_conclusions.md": 3.0,
 }
 SEMANTIC_MEMORY_SUBDIRS = ("policies", "families", "issues", "playbooks")
+KNOWLEDGE_IMPORTS_DIR = "imports"
+KNOWLEDGE_INDEX_SKIP_FILES = {"cards.json", "source_imports.json"}
+KNOWLEDGE_SEED_ENV = "KAGGLE_AGENT_KNOWLEDGE_SEED_ROOTS"
+KNOWLEDGE_SEED_ALLOWED_SUFFIXES = {".md", ".txt", ".json", ".csv"}
 DEFAULT_CAPABILITY_PACKS = (
     CapabilityPack(
         pack_id="ledger_miner",
@@ -166,6 +172,9 @@ DEFAULT_CAPABILITY_PACKS = (
 class KnowledgeCard:
     card_id: str
     source_path: str
+    source_kind: str
+    source_label: str
+    comparison_path: str
     title: str
     summary: str
     text: str
@@ -188,8 +197,10 @@ def ensure_knowledge_layout(config: WorkspaceConfig) -> None:
     ensure_directory(config.knowledge_path("index"))
     ensure_directory(config.knowledge_memory_root())
     ensure_directory(config.capability_pack_root())
+    ensure_directory(config.knowledge_path(KNOWLEDGE_IMPORTS_DIR))
     for subdir in SEMANTIC_MEMORY_SUBDIRS:
         ensure_directory(config.knowledge_memory_root() / subdir)
+    _seed_workspace_knowledge_from_sources(config.root)
 
 
 def _knowledge_root_from_workspace(workspace_root: Path) -> Path:
@@ -218,6 +229,104 @@ def _knowledge_memory_root_from_workspace(workspace_root: Path) -> Path:
 
 def _capability_pack_root_from_workspace(workspace_root: Path) -> Path:
     return _knowledge_root_from_workspace(workspace_root) / "capability_packs"
+
+
+def _knowledge_import_root_from_workspace(workspace_root: Path) -> Path:
+    return _knowledge_root_from_workspace(workspace_root) / KNOWLEDGE_IMPORTS_DIR
+
+
+def _source_descriptor_for_path(source_path: str) -> dict[str, str]:
+    normalized = str(source_path).strip().replace("\\", "/")
+    parts = [part for part in normalized.split("/") if part]
+    if len(parts) >= 3 and parts[0] == KNOWLEDGE_IMPORTS_DIR:
+        source_label = slugify(parts[1]) or parts[1] or "knowledge_source"
+        comparison_path = "/".join(parts[2:])
+        return {
+            "source_kind": "imported",
+            "source_label": source_label,
+            "comparison_path": comparison_path or normalized,
+        }
+    return {
+        "source_kind": "workspace",
+        "source_label": "workspace",
+        "comparison_path": normalized,
+    }
+
+
+def _seed_import_label(source_root: Path) -> str:
+    anchor = slugify(source_root.parent.name or source_root.name or "knowledge_source")
+    return anchor or "knowledge_source"
+
+
+def _candidate_seed_knowledge_roots(workspace_root: Path) -> list[Path]:
+    knowledge_root = _knowledge_root_from_workspace(workspace_root).resolve()
+    candidates: list[Path] = []
+    env_roots = str(os.environ.get(KNOWLEDGE_SEED_ENV, "") or "").strip()
+    if env_roots:
+        for raw in env_roots.split(os.pathsep):
+            text = raw.strip()
+            if not text:
+                continue
+            path = Path(text).expanduser()
+            if path.exists():
+                candidates.append(path.resolve())
+    default_legacy_root = workspace_root.parent.parent / "kaggle_agent" / "knowledge"
+    if default_legacy_root.exists():
+        candidates.append(default_legacy_root.resolve())
+    deduped: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        if candidate == knowledge_root or knowledge_root in candidate.parents:
+            continue
+        seen.add(candidate)
+        deduped.append(candidate)
+    return deduped
+
+
+def _should_copy_seed_file(relative_path: Path) -> bool:
+    if not relative_path.parts:
+        return False
+    if relative_path.parts[0] == "index" and relative_path.name in KNOWLEDGE_INDEX_SKIP_FILES:
+        return False
+    return relative_path.suffix.lower() in KNOWLEDGE_SEED_ALLOWED_SUFFIXES
+
+
+def _seed_workspace_knowledge_from_sources(workspace_root: Path) -> list[dict[str, Any]]:
+    knowledge_root = _knowledge_root_from_workspace(workspace_root)
+    import_root = _knowledge_import_root_from_workspace(workspace_root)
+    ensure_directory(knowledge_root)
+    ensure_directory(import_root)
+    manifest: list[dict[str, Any]] = []
+    for source_root in _candidate_seed_knowledge_roots(workspace_root):
+        destination_root = import_root / _seed_import_label(source_root)
+        copied_files = 0
+        preserved_files = 0
+        for path in sorted(source_root.rglob("*")):
+            if not path.is_file():
+                continue
+            relative_path = path.relative_to(source_root)
+            if not _should_copy_seed_file(relative_path):
+                continue
+            destination = destination_root / relative_path
+            if destination.exists():
+                preserved_files += 1
+                continue
+            ensure_directory(destination.parent)
+            shutil.copy2(path, destination)
+            copied_files += 1
+        manifest.append(
+            {
+                "source_root": str(source_root),
+                "destination_root": destination_root.relative_to(knowledge_root).as_posix(),
+                "copied_files": copied_files,
+                "preserved_files": preserved_files,
+            }
+        )
+    ensure_directory(_index_root_from_workspace(workspace_root))
+    atomic_write_json(_index_root_from_workspace(workspace_root) / "source_imports.json", manifest)
+    return manifest
 
 
 def _dedupe_strings(values: list[str], *, limit: int = 6) -> list[str]:
@@ -349,6 +458,7 @@ def _compile_knowledge_index(knowledge_root: Path) -> list[KnowledgeCard]:
         if "index" in path.parts:
             continue
         source_path = path.relative_to(knowledge_root).as_posix()
+        descriptor = _source_descriptor_for_path(source_path)
         for section_title, section_text in _iter_sections(path):
             summary = _section_summary(section_text) or section_title
             card_id = slugify(f"{source_path}-{section_title}")
@@ -356,6 +466,9 @@ def _compile_knowledge_index(knowledge_root: Path) -> list[KnowledgeCard]:
                 KnowledgeCard(
                     card_id=card_id,
                     source_path=source_path,
+                    source_kind=descriptor["source_kind"],
+                    source_label=descriptor["source_label"],
+                    comparison_path=descriptor["comparison_path"],
                     title=section_title,
                     summary=summary,
                     text=truncate(section_text, limit=1200),
@@ -406,6 +519,7 @@ def compile_knowledge_index(config: WorkspaceConfig) -> list[dict[str, Any]]:
 def compile_knowledge_index_from_root(workspace_root: Path) -> list[dict[str, Any]]:
     knowledge_root = _knowledge_root_from_workspace(workspace_root)
     ensure_directory(knowledge_root / "index")
+    _seed_workspace_knowledge_from_sources(workspace_root)
     cards = _compile_knowledge_index(knowledge_root)
     atomic_write_json(_index_root_from_workspace(workspace_root) / "cards.json", [card.to_dict() for card in cards])
     return [card.to_dict() for card in cards]
@@ -515,6 +629,44 @@ def _render_session_memory(session_memory: dict[str, Any]) -> str:
             continue
         lines.extend(["", f"## {title}", *(f"- {str(item)}" for item in values)])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _knowledge_sources_from_workspace(workspace_root: Path) -> list[dict[str, Any]]:
+    manifest_path = _index_root_from_workspace(workspace_root) / "source_imports.json"
+    sources: list[dict[str, Any]] = [
+        {
+            "source_kind": "workspace",
+            "source_label": "workspace",
+            "source_root": ".",
+            "comparison_root": ".",
+        }
+    ]
+    if not manifest_path.exists():
+        return sources
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return sources
+    if not isinstance(payload, list):
+        return sources
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        destination_root = str(item.get("destination_root", "") or "").strip()
+        parts = [part for part in destination_root.split("/") if part]
+        label = parts[1] if len(parts) >= 2 and parts[0] == KNOWLEDGE_IMPORTS_DIR else (parts[-1] if parts else "knowledge_source")
+        sources.append(
+            {
+                "source_kind": "imported",
+                "source_label": slugify(label) or label or "knowledge_source",
+                "source_root": str(item.get("source_root", "") or ""),
+                "comparison_root": "/".join(parts[2:]) if len(parts) > 2 else ".",
+                "destination_root": destination_root,
+                "copied_files": int(item.get("copied_files", 0) or 0),
+                "preserved_files": int(item.get("preserved_files", 0) or 0),
+            }
+        )
+    return sources
 
 
 def _write_session_memory_to_workspace(workspace_root: Path, session_memory: dict[str, Any]) -> dict[str, Any]:
@@ -1712,6 +1864,7 @@ def _build_runtime_knowledge_bundle(
 ) -> dict[str, Any]:
     family = str(frame.get("family", "") or "")
     stage_name = stage or str(frame.get("stage", "") or "")
+    knowledge_sources = _knowledge_sources_from_workspace(workspace_root)
     policy_rules = _policy_rules_for_bundle(state, family)
     branch_memories = _recent_branch_memories(
         state,
@@ -1755,6 +1908,7 @@ def _build_runtime_knowledge_bundle(
         "cards": cards,
         "knowledge_files_seen": len({str(item.get("source_path", "")) for item in cards}),
         "knowledge_card_ids": [str(item.get("card_id", "")) for item in cards],
+        "knowledge_sources": knowledge_sources,
         "policy_rules": policy_rules,
         "policy_cards": policy_rules,
         "claims": _relevant_claims(state, frame, limit=_claim_limit_for_stage(stage_name)),
@@ -1836,6 +1990,7 @@ def render_retrieved_knowledge(bundle: dict[str, Any], *, limit: int = 16000) ->
     cards = [item for item in bundle.get("cards", []) if isinstance(item, dict)]
     frame = bundle.get("problem_frame", {}) if isinstance(bundle.get("problem_frame"), dict) else {}
     sections: list[str] = []
+    knowledge_sources = [item for item in bundle.get("knowledge_sources", []) if isinstance(item, dict)]
     rendered_session_memory = _render_session_memory(bundle.get("session_memory", {}) if isinstance(bundle.get("session_memory"), dict) else {})
     if rendered_session_memory.strip():
         sections.append(rendered_session_memory.strip())
@@ -1851,6 +2006,13 @@ def render_retrieved_knowledge(bundle: dict[str, Any], *, limit: int = 16000) ->
                 ]
             )
         )
+    if knowledge_sources:
+        lines = ["## Knowledge Sources"]
+        for item in knowledge_sources:
+            lines.append(
+                f"- `{item.get('source_label', 'workspace')}` | kind={item.get('source_kind', 'workspace')} | root={item.get('source_root', '.') or '.'}"
+            )
+        sections.append("\n".join(lines))
     if cards:
         grouped: dict[str, list[dict[str, Any]]] = {"positive": [], "negative": [], "conditional": [], "general": []}
         for card in cards:
@@ -1867,7 +2029,7 @@ def render_retrieved_knowledge(bundle: dict[str, Any], *, limit: int = 16000) ->
             lines = [f"## {label}"]
             for card in bucket:
                 lines.append(
-                    f"- `{card.get('card_id', '')}` | `{card.get('component', 'general')}` | {card.get('summary', '')}"
+                    f"- `{card.get('card_id', '')}` | `{card.get('component', 'general')}` | src={card.get('source_label', 'workspace')} | compare=`{card.get('comparison_path', card.get('source_path', ''))}` | {card.get('summary', '')}"
                 )
             sections.append("\n".join(lines))
     policy_rules = bundle.get("policy_rules", [])
@@ -1945,6 +2107,7 @@ def compact_knowledge_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         "problem_frame": bundle.get("problem_frame", {}) if isinstance(bundle.get("problem_frame"), dict) else {},
         "knowledge_files_seen": int(bundle.get("knowledge_files_seen", 0) or 0),
         "knowledge_card_ids": [str(item) for item in bundle.get("knowledge_card_ids", [])],
+        "knowledge_sources": [dict(item) for item in bundle.get("knowledge_sources", []) if isinstance(item, dict)],
         "branch_memory_ids": [str(item) for item in bundle.get("branch_memory_ids", [])],
         "cards": [dict(item) for item in bundle.get("cards", []) if isinstance(item, dict)],
         "policy_rules": [dict(item) for item in bundle.get("policy_rules", []) if isinstance(item, dict)],
