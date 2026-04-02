@@ -1,0 +1,348 @@
+{
+  "run": {
+    "run_id": "run-0001-perch-baseline",
+    "experiment_id": "exp-perch-baseline",
+    "work_item_id": "workitem-perch-baseline",
+    "spec_id": "spec-0001",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/train.log",
+    "started_at": "2026-04-02T10:47:29+00:00",
+    "completed_at": "2026-04-02T10:47:46+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6651564148629492,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.991783713272909,
+      "padded_cmap": 0.06240246910137375,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "",
+    "lifecycle_template": "recursive_experiment",
+    "stage_plan": [
+      "execute",
+      "evidence",
+      "report",
+      "research",
+      "decision",
+      "plan",
+      "codegen",
+      "critic",
+      "validate",
+      "submission"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "research",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-02T10:47:47+00:00",
+    "latest_stage_run_id": "stage-0003-research"
+  },
+  "experiment": {
+    "id": "exp-perch-baseline",
+    "title": "Perch cached-probe baseline",
+    "hypothesis": "Work item workitem-perch-baseline: Perch cached-probe baseline",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+    "priority": 20,
+    "work_item_id": "workitem-perch-baseline",
+    "spec_id": "spec-0001",
+    "depends_on": [],
+    "tags": [
+      "experiment_iteration",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "",
+    "latest_run_id": "run-0001-perch-baseline",
+    "latest_decision_id": "",
+    "created_at": "2026-04-02T10:47:29+00:00",
+    "updated_at": "2026-04-02T10:47:46+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-perch-baseline:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "",
+    "idea_class": "",
+    "branch_role": "",
+    "branch_rank": 0,
+    "knowledge_card_ids": []
+  },
+  "report": {
+    "stage": "report",
+    "run_id": "run-0001-perch-baseline",
+    "headline": "Keep iterating on the probe stack",
+    "focus": "root-cause repair and next config selection",
+    "best_run_id": "run-0001-perch-baseline",
+    "best_run_metric": 0.6651564148629492,
+    "primary_metric_value": 0.6651564148629492,
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "finding_titles": [
+      "Perch cached-probe baseline completed"
+    ],
+    "issue_titles": [],
+    "promotion_candidates": [
+      "Promote run-0001-perch-baseline if validation remains trustworthy against the current leader."
+    ],
+    "demotion_candidates": [],
+    "open_questions": [
+      "What exact change caused the current root cause: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+    ]
+  },
+  "retrieved_knowledge": {
+    "problem_frame": {
+      "stage": "research",
+      "run_id": "run-0001-perch-baseline",
+      "family": "perch_cached_probe",
+      "title": "Perch cached-probe baseline",
+      "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+      "hypothesis": "",
+      "objective_metric": "val_soundscape_macro_roc_auc",
+      "current_metric_value": 0.6651564148629492,
+      "focus": "root-cause repair and next config selection",
+      "next_action": "",
+      "adopt_now": [],
+      "consider": [],
+      "reject": [],
+      "query_terms": [
+        "perch_cached_probe",
+        "perch",
+        "cached",
+        "probe",
+        "baseline",
+        "the",
+        "notebook",
+        "derived",
+        "bayesian",
+        "prior",
+        "embedding",
+        "pipeline",
+        "live",
+        "next",
+        "steps",
+        "are",
+        "submission",
+        "bundle",
+        "parity",
+        "and",
+        "calibration",
+        "root",
+        "cause",
+        "repair"
+      ]
+    },
+    "knowledge_files_seen": 1,
+    "knowledge_card_ids": [
+      "experiment-conclusions-md-experiment-conclusions"
+    ],
+    "branch_memory_ids": [],
+    "cards": [
+      {
+        "card_id": "experiment-conclusions-md-experiment-conclusions",
+        "source_path": "experiment_conclusions.md",
+        "title": "experiment conclusions",
+        "summary": "# Experiment Conclusions",
+        "text": "# Experiment Conclusions\n\n- No completed experiments yet.",
+        "stance": "positive",
+        "component": "general",
+        "policy_type": "prefer",
+        "confidence": 0.7,
+        "applies_to": [
+          "experiment_conclusions",
+          "experiment",
+          "conclusions",
+          "completed"
+        ],
+        "override_required": false,
+        "keywords": [
+          "experiment_conclusions",
+          "experiment",
+          "conclusions",
+          "completed",
+          "experiments",
+          "yet"
+        ],
+        "score": 6.1
+      }
+    ],
+    "policy_rules": [],
+    "policy_cards": [],
+    "claims": [
+      {
+        "claim_id": "claim-seed-experiment-conclusions-md-experiment-conclusions",
+        "family": "",
+        "component": "general",
+        "stance": "positive",
+        "summary": "# Experiment Conclusions",
+        "title": "experiment conclusions",
+        "source_type": "curated_seed",
+        "source_ref": "experiment-conclusions-md-experiment-conclusions",
+        "confidence": 0.45,
+        "claim_kind": "knowledge_seed",
+        "claim_status": "seed",
+        "override_required": false,
+        "support_ids": [
+          "experiment-conclusions-md-experiment-conclusions"
+        ],
+        "contradict_ids": []
+      }
+    ],
+    "branch_memories": [],
+    "contradictions": [],
+    "constraints": [],
+    "semantic_memory_files": [],
+    "capability_packs": [
+      {
+        "pack_id": "branch_typing_compiler",
+        "title": "Branch Typing Compiler",
+        "when_to_use": "Use when branch selection should be constrained by typed axis, low-information patterns, and active envelope rules.",
+        "returns": "Supported axis tags, low-information patterns, and active typing constraints.",
+        "applies_to": [
+          "research",
+          "decision",
+          "plan",
+          "critic"
+        ],
+        "tags": [
+          "typing",
+          "compiler",
+          "constraint",
+          "branch"
+        ],
+        "priority_hint": 3.1,
+        "budget_limit": 1,
+        "cache_key": "family+stage",
+        "cache_break_policy": "refresh_on_state_change",
+        "source_path": "",
+        "selection_reason": "typing-enforcement"
+      },
+      {
+        "pack_id": "veto_checker",
+        "title": "Veto Checker",
+        "when_to_use": "Use when deterministic policy rules and decision constraints should mechanically block weak branches.",
+        "returns": "Forbidden patterns, override-required components, and active veto rule summaries.",
+        "applies_to": [
+          "research",
+          "decision",
+          "plan"
+        ],
+        "tags": [
+          "veto",
+          "policy",
+          "constraints",
+          "negative"
+        ],
+        "priority_hint": 3.8,
+        "budget_limit": 1,
+        "cache_key": "family+stage",
+        "cache_break_policy": "refresh_on_state_change",
+        "source_path": "",
+        "selection_reason": "stage-default"
+      },
+      {
+        "pack_id": "ledger_miner",
+        "title": "Ledger Miner",
+        "when_to_use": "Use when recent run history should bias the next frontier.",
+        "returns": "Top components, repeated failures, and strong axes mined from branch history.",
+        "applies_to": [
+          "research",
+          "decision",
+          "plan"
+        ],
+        "tags": [
+          "ledger",
+          "history",
+          "portfolio",
+          "regression"
+        ],
+        "priority_hint": 3.4,
+        "budget_limit": 1,
+        "cache_key": "family+stage",
+        "cache_break_policy": "refresh_on_state_change",
+        "source_path": "",
+        "selection_reason": "stage-default"
+      }
+    ],
+    "capability_results": {
+      "branch_typing_compiler": {
+        "supported_axis_tags": [
+          "backbone",
+          "class_coverage",
+          "data_filtering",
+          "optimization",
+          "preprocessing_aug",
+          "prior_calibration",
+          "probe_head",
+          "pseudo_label"
+        ],
+        "low_information_patterns": [
+          "calibration_only",
+          "blend_only",
+          "blend",
+          "calibration",
+          "prior",
+          "temperature",
+          "threshold"
+        ],
+        "forbidden_patterns": [],
+        "required_patterns": [],
+        "minimum_information_gain_bar": 0.0,
+        "summary": "Branch typing compiler context from active reducer constraints."
+      },
+      "veto_checker": {
+        "forbidden_patterns": [],
+        "override_required_components": [],
+        "active_veto_rules": []
+      },
+      "ledger_miner": {
+        "top_components": [],
+        "repeated_failures": [],
+        "strong_components": []
+      }
+    },
+    "session_memory": {
+      "current_objective": "root-cause repair and next config selection",
+      "current_leader_run_id": "run-0001-perch-baseline",
+      "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+      "current_leader_metric_value": 0.6651564148629492,
+      "active_portfolios": [],
+      "top_positive_priors": [
+        "general: # Experiment Conclusions"
+      ],
+      "top_negative_vetoes": [],
+      "unresolved_questions": [
+        "What removes the current bottleneck: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+      ],
+      "current_bottlenecks": [
+        "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+        "root-cause repair and next config selection"
+      ],
+      "pending_decisions": [
+        "Choose the next perch_cached_probe branch portfolio."
+      ],
+      "selected_memory_files": [],
+      "selected_capability_packs": [
+        "branch_typing_compiler",
+        "veto_checker",
+        "ledger_miner"
+      ],
+      "knowledge_card_ids": [
+        "experiment-conclusions-md-experiment-conclusions"
+      ],
+      "source_stage": "research",
+      "run_id": "run-0001-perch-baseline",
+      "updated_at": "2026-04-02T10:47:47+00:00"
+    }
+  }
+}

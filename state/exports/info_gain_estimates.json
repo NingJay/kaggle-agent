@@ -1,0 +1,55 @@
+[
+  {
+    "estimate_id": "gain-run-0001-perch-baseline-perch-cached-probe-branch-class-cove",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "perch_cached_probe-branch",
+    "family": "perch_cached_probe",
+    "idea_class": "class_coverage",
+    "grounding_mode": "grounded",
+    "novelty_score": 1.0,
+    "estimated_gain": 0.89,
+    "cost_tier": "low",
+    "rationale": [
+      "structural axis change",
+      "cheap branch",
+      "matches required pattern"
+    ],
+    "created_at": "2026-04-02T10:47:49+00:00"
+  },
+  {
+    "estimate_id": "gain-run-0001-perch-baseline-perch-cached-probe-branch-probe-head",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "perch_cached_probe-branch",
+    "family": "perch_cached_probe",
+    "idea_class": "probe_head",
+    "grounding_mode": "grounded",
+    "novelty_score": 1.0,
+    "estimated_gain": 0.89,
+    "cost_tier": "low",
+    "rationale": [
+      "structural axis change",
+      "cheap branch",
+      "matches required pattern"
+    ],
+    "created_at": "2026-04-02T10:47:49+00:00"
+  },
+  {
+    "estimate_id": "gain-run-0001-perch-baseline-perch-cached-probe-branch-optimizati",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "perch_cached_probe-branch",
+    "family": "perch_cached_probe",
+    "idea_class": "optimization",
+    "grounding_mode": "grounded",
+    "novelty_score": 1.0,
+    "estimated_gain": 0.73,
+    "cost_tier": "low",
+    "rationale": [
+      "cheap branch",
+      "matches required pattern"
+    ],
+    "created_at": "2026-04-02T10:47:49+00:00"
+  }
+]

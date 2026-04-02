@@ -1,0 +1,72 @@
+[
+  {
+    "metric_id": "metric-0001",
+    "run_id": "run-0001-perch-baseline",
+    "metric_name": "val_soundscape_macro_roc_auc",
+    "split": "local_proxy",
+    "domain_scope": "source",
+    "trust_level": "clean",
+    "postproc_variant": "none",
+    "evaluator_version": "runtime_result_json",
+    "is_primary": true,
+    "value": 0.6651564148629492,
+    "notes": "Recorded from run-0001-perch-baseline.",
+    "created_at": "2026-04-02T10:47:46+00:00"
+  },
+  {
+    "metric_id": "metric-0002",
+    "run_id": "run-0001-perch-baseline",
+    "metric_name": "padded_cmap",
+    "split": "local_proxy",
+    "domain_scope": "source",
+    "trust_level": "clean",
+    "postproc_variant": "none",
+    "evaluator_version": "runtime_result_json",
+    "is_primary": false,
+    "value": 0.06240246910137375,
+    "notes": "",
+    "created_at": "2026-04-02T10:47:46+00:00"
+  },
+  {
+    "metric_id": "metric-0003",
+    "run_id": "run-0001-perch-baseline",
+    "metric_name": "prior_fusion_macro_roc_auc",
+    "split": "local_proxy",
+    "domain_scope": "source",
+    "trust_level": "clean",
+    "postproc_variant": "none",
+    "evaluator_version": "runtime_result_json",
+    "is_primary": false,
+    "value": 0.4872921815675346,
+    "notes": "",
+    "created_at": "2026-04-02T10:47:46+00:00"
+  },
+  {
+    "metric_id": "metric-0004",
+    "run_id": "run-0001-perch-baseline",
+    "metric_name": "soundscape_macro_roc_auc",
+    "split": "local_proxy",
+    "domain_scope": "source",
+    "trust_level": "clean",
+    "postproc_variant": "none",
+    "evaluator_version": "runtime_result_json",
+    "is_primary": false,
+    "value": 0.991783713272909,
+    "notes": "",
+    "created_at": "2026-04-02T10:47:46+00:00"
+  },
+  {
+    "metric_id": "metric-0005",
+    "run_id": "run-0001-perch-baseline",
+    "metric_name": "val_prior_fusion_macro_roc_auc",
+    "split": "local_proxy",
+    "domain_scope": "source",
+    "trust_level": "clean",
+    "postproc_variant": "none",
+    "evaluator_version": "runtime_result_json",
+    "is_primary": false,
+    "value": 0.6622119211132254,
+    "notes": "",
+    "created_at": "2026-04-02T10:47:46+00:00"
+  }
+]

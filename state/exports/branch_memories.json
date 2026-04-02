@@ -1,0 +1,33 @@
+[
+  {
+    "memory_id": "memory-0001",
+    "run_id": "run-0001-perch-baseline",
+    "work_item_id": "workitem-perch-baseline",
+    "experiment_id": "exp-perch-baseline",
+    "family": "perch_cached_probe",
+    "portfolio_id": "",
+    "idea_class": "",
+    "branch_role": "",
+    "branch_rank": 0,
+    "source_stage_run_id": "stage-0009-submission",
+    "status": "succeeded",
+    "outcome": "leader",
+    "summary": "branch perch_cached_probe -> leader; val_soundscape_macro_roc_auc=0.665156; critic=approved; validate=validated",
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "metric_name": "val_soundscape_macro_roc_auc",
+    "metric_value": 0.6651564148629492,
+    "metric_delta": null,
+    "verify_status": "skipped",
+    "critic_status": "approved",
+    "validation_status": "validated",
+    "submission_status": "skipped",
+    "signal_score": 3.0,
+    "policy_tags": [
+      "outcome:leader"
+    ],
+    "knowledge_card_ids": [],
+    "contradiction_ids": [],
+    "created_at": "2026-04-02T10:47:51+00:00",
+    "updated_at": "2026-04-02T10:47:51+00:00"
+  }
+]

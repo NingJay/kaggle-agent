@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run Report run-0001-perch-baseline</title>
+  <style>
+    body { margin: 0; font-family: Georgia, serif; background: #f5f1e8; color: #1f2937; }
+    main { max-width: 900px; margin: 0 auto; padding: 32px 20px 48px; }
+    article { background: #fffdfa; border: 1px solid #d9d1c5; border-radius: 16px; padding: 24px; }
+    pre { white-space: pre-wrap; font: 14px/1.6 "SFMono-Regular", Consolas, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <article>
+    <pre># Run Report run-0001-perch-baseline
+
+- Headline: Keep iterating on the probe stack
+- Current focus: root-cause repair and next config selection
+- Run status: `succeeded`
+- Primary metric: `val_soundscape_macro_roc_auc=0.6651564148629492`
+- Root cause: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.
+- Current ledger leader: `run-0001-perch-baseline` with val_soundscape_macro_roc_auc=0.665156
+
+## Findings
+- Perch cached-probe baseline completed: val_soundscape_macro_roc_auc=0.6651564148629492 and verdict submission-required.
+
+## Promotion Candidates
+- Promote run-0001-perch-baseline if validation remains trustworthy against the current leader.
+
+## Next Questions
+- What exact change caused the current root cause: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?
+</pre>
+  </article>
+</main>
+</body>
+</html>

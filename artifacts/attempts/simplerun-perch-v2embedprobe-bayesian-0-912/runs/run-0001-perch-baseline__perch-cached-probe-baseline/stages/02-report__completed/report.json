@@ -1,0 +1,22 @@
+{
+  "stage": "report",
+  "run_id": "run-0001-perch-baseline",
+  "headline": "Keep iterating on the probe stack",
+  "focus": "root-cause repair and next config selection",
+  "best_run_id": "run-0001-perch-baseline",
+  "best_run_metric": 0.6651564148629492,
+  "primary_metric_value": 0.6651564148629492,
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+  "verdict": "submission-required",
+  "finding_titles": [
+    "Perch cached-probe baseline completed"
+  ],
+  "issue_titles": [],
+  "promotion_candidates": [
+    "Promote run-0001-perch-baseline if validation remains trustworthy against the current leader."
+  ],
+  "demotion_candidates": [],
+  "open_questions": [
+    "What exact change caused the current root cause: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+  ]
+}

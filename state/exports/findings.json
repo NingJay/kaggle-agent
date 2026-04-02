@@ -1,0 +1,12 @@
+[
+  {
+    "finding_id": "finding-0001",
+    "run_id": "run-0001-perch-baseline",
+    "title": "Perch cached-probe baseline completed",
+    "summary": "val_soundscape_macro_roc_auc=0.6651564148629492 and verdict submission-required.",
+    "severity": "medium",
+    "status": "open",
+    "dedupe_key": "run:run-0001-perch-baseline:completed",
+    "created_at": "2026-04-02T10:47:46+00:00"
+  }
+]

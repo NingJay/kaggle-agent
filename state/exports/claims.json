@@ -1,0 +1,203 @@
+[
+  {
+    "claim_id": "claim-seed-experiment-conclusions-md-experiment-conclusions",
+    "family": "",
+    "component": "general",
+    "stance": "positive",
+    "summary": "# Experiment Conclusions",
+    "subject": "general",
+    "predicate": "positive",
+    "metric_key": "",
+    "claim_key": {
+      "subject": "general",
+      "predicate": "positive",
+      "scope_vector": {
+        "family": "",
+        "evaluation_domain": "general",
+        "metric": "",
+        "condition_tags": []
+      },
+      "metric_key": ""
+    },
+    "scope_vector": {
+      "family": "",
+      "evaluation_domain": "general",
+      "metric": "",
+      "condition_tags": []
+    },
+    "title": "experiment conclusions",
+    "source_type": "curated_seed",
+    "source_tier": "manual",
+    "source_ref": "experiment-conclusions-md-experiment-conclusions",
+    "scope_key": "*::general",
+    "claim_kind": "knowledge_seed",
+    "claim_status": "seed",
+    "confidence": 0.45,
+    "empirical_support_count": 0,
+    "empirical_contradict_count": 0,
+    "seed_support_count": 1,
+    "seed_contradict_count": 0,
+    "support_ids": [
+      "experiment-conclusions-md-experiment-conclusions"
+    ],
+    "contradict_ids": [],
+    "scope_tags": [
+      "experiment_conclusions.md",
+      "general"
+    ],
+    "override_required": false,
+    "created_at": "2026-04-02T10:47:47+00:00",
+    "updated_at": "2026-04-02T10:47:48+00:00"
+  },
+  {
+    "claim_id": "claim-seed-research-run-0001-perch-baseline-md-open-questions",
+    "family": "",
+    "component": "prior_calibration",
+    "stance": "conditional",
+    "summary": "What removes the current bottleneck without repeating low-information sweeps: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?",
+    "subject": "prior_calibration",
+    "predicate": "conditional",
+    "metric_key": "",
+    "claim_key": {
+      "subject": "prior_calibration",
+      "predicate": "conditional",
+      "scope_vector": {
+        "family": "",
+        "evaluation_domain": "prior_calibration",
+        "metric": "",
+        "condition_tags": []
+      },
+      "metric_key": ""
+    },
+    "scope_vector": {
+      "family": "",
+      "evaluation_domain": "prior_calibration",
+      "metric": "",
+      "condition_tags": []
+    },
+    "title": "Consider",
+    "source_type": "curated_seed",
+    "source_tier": "manual",
+    "source_ref": "research-run-0001-perch-baseline-md-consider",
+    "scope_key": "*::prior_calibration",
+    "claim_kind": "knowledge_seed",
+    "claim_status": "seed",
+    "confidence": 0.45,
+    "empirical_support_count": 0,
+    "empirical_contradict_count": 0,
+    "seed_support_count": 2,
+    "seed_contradict_count": 0,
+    "support_ids": [
+      "research-run-0001-perch-baseline-md-open-questions",
+      "research-run-0001-perch-baseline-md-consider"
+    ],
+    "contradict_ids": [],
+    "scope_tags": [
+      "research/run-0001-perch-baseline.md",
+      "prior_calibration"
+    ],
+    "override_required": false,
+    "created_at": "2026-04-02T10:47:48+00:00",
+    "updated_at": "2026-04-02T10:47:48+00:00"
+  },
+  {
+    "claim_id": "claim-seed-research-run-0001-perch-baseline-md-capability-results",
+    "family": "",
+    "component": "prior_calibration",
+    "stance": "negative",
+    "summary": "`branch_typing_compiler` | {'supported_axis_tags': ['backbone', 'class_coverage', 'data_filtering', 'optimization', 'preprocessing_aug', 'prior_calibration', 'probe_head', 'pseudo_label'], 'low_information_patterns': ...",
+    "subject": "prior_calibration",
+    "predicate": "negative",
+    "metric_key": "",
+    "claim_key": {
+      "subject": "prior_calibration",
+      "predicate": "negative",
+      "scope_vector": {
+        "family": "",
+        "evaluation_domain": "prior_calibration",
+        "metric": "",
+        "condition_tags": []
+      },
+      "metric_key": ""
+    },
+    "scope_vector": {
+      "family": "",
+      "evaluation_domain": "prior_calibration",
+      "metric": "",
+      "condition_tags": []
+    },
+    "title": "Capability Results",
+    "source_type": "curated_seed",
+    "source_tier": "manual",
+    "source_ref": "research-run-0001-perch-baseline-md-capability-results",
+    "scope_key": "*::prior_calibration",
+    "claim_kind": "knowledge_seed",
+    "claim_status": "seed",
+    "confidence": 0.45,
+    "empirical_support_count": 0,
+    "empirical_contradict_count": 0,
+    "seed_support_count": 1,
+    "seed_contradict_count": 0,
+    "support_ids": [
+      "research-run-0001-perch-baseline-md-capability-results"
+    ],
+    "contradict_ids": [],
+    "scope_tags": [
+      "research/run-0001-perch-baseline.md",
+      "prior_calibration"
+    ],
+    "override_required": false,
+    "created_at": "2026-04-02T10:47:48+00:00",
+    "updated_at": "2026-04-02T10:47:48+00:00"
+  },
+  {
+    "claim_id": "claim-seed-research-run-0001-perch-baseline-md-adopt-now",
+    "family": "",
+    "component": "prior_calibration",
+    "stance": "positive",
+    "summary": "repair the bottleneck with the strongest grounded prior first",
+    "subject": "prior_calibration",
+    "predicate": "positive",
+    "metric_key": "",
+    "claim_key": {
+      "subject": "prior_calibration",
+      "predicate": "positive",
+      "scope_vector": {
+        "family": "",
+        "evaluation_domain": "prior_calibration",
+        "metric": "",
+        "condition_tags": []
+      },
+      "metric_key": ""
+    },
+    "scope_vector": {
+      "family": "",
+      "evaluation_domain": "prior_calibration",
+      "metric": "",
+      "condition_tags": []
+    },
+    "title": "Adopt Now",
+    "source_type": "curated_seed",
+    "source_tier": "manual",
+    "source_ref": "research-run-0001-perch-baseline-md-adopt-now",
+    "scope_key": "*::prior_calibration",
+    "claim_kind": "knowledge_seed",
+    "claim_status": "seed",
+    "confidence": 0.45,
+    "empirical_support_count": 0,
+    "empirical_contradict_count": 0,
+    "seed_support_count": 1,
+    "seed_contradict_count": 0,
+    "support_ids": [
+      "research-run-0001-perch-baseline-md-adopt-now"
+    ],
+    "contradict_ids": [],
+    "scope_tags": [
+      "research/run-0001-perch-baseline.md",
+      "prior_calibration"
+    ],
+    "override_required": false,
+    "created_at": "2026-04-02T10:47:48+00:00",
+    "updated_at": "2026-04-02T10:47:48+00:00"
+  }
+]

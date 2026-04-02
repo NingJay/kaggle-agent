@@ -1,0 +1,186 @@
+{
+  "stage": "validate",
+  "status": "validated",
+  "summary": "Validated 3 follow-up branches and queued 3 work items.",
+  "plan_status": "planned",
+  "spec_id": "spec-0002",
+  "queued_work_item_id": "workitem-0001-perch-cached-probe-baseline-follow-up",
+  "branch_count": 3,
+  "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+  "dispatch_summary": [
+    {
+      "branch_rank": 0,
+      "branch_role": "primary",
+      "idea_class": "class_coverage",
+      "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+      "work_item_id": "workitem-0001-perch-cached-probe-baseline-follow-up",
+      "spec_id": "spec-0002",
+      "config_path": "BirdCLEF-2026-Codebase/configs/generated/perch-cached-probe-baseline-follow-up.yaml",
+      "lifecycle_template": "branch_experiment",
+      "stage_plan": [
+        "codegen",
+        "critic",
+        "validate",
+        "execute",
+        "evidence",
+        "report",
+        "research",
+        "decision",
+        "plan",
+        "submission"
+      ],
+      "target_run_id": "",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-open-questions",
+        "research-run-0001-perch-baseline-md-capability-results",
+        "research-run-0001-perch-baseline-md-adopt-now",
+        "research-run-0001-perch-baseline-md-consider",
+        "research-run-0001-perch-baseline-md-relevant-claims",
+        "research-run-0001-perch-baseline-md-capability-packs",
+        "experiment-conclusions-md-experiment-conclusions"
+      ],
+      "policy_trace": [
+        "role:primary:8.0",
+        "required-pattern:coverage_first"
+      ],
+      "branch_memory_ids": [],
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 21.34,
+        "expected_information_gain": 0.89,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 6.0,
+        "max_budget_share": 0.35,
+        "cost_caps": {
+          "low": 3.0,
+          "medium": 2.0,
+          "high": 1.0
+        },
+        "smoke_only_first": true,
+        "canary_eval_required": true,
+        "auto_kill_threshold": 0.48
+      }
+    },
+    {
+      "branch_rank": 1,
+      "branch_role": "hedge",
+      "idea_class": "probe_head",
+      "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+      "work_item_id": "workitem-0002-perch-cached-probe-baseline-follow-up-branch-2",
+      "spec_id": "spec-0003",
+      "config_path": "BirdCLEF-2026-Codebase/configs/generated/perch-cached-probe-baseline-follow-up-branch-2.yaml",
+      "lifecycle_template": "branch_experiment",
+      "stage_plan": [
+        "codegen",
+        "critic",
+        "validate",
+        "execute",
+        "evidence",
+        "report",
+        "research",
+        "decision",
+        "plan",
+        "submission"
+      ],
+      "target_run_id": "",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-open-questions",
+        "research-run-0001-perch-baseline-md-capability-results",
+        "research-run-0001-perch-baseline-md-adopt-now",
+        "research-run-0001-perch-baseline-md-consider",
+        "research-run-0001-perch-baseline-md-relevant-claims",
+        "research-run-0001-perch-baseline-md-capability-packs",
+        "experiment-conclusions-md-experiment-conclusions"
+      ],
+      "policy_trace": [
+        "role:hedge:5.0",
+        "required-pattern:probe_training_change"
+      ],
+      "branch_memory_ids": [],
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 18.34,
+        "expected_information_gain": 0.89,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 6.0,
+        "max_budget_share": 0.35,
+        "cost_caps": {
+          "low": 3.0,
+          "medium": 2.0,
+          "high": 1.0
+        },
+        "smoke_only_first": true,
+        "canary_eval_required": true,
+        "auto_kill_threshold": 0.48
+      }
+    },
+    {
+      "branch_rank": 2,
+      "branch_role": "explore",
+      "idea_class": "optimization",
+      "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+      "work_item_id": "workitem-0003-perch-cached-probe-baseline-follow-up-branch-3",
+      "spec_id": "spec-0004",
+      "config_path": "BirdCLEF-2026-Codebase/configs/generated/perch-cached-probe-baseline-follow-up-branch-3.yaml",
+      "lifecycle_template": "branch_experiment",
+      "stage_plan": [
+        "codegen",
+        "critic",
+        "validate",
+        "execute",
+        "evidence",
+        "report",
+        "research",
+        "decision",
+        "plan",
+        "submission"
+      ],
+      "target_run_id": "",
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-open-questions",
+        "research-run-0001-perch-baseline-md-capability-results",
+        "research-run-0001-perch-baseline-md-adopt-now",
+        "research-run-0001-perch-baseline-md-consider",
+        "research-run-0001-perch-baseline-md-relevant-claims",
+        "research-run-0001-perch-baseline-md-capability-packs",
+        "experiment-conclusions-md-experiment-conclusions"
+      ],
+      "policy_trace": [
+        "role:explore:3.0",
+        "required-pattern:schedule_recovery"
+      ],
+      "branch_memory_ids": [],
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 15.38,
+        "expected_information_gain": 0.73,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 6.0,
+        "max_budget_share": 0.35,
+        "cost_caps": {
+          "low": 3.0,
+          "medium": 2.0,
+          "high": 1.0
+        },
+        "smoke_only_first": true,
+        "canary_eval_required": true,
+        "auto_kill_threshold": 0.48
+      }
+    }
+  ]
+}

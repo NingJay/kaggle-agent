@@ -1,0 +1,11 @@
+[
+  {
+    "note_id": "note-0001",
+    "run_id": "run-0001-perch-baseline",
+    "title": "Research summary for run-0001-perch-baseline",
+    "summary": "repair the bottleneck with the strongest grounded prior first",
+    "stance": "adopt_now",
+    "source_type": "adapter",
+    "created_at": "2026-04-02T10:47:47+00:00"
+  }
+]

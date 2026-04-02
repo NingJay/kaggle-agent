@@ -1,0 +1,42 @@
+{
+  "current_objective": "Continue frontier search, but enforce grounded-vs-novel slot allocation and minimum information gain.",
+  "current_leader_run_id": "run-0001-perch-baseline",
+  "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+  "current_leader_metric_value": 0.6651564148629492,
+  "active_portfolios": [],
+  "top_positive_priors": [
+    "prior_calibration: repair the bottleneck with the strongest grounded prior first",
+    "general: # Experiment Conclusions"
+  ],
+  "top_negative_vetoes": [],
+  "unresolved_questions": [
+    "Resolve contradiction on prior_calibration: prior_calibration remains conditional because the evidence is mixed or incomplete. Counterevidence: repair the bottleneck with the strongest grounded prior first",
+    "What removes the current bottleneck: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+  ],
+  "current_bottlenecks": [
+    "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration."
+  ],
+  "pending_decisions": [
+    "Choose the next perch_cached_probe branch portfolio.",
+    "Compile grounded and novel branch slots without violating veto rules."
+  ],
+  "selected_memory_files": [],
+  "selected_capability_packs": [
+    "veto_checker",
+    "branch_diversifier",
+    "branch_typing_compiler",
+    "novel_hypothesis_generator"
+  ],
+  "knowledge_card_ids": [
+    "research-run-0001-perch-baseline-md-open-questions",
+    "research-run-0001-perch-baseline-md-capability-results",
+    "research-run-0001-perch-baseline-md-adopt-now",
+    "research-run-0001-perch-baseline-md-consider",
+    "research-run-0001-perch-baseline-md-relevant-claims",
+    "research-run-0001-perch-baseline-md-capability-packs",
+    "experiment-conclusions-md-experiment-conclusions"
+  ],
+  "source_stage": "plan",
+  "run_id": "run-0001-perch-baseline",
+  "updated_at": "2026-04-02T10:47:48+00:00"
+}

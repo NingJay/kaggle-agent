@@ -1,0 +1,173 @@
+{
+  "stage": "research",
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+  "queries": [
+    "bird audio embedding probe class imbalance holdout validation",
+    "birdclef soundscape macro roc auc validation strategy"
+  ],
+  "adopt_now": [
+    "repair the bottleneck with the strongest grounded prior first"
+  ],
+  "consider": [
+    "open one adjacent branch if grounded priors are exhausted"
+  ],
+  "reject": [],
+  "knowledge_files_seen": 1,
+  "problem_frame": {
+    "stage": "research",
+    "run_id": "run-0001-perch-baseline",
+    "family": "perch_cached_probe",
+    "title": "Perch cached-probe baseline",
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "hypothesis": "",
+    "objective_metric": "val_soundscape_macro_roc_auc",
+    "current_metric_value": 0.6651564148629492,
+    "focus": "root-cause repair and next config selection",
+    "next_action": "",
+    "adopt_now": [],
+    "consider": [],
+    "reject": [],
+    "query_terms": [
+      "perch_cached_probe",
+      "perch",
+      "cached",
+      "probe",
+      "baseline",
+      "the",
+      "notebook",
+      "derived",
+      "bayesian",
+      "prior",
+      "embedding",
+      "pipeline",
+      "live",
+      "next",
+      "steps",
+      "are",
+      "submission",
+      "bundle",
+      "parity",
+      "and",
+      "calibration",
+      "root",
+      "cause",
+      "repair"
+    ]
+  },
+  "knowledge_card_ids": [
+    "experiment-conclusions-md-experiment-conclusions"
+  ],
+  "positive_priors": [],
+  "negative_vetoes": [],
+  "conditional_leads": [],
+  "policy_rules": [],
+  "policy_cards": [],
+  "claims": [
+    {
+      "claim_id": "claim-seed-experiment-conclusions-md-experiment-conclusions",
+      "family": "",
+      "component": "general",
+      "stance": "positive",
+      "summary": "# Experiment Conclusions",
+      "title": "experiment conclusions",
+      "source_type": "curated_seed",
+      "source_ref": "experiment-conclusions-md-experiment-conclusions",
+      "confidence": 0.45,
+      "claim_kind": "knowledge_seed",
+      "claim_status": "seed",
+      "override_required": false,
+      "support_ids": [
+        "experiment-conclusions-md-experiment-conclusions"
+      ],
+      "contradict_ids": []
+    }
+  ],
+  "branch_memories": [],
+  "branch_memory_ids": [],
+  "contradictions": [],
+  "constraints": [],
+  "selected_memory_files": [],
+  "selected_capability_packs": [
+    "branch_typing_compiler",
+    "veto_checker",
+    "ledger_miner"
+  ],
+  "capability_results": {
+    "branch_typing_compiler": {
+      "supported_axis_tags": [
+        "backbone",
+        "class_coverage",
+        "data_filtering",
+        "optimization",
+        "preprocessing_aug",
+        "prior_calibration",
+        "probe_head",
+        "pseudo_label"
+      ],
+      "low_information_patterns": [
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "calibration",
+        "prior",
+        "temperature",
+        "threshold"
+      ],
+      "forbidden_patterns": [],
+      "required_patterns": [],
+      "minimum_information_gain_bar": 0.0,
+      "summary": "Branch typing compiler context from active reducer constraints."
+    },
+    "veto_checker": {
+      "forbidden_patterns": [],
+      "override_required_components": [],
+      "active_veto_rules": []
+    },
+    "ledger_miner": {
+      "top_components": [],
+      "repeated_failures": [],
+      "strong_components": []
+    }
+  },
+  "session_memory": {
+    "current_objective": "root-cause repair and next config selection",
+    "current_leader_run_id": "run-0001-perch-baseline",
+    "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+    "current_leader_metric_value": 0.6651564148629492,
+    "active_portfolios": [],
+    "top_positive_priors": [
+      "general: # Experiment Conclusions"
+    ],
+    "top_negative_vetoes": [],
+    "unresolved_questions": [
+      "What removes the current bottleneck: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+    ],
+    "current_bottlenecks": [
+      "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+      "root-cause repair and next config selection"
+    ],
+    "pending_decisions": [
+      "Choose the next perch_cached_probe branch portfolio."
+    ],
+    "selected_memory_files": [],
+    "selected_capability_packs": [
+      "branch_typing_compiler",
+      "veto_checker",
+      "ledger_miner"
+    ],
+    "knowledge_card_ids": [
+      "experiment-conclusions-md-experiment-conclusions"
+    ],
+    "source_stage": "research",
+    "run_id": "run-0001-perch-baseline",
+    "updated_at": "2026-04-02T10:47:47+00:00"
+  },
+  "open_questions": [
+    "What removes the current bottleneck without repeating low-information sweeps: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+  ],
+  "retrieval_queries_next_turn": [
+    "bird audio embedding probe class imbalance holdout validation",
+    "birdclef soundscape macro roc auc validation strategy"
+  ],
+  "hypothesis_backlog": []
+}

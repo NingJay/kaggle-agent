@@ -1,0 +1,27 @@
+[
+  {
+    "rule_id": "policy-prior-calibration",
+    "family": "",
+    "component": "prior_calibration",
+    "policy_type": "conditional",
+    "summary": "prior_calibration remains conditional because the evidence is mixed or incomplete.",
+    "rationale": "mixed evidence: empirical(+0/-0), seeded(+1/-1)",
+    "confidence": 0.28,
+    "status": "active",
+    "override_required": true,
+    "claim_ids": [
+      "claim-seed-research-run-0001-perch-baseline-md-open-questions",
+      "claim-seed-research-run-0001-perch-baseline-md-capability-results",
+      "claim-seed-research-run-0001-perch-baseline-md-adopt-now"
+    ],
+    "contradiction_ids": [
+      "claim-seed-research-run-0001-perch-baseline-md-adopt-now"
+    ],
+    "scope_tags": [
+      "prior_calibration",
+      "global"
+    ],
+    "created_at": "2026-04-02T10:47:48+00:00",
+    "updated_at": "2026-04-02T10:47:48+00:00"
+  }
+]

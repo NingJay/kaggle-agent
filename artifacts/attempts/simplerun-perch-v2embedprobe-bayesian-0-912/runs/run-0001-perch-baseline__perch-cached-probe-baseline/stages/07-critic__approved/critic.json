@@ -1,0 +1,255 @@
+{
+  "stage": "critic",
+  "status": "approved",
+  "concerns": [],
+  "warnings": [
+    "Codegen reported no changed files; confirm whether the branch is intentionally config-only."
+  ],
+  "required_fixes": [],
+  "branch_quality": {
+    "branch_role": "primary",
+    "idea_class": "class_coverage",
+    "verify_status": "skipped",
+    "policy_trace": [
+      "role:primary:8.0",
+      "required-pattern:coverage_first"
+    ],
+    "motivation_summary": "Continue frontier search, but enforce grounded-vs-novel slot allocation and minimum information gain.",
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-class-cove",
+    "realized_typing_id": "realized-run-0001-perch-baseline-perch-cached-probe-baseline-follow-up-class-cove",
+    "grounding_mode": "grounded",
+    "cost_tier": "low"
+  },
+  "branch_memory_ids": [],
+  "reusable_judgments": [
+    "Branch `primary` on `class_coverage` returned verify_status=skipped.",
+    "This bundle is structurally acceptable for validate-stage fan-out."
+  ],
+  "proposal_typing": {
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-class-cove",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "perch_cached_probe-branch",
+    "family": "perch_cached_probe",
+    "config_path": "",
+    "typing_signature": "class_coverage|unknown|02e6e104fbb1",
+    "typing_signature_json": "{\"axis_tags\": [\"class_coverage\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+    "typing_payload": {
+      "typing_kind": "proposal",
+      "typing_signature": "class_coverage|unknown|02e6e104fbb1",
+      "signature_payload": {
+        "axis_tags": [
+          "class_coverage"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "changes": [],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "class_coverage",
+      "axis_tags": [
+        "class_coverage"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "pattern_tags": [
+        "coverage_first"
+      ],
+      "changed_paths": [],
+      "change_count": 0,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "requires_override": false,
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "structural_hint_only": true
+    },
+    "typing_kind": "proposal",
+    "signature_payload": {
+      "axis_tags": [
+        "class_coverage"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "changes": [],
+      "work_type": "experiment_iteration"
+    },
+    "idea_class": "class_coverage",
+    "axis_tags": [
+      "class_coverage"
+    ],
+    "change_surface": [
+      "unknown"
+    ],
+    "pattern_tags": [
+      "coverage_first"
+    ],
+    "changed_paths": [],
+    "change_count": 0,
+    "novelty_score": 1.0,
+    "low_information_flag": false,
+    "requires_override": false,
+    "grounding_mode": "grounded",
+    "unsupported_claims": [],
+    "required_evidence": [],
+    "cost_tier": "low",
+    "work_type": "experiment_iteration",
+    "structural_hint_only": true,
+    "created_at": "2026-04-02T10:47:49+00:00"
+  },
+  "realized_typing": {
+    "realized_typing_id": "realized-run-0001-perch-baseline-perch-cached-probe-baseline-follow-up-class-cove",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0006-codegen",
+    "title": "Perch cached-probe baseline follow-up",
+    "family": "perch_cached_probe",
+    "config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+    "typing_signature": "class_coverage|unknown|d978ac9b9db3",
+    "typing_payload": {
+      "typing_kind": "realized",
+      "typing_signature": "class_coverage|unknown|d978ac9b9db3",
+      "signature_payload": {
+        "axis_tags": [
+          "class_coverage"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "changes": [
+          {
+            "path": "experiment.name",
+            "after": "perch-cached-probe-baseline-follow-up"
+          }
+        ],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "class_coverage",
+      "axis_tags": [
+        "class_coverage"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "pattern_tags": [
+        "coverage_first"
+      ],
+      "changed_paths": [],
+      "change_count": 0,
+      "low_information_flag": true,
+      "grounding_mode": "grounded",
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "generated_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+      "source_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml"
+    },
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-class-cove",
+    "drift_summary": [],
+    "typing_kind": "realized",
+    "signature_payload": {
+      "axis_tags": [
+        "class_coverage"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "changes": [
+        {
+          "path": "experiment.name",
+          "after": "perch-cached-probe-baseline-follow-up"
+        }
+      ],
+      "work_type": "experiment_iteration"
+    },
+    "idea_class": "class_coverage",
+    "axis_tags": [
+      "class_coverage"
+    ],
+    "change_surface": [
+      "unknown"
+    ],
+    "pattern_tags": [
+      "coverage_first"
+    ],
+    "changed_paths": [],
+    "change_count": 0,
+    "low_information_flag": true,
+    "grounding_mode": "grounded",
+    "cost_tier": "low",
+    "work_type": "experiment_iteration",
+    "generated_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/generated_config.yaml",
+    "source_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml",
+    "created_at": "2026-04-02T10:47:50+00:00"
+  },
+  "info_gain_estimate": {
+    "estimate_id": "gain-run-0001-perch-baseline-perch-cached-probe-branch-class-cove",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "perch_cached_probe-branch",
+    "family": "perch_cached_probe",
+    "idea_class": "class_coverage",
+    "grounding_mode": "grounded",
+    "novelty_score": 1.0,
+    "estimated_gain": 0.89,
+    "cost_tier": "low",
+    "rationale": [
+      "structural axis change",
+      "cheap branch",
+      "matches required pattern"
+    ],
+    "created_at": "2026-04-02T10:47:49+00:00",
+    "low_information_flag": false,
+    "required_patterns_matched": [
+      "coverage_first"
+    ],
+    "branch_role": "primary"
+  },
+  "typing_drift": {
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-class-cove",
+    "realized_typing_id": "realized-run-0001-perch-baseline-perch-cached-probe-baseline-follow-up-class-cove",
+    "drifted": false,
+    "severe": false,
+    "summary": [
+      "realized typing matches the proposal envelope."
+    ]
+  },
+  "envelope_violations": [],
+  "search_envelope": {
+    "turn_id": "stage-0004-decision",
+    "portfolio_mode": "frontier_search",
+    "slot_budget": 3,
+    "grounded_branch_slots": 2,
+    "novel_branch_slots": 1,
+    "branch_budget_by_role": {
+      "primary": 1,
+      "hedge": 1,
+      "explore": 1
+    },
+    "forbidden_patterns": [],
+    "required_patterns": [
+      "coverage_first",
+      "probe_training_change",
+      "schedule_recovery"
+    ],
+    "minimum_information_gain_bar": 0.48,
+    "per_portfolio_cap": 1,
+    "per_idea_class_cap": 1,
+    "dispatch_strategy": "prefer-diverse-frontier-before-follow-on-support",
+    "cost_budget": 6.0,
+    "max_budget_share": 0.35,
+    "cost_caps": {
+      "low": 3.0,
+      "medium": 2.0,
+      "high": 1.0
+    },
+    "smoke_only_first": true,
+    "canary_eval_required": true,
+    "auto_kill_threshold": 0.48,
+    "novel_max_cost_tier": "medium"
+  }
+}

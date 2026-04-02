@@ -1,0 +1,50 @@
+[
+  {
+    "link_id": "evidence-claim-seed-experiment-conclusions-md-experiment-conclusions-knowledge-seed-curated-seed-experiment-conclusions-m",
+    "claim_id": "claim-seed-experiment-conclusions-md-experiment-conclusions",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "experiment-conclusions-md-experiment-conclusions",
+    "polarity": "positive",
+    "summary": "# Experiment Conclusions",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T10:47:47+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-research-run-0001-perch-baseline-md-open-questions-knowledge-seed-curated-seed-research-run-0001-perch-",
+    "claim_id": "claim-seed-research-run-0001-perch-baseline-md-open-questions",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "research-run-0001-perch-baseline-md-consider",
+    "polarity": "conditional",
+    "summary": "open one adjacent branch if grounded priors are exhausted",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T10:47:48+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-research-run-0001-perch-baseline-md-capability-results-knowledge-seed-curated-seed-research-run-0001-perch-",
+    "claim_id": "claim-seed-research-run-0001-perch-baseline-md-capability-results",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "research-run-0001-perch-baseline-md-capability-results",
+    "polarity": "negative",
+    "summary": "`branch_typing_compiler` | {'supported_axis_tags': ['backbone', 'class_coverage', 'data_filtering', 'optimization', 'preprocessing_aug', 'prior_calibration', 'probe_head', 'pseudo_label'], 'low_information_patterns': ...",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T10:47:48+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-research-run-0001-perch-baseline-md-adopt-now-knowledge-seed-curated-seed-research-run-0001-perch-",
+    "claim_id": "claim-seed-research-run-0001-perch-baseline-md-adopt-now",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "research-run-0001-perch-baseline-md-adopt-now",
+    "polarity": "positive",
+    "summary": "repair the bottleneck with the strongest grounded prior first",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T10:47:48+00:00"
+  }
+]

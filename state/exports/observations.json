@@ -1,0 +1,38 @@
+[
+  {
+    "observation_id": "observation-run-0001-perch-baseline-evidence-primary-metric-primary-metric",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "evidence",
+    "family": "perch_cached_probe",
+    "component": "primary_metric",
+    "metric_name": "val_soundscape_macro_roc_auc",
+    "comparator": "leader",
+    "value": 0.6651564148629492,
+    "direction": "flat",
+    "axis_tags": [
+      "general"
+    ],
+    "summary": "val_soundscape_macro_roc_auc recorded for run-0001-perch-baseline",
+    "source_type": "primary_metric",
+    "source_ref": "run-0001-perch-baseline",
+    "created_at": "2026-04-02T10:47:46+00:00"
+  },
+  {
+    "observation_id": "observation-run-0001-perch-baseline-evidence-root-cause-runtime",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "evidence",
+    "family": "perch_cached_probe",
+    "component": "runtime",
+    "metric_name": "",
+    "comparator": "",
+    "value": null,
+    "direction": "",
+    "axis_tags": [
+      "general"
+    ],
+    "summary": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "source_type": "root_cause",
+    "source_ref": "run-0001-perch-baseline",
+    "created_at": "2026-04-02T10:47:46+00:00"
+  }
+]

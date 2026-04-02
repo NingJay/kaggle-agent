@@ -1,0 +1,12 @@
+{
+  "spec_type": "experiment",
+  "title": "Perch cached-probe baseline follow-up",
+  "family": "perch_cached_probe",
+  "config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/generated/perch-cached-probe-baseline-follow-up.yaml",
+  "launch_mode": "background",
+  "dedupe_key": "plan:run-0001-perch-baseline:portfolio-run-0001-perch-baseline-perch-cached-probe:00:perch-cached-probe-baseline-follow-up",
+  "notes": [
+    "deterministic codegen fallback"
+  ],
+  "verify_status": "skipped"
+}

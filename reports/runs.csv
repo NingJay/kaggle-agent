@@ -1,0 +1,2 @@
+run_id,experiment_id,work_item_id,status,stage_cursor,metric_name,metric_value
+run-0001-perch-baseline,exp-perch-baseline,workitem-perch-baseline,succeeded,complete,val_soundscape_macro_roc_auc,0.665156

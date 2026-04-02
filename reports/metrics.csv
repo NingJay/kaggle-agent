@@ -1,0 +1,6 @@
+metric_id,run_id,metric_name,value,split,trust_level,is_primary
+metric-0001,run-0001-perch-baseline,val_soundscape_macro_roc_auc,0.665156,local_proxy,clean,True
+metric-0002,run-0001-perch-baseline,padded_cmap,0.062402,local_proxy,clean,False
+metric-0003,run-0001-perch-baseline,prior_fusion_macro_roc_auc,0.487292,local_proxy,clean,False
+metric-0004,run-0001-perch-baseline,soundscape_macro_roc_auc,0.991784,local_proxy,clean,False
+metric-0005,run-0001-perch-baseline,val_prior_fusion_macro_roc_auc,0.662212,local_proxy,clean,False

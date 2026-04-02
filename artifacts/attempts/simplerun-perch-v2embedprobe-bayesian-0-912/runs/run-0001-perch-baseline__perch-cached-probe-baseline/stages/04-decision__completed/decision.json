@@ -1,0 +1,244 @@
+{
+  "stage": "decision",
+  "decision_type": "tune",
+  "next_action": "run_new_experiment",
+  "submission_recommendation": "no",
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+  "why": "Continue frontier search, but enforce grounded-vs-novel slot allocation and minimum information gain.",
+  "next_title": "Perch cached-probe baseline follow-up",
+  "next_family": "perch_cached_probe",
+  "next_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+  "priority_delta": 10,
+  "launch_mode": "background",
+  "problem_frame": {
+    "stage": "research",
+    "run_id": "run-0001-perch-baseline",
+    "family": "perch_cached_probe",
+    "title": "Perch cached-probe baseline",
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "hypothesis": "",
+    "objective_metric": "val_soundscape_macro_roc_auc",
+    "current_metric_value": 0.6651564148629492,
+    "focus": "root-cause repair and next config selection",
+    "next_action": "",
+    "adopt_now": [],
+    "consider": [],
+    "reject": [],
+    "query_terms": [
+      "perch_cached_probe",
+      "perch",
+      "cached",
+      "probe",
+      "baseline",
+      "the",
+      "notebook",
+      "derived",
+      "bayesian",
+      "prior",
+      "embedding",
+      "pipeline",
+      "live",
+      "next",
+      "steps",
+      "are",
+      "submission",
+      "bundle",
+      "parity",
+      "and",
+      "calibration",
+      "root",
+      "cause",
+      "repair"
+    ]
+  },
+  "knowledge_card_ids": [
+    "experiment-conclusions-md-experiment-conclusions"
+  ],
+  "rejected_axes": [],
+  "portfolio_intent": "Allocate 2 grounded slots and 1 novel slots around the current frontier.",
+  "portfolio_mode": "frontier_search",
+  "portfolio_policy": {
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "target_branch_count": 3,
+    "branch_mix": [
+      {
+        "branch_role": "primary",
+        "target_component": "class_coverage"
+      },
+      {
+        "branch_role": "hedge",
+        "target_component": "probe_head"
+      },
+      {
+        "branch_role": "explore",
+        "target_component": "optimization"
+      }
+    ],
+    "per_portfolio_cap": 1,
+    "per_idea_class_cap": 1,
+    "dispatch_strategy": "prefer-diverse-frontier-before-follow-on-support",
+    "selected_policy_cards": [],
+    "deprioritized_axes": [],
+    "branch_memory_ids": []
+  },
+  "branch_budget_by_role": {
+    "primary": 1,
+    "hedge": 1,
+    "explore": 1
+  },
+  "grounded_branch_slots": 2,
+  "novel_branch_slots": 1,
+  "selected_policy_cards": [],
+  "branch_memory_ids": [],
+  "deprioritized_axes": [],
+  "forbidden_plan_patterns": [],
+  "required_plan_patterns": [
+    "coverage_first",
+    "probe_training_change",
+    "schedule_recovery"
+  ],
+  "minimum_information_gain_bar": 0.48,
+  "why_not": {},
+  "selected_capability_packs": [
+    "branch_typing_compiler",
+    "veto_checker",
+    "ledger_miner"
+  ],
+  "selected_memory_files": [],
+  "capability_results": {
+    "branch_typing_compiler": {
+      "supported_axis_tags": [
+        "backbone",
+        "class_coverage",
+        "data_filtering",
+        "optimization",
+        "preprocessing_aug",
+        "prior_calibration",
+        "probe_head",
+        "pseudo_label"
+      ],
+      "low_information_patterns": [
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "calibration",
+        "prior",
+        "temperature",
+        "threshold"
+      ],
+      "forbidden_patterns": [],
+      "required_patterns": [],
+      "minimum_information_gain_bar": 0.0,
+      "summary": "Branch typing compiler context from active reducer constraints."
+    },
+    "veto_checker": {
+      "forbidden_patterns": [],
+      "override_required_components": [],
+      "active_veto_rules": []
+    },
+    "ledger_miner": {
+      "top_components": [],
+      "repeated_failures": [],
+      "strong_components": []
+    }
+  },
+  "open_questions": [
+    "What removes the current bottleneck without repeating low-information sweeps: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+  ],
+  "hypothesis_backlog": [],
+  "session_memory": {
+    "current_objective": "root-cause repair and next config selection",
+    "current_leader_run_id": "run-0001-perch-baseline",
+    "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+    "current_leader_metric_value": 0.6651564148629492,
+    "active_portfolios": [],
+    "top_positive_priors": [
+      "general: # Experiment Conclusions"
+    ],
+    "top_negative_vetoes": [],
+    "unresolved_questions": [
+      "What removes the current bottleneck: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+    ],
+    "current_bottlenecks": [
+      "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+      "root-cause repair and next config selection"
+    ],
+    "pending_decisions": [
+      "Choose the next perch_cached_probe branch portfolio."
+    ],
+    "selected_memory_files": [],
+    "selected_capability_packs": [
+      "branch_typing_compiler",
+      "veto_checker",
+      "ledger_miner"
+    ],
+    "knowledge_card_ids": [
+      "experiment-conclusions-md-experiment-conclusions"
+    ],
+    "source_stage": "research",
+    "run_id": "run-0001-perch-baseline",
+    "updated_at": "2026-04-02T10:47:47+00:00"
+  },
+  "branch_mix": [
+    {
+      "branch_role": "primary",
+      "target_component": "class_coverage"
+    },
+    {
+      "branch_role": "hedge",
+      "target_component": "probe_head"
+    },
+    {
+      "branch_role": "explore",
+      "target_component": "optimization"
+    }
+  ],
+  "branch_portfolio": [
+    {
+      "branch_role": "primary",
+      "target_component": "class_coverage"
+    },
+    {
+      "branch_role": "hedge",
+      "target_component": "probe_head"
+    },
+    {
+      "branch_role": "explore",
+      "target_component": "optimization"
+    }
+  ],
+  "requires_human": false,
+  "search_envelope": {
+    "turn_id": "stage-0004-decision",
+    "portfolio_mode": "frontier_search",
+    "slot_budget": 3,
+    "grounded_branch_slots": 2,
+    "novel_branch_slots": 1,
+    "branch_budget_by_role": {
+      "primary": 1,
+      "hedge": 1,
+      "explore": 1
+    },
+    "forbidden_patterns": [],
+    "required_patterns": [
+      "coverage_first",
+      "probe_training_change",
+      "schedule_recovery"
+    ],
+    "minimum_information_gain_bar": 0.48,
+    "per_portfolio_cap": 1,
+    "per_idea_class_cap": 1,
+    "dispatch_strategy": "prefer-diverse-frontier-before-follow-on-support",
+    "cost_budget": 6.0,
+    "max_budget_share": 0.35,
+    "cost_caps": {
+      "low": 3.0,
+      "medium": 2.0,
+      "high": 1.0
+    },
+    "smoke_only_first": true,
+    "canary_eval_required": true,
+    "auto_kill_threshold": 0.48,
+    "novel_max_cost_tier": "medium"
+  }
+}
