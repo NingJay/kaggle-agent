@@ -28,11 +28,11 @@ from kaggle_agent.control.monitor import _process_run_stage_chain, _run_validate
 from kaggle_agent.decision.codegen import build_codegen
 from kaggle_agent.decision.critic import _apply_typing_contract, build_critic
 from kaggle_agent.decision.planner import _prune_branch_candidates, build_plan
-from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle, synchronize_branch_memory
+from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle, retrieve_knowledge_bundle_from_root, synchronize_branch_memory
 from kaggle_agent.knowledge_reducer import active_search_envelope, record_search_envelope, synchronize_claims
 from kaggle_agent.layout import run_label
 from kaggle_agent.control.store import load_state, save_state
-from kaggle_agent.schema import BranchMemoryRecord, ExperimentSpec, RunRecord, RuntimeState, SpecRecord, StageRun, ValidationRecord, WorkItem, WorkspaceState
+from kaggle_agent.schema import BranchMemoryRecord, EvidenceLinkRecord, ExperimentSpec, RunRecord, RuntimeState, SpecRecord, StageRun, ValidationRecord, WorkItem, WorkspaceState
 from kaggle_agent.service import (
     build_submission,
     doctor_checks,
@@ -980,15 +980,15 @@ class WorkspaceTests(unittest.TestCase):
                         "consider": ["probe-head capacity branch"],
                         "reject": ["calibration-only sweep"],
                         "knowledge_card_ids": ["card-coverage", "card-calibration", "card-probe"],
-                        "policy_cards": [
+                        "policy_rules": [
                             {
-                                "card_id": "card-coverage",
+                                "rule_id": "rule-coverage",
                                 "component": "class_coverage",
                                 "policy_type": "require",
                                 "confidence": 0.91,
                             },
                             {
-                                "card_id": "card-calibration",
+                                "rule_id": "rule-calibration",
                                 "component": "prior_calibration",
                                 "policy_type": "veto",
                                 "confidence": 0.88,
@@ -3234,6 +3234,59 @@ class WorkspaceTests(unittest.TestCase):
             self.assertIn("Verify score regressed versus the leader baseline", prompt)
             self.assertIn("Repair the bundle so critic can approve it", prompt)
 
+    def test_build_prompt_persists_resolved_retrieved_knowledge_into_manifest(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            schema_path = root / "schemas" / "decision.schema.json"
+            schema_path.parent.mkdir(parents=True)
+            schema_path.write_text("{}", encoding="utf-8")
+            output_dir = root / "artifacts" / "decision-output"
+            output_dir.mkdir(parents=True)
+            input_manifest_path = output_dir / "input_manifest.json"
+            ctx = StageContext(
+                stage="decision",
+                workspace_root=root,
+                input_manifest_path=input_manifest_path,
+                output_dir=output_dir,
+                prompt_path=None,
+                schema_path=schema_path,
+                input_manifest={
+                    "run": {"run_id": "run-decision-prompt"},
+                    "research": {},
+                    "report": {},
+                },
+            )
+            bundle = {
+                "problem_frame": {"run_id": "run-decision-prompt", "stage": "decision"},
+                "knowledge_files_seen": 1,
+                "knowledge_card_ids": ["card-1"],
+                "cards": [{"card_id": "card-1", "summary": "Prior calibration remains conditional."}],
+                "policy_rules": [{"rule_id": "policy-1", "component": "prior_calibration", "policy_type": "conditional"}],
+                "claims": [{"claim_id": "claim-1", "summary": "Probe calibration is mixed."}],
+                "branch_memories": [{"memory_id": "memory-1", "summary": "Previous probe branch was flat."}],
+                "contradictions": [{"rule_id": "policy-1", "summary": "Mixed empirical evidence."}],
+                "constraints": [{"constraint_id": "constraint-1", "summary": "Require probe training change."}],
+                "semantic_memory_files": [],
+                "capability_packs": [{"pack_id": "veto_checker"}],
+                "capability_results": {"veto_checker": {"blocked_patterns": ["blend_only"]}},
+                "session_memory": {"current_objective": "Keep branch search grounded."},
+            }
+
+            with patch("kaggle_agent.adapters.stage_wrapper.retrieve_knowledge_bundle_from_root", return_value=bundle), patch(
+                "kaggle_agent.adapters.stage_wrapper.render_retrieved_knowledge",
+                return_value="## Positive Priors\n- prior_calibration",
+            ):
+                prompt = _build_prompt(ctx)
+
+            written_manifest = json.loads(input_manifest_path.read_text(encoding="utf-8"))
+            self.assertIn("Knowledge Context", prompt)
+            self.assertIn("## Positive Priors", prompt)
+            self.assertEqual(written_manifest["retrieved_knowledge"]["policy_rules"][0]["rule_id"], "policy-1")
+            self.assertEqual(
+                written_manifest["retrieved_knowledge"]["session_memory"]["current_objective"],
+                "Keep branch search grounded.",
+            )
+
     def test_build_codegen_includes_previous_critic_feedback_in_manifest(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -3530,6 +3583,41 @@ class BranchSearchKernelTests(unittest.TestCase):
         self.assertEqual(active.stage_run_id, "stage-decision-2")
         self.assertEqual(active.envelope["novel_branch_slots"], 1)
 
+    def test_save_state_uses_link_id_for_evidence_links(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            state.evidence_links = [
+                EvidenceLinkRecord(
+                    link_id="evidence-link-a",
+                    claim_id="claim-shared",
+                    run_id="run-1",
+                    stage_name="research",
+                    source_type="curated_seed",
+                    source_ref="card-a",
+                    polarity="positive",
+                ),
+                EvidenceLinkRecord(
+                    link_id="evidence-link-b",
+                    claim_id="claim-shared",
+                    run_id="run-1",
+                    stage_name="research",
+                    source_type="curated_seed",
+                    source_ref="card-b",
+                    polarity="positive",
+                ),
+            ]
+
+            save_state(config, state)
+            reloaded = load_state(config)
+
+            self.assertEqual([item.link_id for item in reloaded.evidence_links], ["evidence-link-a", "evidence-link-b"])
+
     def test_planner_prunes_low_information_and_keeps_grounded_novel_budget(self) -> None:
         state = _empty_workspace_state()
         source_config = {
@@ -3583,7 +3671,7 @@ class BranchSearchKernelTests(unittest.TestCase):
             stage_run_id="stage-plan-1",
             family="birdclef",
             source_config=source_config,
-            policy_cards=[],
+            policy_rules=[],
             branch_memories=[],
             policy=policy,
             search_envelope=search_envelope,
@@ -3707,6 +3795,164 @@ class BranchSearchKernelTests(unittest.TestCase):
             self.assertIn("policy_cards", bundle)
             policy_types = {item.get("policy_type") for item in bundle["policy_rules"]}
             self.assertTrue({"prefer", "avoid"} & policy_types)
+
+    def test_retrieve_knowledge_bundle_from_root_prefers_live_reducer_state(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            knowledge_file = config.knowledge_path("01_validated_findings.md")
+            knowledge_file.write_text(
+                "# Findings\n\n## Soft Pseudo Labels\nSoft pseudo labels are the biggest win.\n",
+                encoding="utf-8",
+            )
+            state = load_state(config)
+            state.branch_memories.append(
+                BranchMemoryRecord(
+                    memory_id="memory-live-0001",
+                    run_id="run-old",
+                    work_item_id="workitem-old",
+                    experiment_id="exp-old",
+                    family="birdclef",
+                    idea_class="pseudo_label",
+                    branch_role="primary",
+                    outcome="improved",
+                    summary="Pseudo-label branch improved holdout.",
+                    signal_score=2.4,
+                    created_at="2026-04-02T00:00:00Z",
+                )
+            )
+            save_state(config, state)
+
+            bundle = retrieve_knowledge_bundle_from_root(
+                root,
+                {"run": {"run_id": "run-live"}, "experiment": {"family": "birdclef"}},
+                stage="plan",
+            )
+
+            self.assertTrue(bundle["policy_rules"])
+            self.assertTrue(bundle["branch_memories"])
+            self.assertTrue(bundle["capability_results"])
+            self.assertIn("ledger_miner", bundle["capability_results"])
+
+    def test_session_memory_is_rebuilt_instead_of_merged(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            config.session_memory_json_path().write_text(
+                json.dumps(
+                    {
+                        "current_objective": "stale",
+                        "top_positive_priors": ["stale prior"],
+                        "top_negative_vetoes": ["stale veto"],
+                        "unresolved_questions": ["stale question"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            knowledge_file = config.knowledge_path("01_validated_findings.md")
+            knowledge_file.write_text(
+                "# Findings\n\n## Coverage\nCoverage fixes remain preferred.\n",
+                encoding="utf-8",
+            )
+            state = load_state(config)
+
+            bundle = retrieve_knowledge_bundle(
+                config,
+                {"run": {"run_id": "run-memory"}, "experiment": {"family": "birdclef"}, "report": {"root_cause": "coverage"}},
+                stage="plan",
+                state=state,
+            )
+
+            self.assertNotIn("stale prior", bundle["session_memory"].get("top_positive_priors", []))
+            self.assertNotIn("stale veto", bundle["session_memory"].get("top_negative_vetoes", []))
+            self.assertNotIn("stale question", bundle["session_memory"].get("unresolved_questions", []))
+
+    def test_choose_next_work_items_respects_cost_budget_and_novel_share(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = load_state(config)
+            config_path = str((root / "BirdCLEF-2026-Codebase" / "configs" / "default.yaml").relative_to(root))
+            state.work_items = [
+                WorkItem(
+                    id="workitem-grounded",
+                    title="Grounded branch",
+                    work_type="experiment_iteration",
+                    family="perch_cached_probe",
+                    priority=20,
+                    status="queued",
+                    config_path=config_path,
+                    pipeline=list(state.work_items[0].pipeline),
+                    portfolio_id="portfolio-a",
+                    idea_class="class_coverage",
+                    branch_role="primary",
+                    scheduler_hints={
+                        "portfolio_cap": 2,
+                        "idea_class_cap": 1,
+                        "dispatch_priority": 8.0,
+                        "grounding_mode": "grounded",
+                        "cost_tier": "low",
+                        "cost_units": 1.0,
+                        "cost_budget": 4.0,
+                        "max_budget_share": 0.35,
+                        "cost_caps": {"low": 2.0, "medium": 1.0, "high": 0.0},
+                    },
+                ),
+                WorkItem(
+                    id="workitem-novel-high",
+                    title="Novel high-cost branch",
+                    work_type="experiment_iteration",
+                    family="perch_cached_probe",
+                    priority=21,
+                    status="queued",
+                    config_path=config_path,
+                    pipeline=list(state.work_items[0].pipeline),
+                    portfolio_id="portfolio-a",
+                    idea_class="backbone",
+                    branch_role="explore",
+                    scheduler_hints={
+                        "portfolio_cap": 2,
+                        "idea_class_cap": 1,
+                        "dispatch_priority": 9.0,
+                        "grounding_mode": "novel",
+                        "cost_tier": "high",
+                        "cost_units": 4.0,
+                        "cost_budget": 4.0,
+                        "max_budget_share": 0.35,
+                        "cost_caps": {"low": 2.0, "medium": 1.0, "high": 0.0},
+                    },
+                ),
+            ]
+            state.runtime.active_run_ids = []
+            config = config.__class__(
+                root=config.root,
+                competition=config.competition,
+                metrics=config.metrics,
+                data=config.data,
+                paths=config.paths,
+                automation=config.automation.__class__(**{**config.automation.__dict__, "max_active_runs": 2}),
+                adapters=config.adapters,
+                runtime=config.runtime,
+                kaggle=config.kaggle,
+                notes=config.notes,
+            )
+
+            selected = choose_next_work_items(config, state)
+
+            self.assertEqual([item.id for item in selected], ["workitem-grounded"])
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
 from dataclasses import asdict, dataclass, field
@@ -94,6 +95,9 @@ DEFAULT_CAPABILITY_PACKS = (
         applies_to=["research", "decision", "plan"],
         tags=["ledger", "history", "portfolio", "regression"],
         priority_hint=3.4,
+        budget_limit=1,
+        cache_key="family+stage",
+        cache_break_policy="refresh_on_state_change",
     ),
     CapabilityPack(
         pack_id="veto_checker",
@@ -103,6 +107,9 @@ DEFAULT_CAPABILITY_PACKS = (
         applies_to=["research", "decision", "plan"],
         tags=["veto", "policy", "constraints", "negative"],
         priority_hint=3.8,
+        budget_limit=1,
+        cache_key="family+stage",
+        cache_break_policy="refresh_on_state_change",
     ),
     CapabilityPack(
         pack_id="branch_diversifier",
@@ -112,6 +119,9 @@ DEFAULT_CAPABILITY_PACKS = (
         applies_to=["decision", "plan"],
         tags=["parallel", "portfolio", "branch", "diversity"],
         priority_hint=3.5,
+        budget_limit=1,
+        cache_key="family+stage",
+        cache_break_policy="refresh_on_state_change",
     ),
     CapabilityPack(
         pack_id="submission_bar_checker",
@@ -121,6 +131,9 @@ DEFAULT_CAPABILITY_PACKS = (
         applies_to=["decision", "plan", "submission"],
         tags=["submission", "leader", "bundle"],
         priority_hint=2.8,
+        budget_limit=1,
+        cache_key="family+stage",
+        cache_break_policy="refresh_on_state_change",
     ),
     CapabilityPack(
         pack_id="novel_hypothesis_generator",
@@ -130,6 +143,21 @@ DEFAULT_CAPABILITY_PACKS = (
         applies_to=["decision", "plan"],
         tags=["novel", "explore", "unsupported", "hypothesis"],
         priority_hint=2.9,
+        budget_limit=1,
+        cache_key="family+stage",
+        cache_break_policy="refresh_on_state_change",
+    ),
+    CapabilityPack(
+        pack_id="branch_typing_compiler",
+        title="Branch Typing Compiler",
+        when_to_use="Use when branch selection should be constrained by typed axis, low-information patterns, and active envelope rules.",
+        returns="Supported axis tags, low-information patterns, and active typing constraints.",
+        applies_to=["research", "decision", "plan", "critic"],
+        tags=["typing", "compiler", "constraint", "branch"],
+        priority_hint=3.1,
+        budget_limit=1,
+        cache_key="family+stage",
+        cache_break_policy="refresh_on_state_change",
     ),
 )
 
@@ -1522,6 +1550,9 @@ def _select_capability_packs(
         ):
             score += 3.4
             reasons.append("novel-lane")
+        if pack.pack_id == "branch_typing_compiler" and stage_name in {"research", "decision", "plan", "critic"}:
+            score += 3.6
+            reasons.append("typing-enforcement")
         if score <= 0:
             continue
         scored.append(
@@ -1626,131 +1657,86 @@ def _compose_session_memory(
     return memory.to_dict()
 
 
-def retrieve_knowledge_bundle_from_root(
-    workspace_root: Path,
-    manifest: dict[str, Any],
-    *,
-    stage: str = "",
-    limit: int = 8,
-) -> dict[str, Any]:
-    cards = compile_knowledge_index_from_root(workspace_root)
-    frame = build_problem_frame(manifest, stage=stage)
-    if not cards:
-        empty_bundle = {
-            "problem_frame": frame,
-            "cards": [],
-            "knowledge_files_seen": 0,
-            "knowledge_card_ids": [],
-            "policy_rules": [],
-            "policy_cards": [],
-            "claims": [],
-            "branch_memories": [],
-            "branch_memory_ids": [],
-            "contradictions": [],
-            "constraints": [],
-            "semantic_memory_files": [],
-            "capability_packs": [],
-            "capability_results": {},
-        }
-        empty_bundle["session_memory"] = _compose_session_memory(
-            frame=frame,
-            cards=[],
-            policy_rules=[],
-            branch_memories=[],
-            contradictions=[],
-            semantic_memory_files=[],
-            capability_packs=[],
-            state=None,
-        )
-        return empty_bundle
-    scored = sorted(
-        (
-            {
-                **card,
-                "score": _score_card(card, frame, stage=stage or frame.get("stage", "")),
-            }
-            for card in cards
-        ),
-        key=lambda item: (float(item.get("score", 0.0)), str(item.get("source_path", "")), str(item.get("card_id", ""))),
-        reverse=True,
-    )
-    selected = _select_diverse_cards([item for item in scored if float(item.get("score", 0.0)) > 0.0], limit) or scored[:limit]
-    compact_cards = [dict(item) for item in selected if isinstance(item, dict)]
-    temp_state = _empty_workspace_state()
-    synchronize_policy_state(temp_state, compact_cards)
-    family = str(frame.get("family", "") or "")
-    policy_rules = _policy_rules_for_bundle(temp_state, family)
-    semantic_memory_files = _selected_memory_files(workspace_root, frame, compact_cards)
-    capability_packs = _select_capability_packs(
-        frame=frame,
-        policy_rules=policy_rules,
-        branch_memories=[],
-        contradictions=[],
-        stage=stage or str(frame.get("stage", "")),
-    )
-    session_memory = _compose_session_memory(
-        frame=frame,
-        cards=compact_cards,
-        policy_rules=policy_rules,
-        branch_memories=[],
-        contradictions=[],
-        semantic_memory_files=semantic_memory_files,
-        capability_packs=capability_packs,
-        state=None,
-    )
+def _claim_limit_for_stage(stage: str) -> int:
     return {
-        "problem_frame": frame,
-        "cards": compact_cards,
-        "knowledge_files_seen": len({str(item.get("source_path", "")) for item in compact_cards}),
-        "knowledge_card_ids": [str(item.get("card_id", "")) for item in compact_cards],
-        "policy_rules": policy_rules,
-        "policy_cards": policy_rules,
-        "claims": _relevant_claims(temp_state, frame),
-        "branch_memories": [],
-        "branch_memory_ids": [],
-        "contradictions": [],
-        "constraints": [],
-        "semantic_memory_files": semantic_memory_files,
-        "capability_packs": capability_packs,
-        "capability_results": {},
-        "session_memory": session_memory,
-    }
+        "research": 8,
+        "decision": 6,
+        "plan": 6,
+        "critic": 4,
+        "codegen": 4,
+    }.get(stage, 6)
 
 
-def retrieve_knowledge_bundle(
-    config: WorkspaceConfig,
-    manifest: dict[str, Any],
+def _memory_limit_for_stage(stage: str) -> int:
+    return {
+        "research": 6,
+        "decision": 5,
+        "plan": 5,
+        "critic": 3,
+        "codegen": 3,
+    }.get(stage, 5)
+
+
+def _capability_pack_limit_for_stage(stage: str) -> int:
+    return {
+        "research": 4,
+        "decision": 4,
+        "plan": 4,
+        "critic": 2,
+        "codegen": 2,
+    }.get(stage, 4)
+
+
+def _load_live_state_from_workspace_root(workspace_root: Path) -> WorkspaceState | None:
+    config_path = workspace_root / "workspace.toml"
+    ledger_path = workspace_root / "state" / "ledger.db"
+    if not config_path.exists() or not ledger_path.exists():
+        return None
+    try:
+        from kaggle_agent.config import load_workspace_config
+        from kaggle_agent.control.store import load_state
+
+        config = load_workspace_config(workspace_root)
+        return load_state(config)
+    except Exception:
+        return None
+
+
+def _build_runtime_knowledge_bundle(
     *,
-    stage: str = "",
-    limit: int = 8,
-    state: WorkspaceState | None = None,
-    memory_limit: int = 6,
+    workspace_root: Path,
+    frame: dict[str, Any],
+    cards: list[dict[str, Any]],
+    state: WorkspaceState,
+    stage: str,
 ) -> dict[str, Any]:
-    ensure_knowledge_layout(config)
-    bundle = retrieve_knowledge_bundle_from_root(config.root, manifest, stage=stage, limit=limit)
-    frame = bundle.get("problem_frame", {}) if isinstance(bundle.get("problem_frame"), dict) else {}
     family = str(frame.get("family", "") or "")
-    cards = [item for item in bundle.get("cards", []) if isinstance(item, dict)]
-    if state is None:
-        bundle["session_memory"] = write_session_memory(config, bundle.get("session_memory", {}))
-        return bundle
-    synchronize_policy_state(state, cards)
+    stage_name = stage or str(frame.get("stage", "") or "")
     policy_rules = _policy_rules_for_bundle(state, family)
-    branch_memories = _recent_branch_memories(state, frame, stage=stage or str(frame.get("stage", "")), limit=memory_limit)
+    branch_memories = _recent_branch_memories(
+        state,
+        frame,
+        stage=stage_name,
+        limit=_memory_limit_for_stage(stage_name),
+    )
     contradictions = _policy_contradictions_from_state(state, family)
-    constraints = [_constraint_payload(item) for item in active_constraints(state, family=family, run_id=str(frame.get("run_id", "") or ""))]
-    semantic_memory_files = _selected_memory_files(config.root, frame, cards)
+    constraints = [
+        _constraint_payload(item)
+        for item in active_constraints(state, family=family, run_id=str(frame.get("run_id", "") or ""))
+    ]
+    semantic_memory_files = _selected_memory_files(workspace_root, frame, cards)
     capability_packs = _select_capability_packs(
         frame=frame,
         policy_rules=policy_rules,
         branch_memories=branch_memories,
         contradictions=contradictions,
-        stage=stage or str(frame.get("stage", "")),
+        stage=stage_name,
+        limit=_capability_pack_limit_for_stage(stage_name),
     )
     capability_results = _invoke_capability_packs(
         state,
         run_id=str(frame.get("run_id", "") or ""),
-        stage_name=stage or str(frame.get("stage", "")),
+        stage_name=stage_name,
         frame=frame,
         selected_packs=capability_packs,
     )
@@ -1764,22 +1750,86 @@ def retrieve_knowledge_bundle(
         capability_packs=capability_packs,
         state=state,
     )
-    bundle.update(
-        {
-            "policy_rules": policy_rules,
-            "policy_cards": policy_rules,
-            "claims": _relevant_claims(state, frame),
-            "branch_memories": branch_memories,
-            "branch_memory_ids": [str(item.get("memory_id", "")) for item in branch_memories],
-            "contradictions": contradictions,
-            "constraints": constraints,
-            "semantic_memory_files": semantic_memory_files,
-            "capability_packs": capability_packs,
-            "capability_results": capability_results,
-            "session_memory": write_session_memory(config, session_memory),
-        }
+    return {
+        "problem_frame": frame,
+        "cards": cards,
+        "knowledge_files_seen": len({str(item.get("source_path", "")) for item in cards}),
+        "knowledge_card_ids": [str(item.get("card_id", "")) for item in cards],
+        "policy_rules": policy_rules,
+        "policy_cards": policy_rules,
+        "claims": _relevant_claims(state, frame, limit=_claim_limit_for_stage(stage_name)),
+        "branch_memories": branch_memories,
+        "branch_memory_ids": [str(item.get("memory_id", "")) for item in branch_memories],
+        "contradictions": contradictions,
+        "constraints": constraints,
+        "semantic_memory_files": semantic_memory_files,
+        "capability_packs": capability_packs,
+        "capability_results": capability_results,
+        "session_memory": session_memory,
+    }
+
+
+def retrieve_knowledge_bundle_from_root(
+    workspace_root: Path,
+    manifest: dict[str, Any],
+    *,
+    stage: str = "",
+    limit: int = 8,
+) -> dict[str, Any]:
+    cards = compile_knowledge_index_from_root(workspace_root)
+    frame = build_problem_frame(manifest, stage=stage)
+    scored = sorted(
+        (
+            {
+                **card,
+                "score": _score_card(card, frame, stage=stage or str(frame.get("stage", ""))),
+            }
+            for card in cards
+        ),
+        key=lambda item: (float(item.get("score", 0.0)), str(item.get("source_path", "")), str(item.get("card_id", ""))),
+        reverse=True,
     )
-    return bundle
+    selected = _select_diverse_cards([item for item in scored if float(item.get("score", 0.0)) > 0.0], limit) or scored[:limit]
+    compact_cards = [dict(item) for item in selected if isinstance(item, dict)]
+    live_state = _load_live_state_from_workspace_root(workspace_root)
+    working_state = copy.deepcopy(live_state) if live_state is not None else _empty_workspace_state()
+    synchronize_policy_state(working_state, compact_cards)
+    return _build_runtime_knowledge_bundle(
+        workspace_root=workspace_root,
+        frame=frame,
+        cards=compact_cards,
+        state=working_state,
+        stage=stage,
+    )
+
+
+def retrieve_knowledge_bundle(
+    config: WorkspaceConfig,
+    manifest: dict[str, Any],
+    *,
+    stage: str = "",
+    limit: int = 8,
+    state: WorkspaceState | None = None,
+    memory_limit: int = 6,
+) -> dict[str, Any]:
+    ensure_knowledge_layout(config)
+    bundle = retrieve_knowledge_bundle_from_root(config.root, manifest, stage=stage, limit=limit)
+    if state is None:
+        bundle["session_memory"] = write_session_memory(config, bundle.get("session_memory", {}))
+        return bundle
+    frame = bundle.get("problem_frame", {}) if isinstance(bundle.get("problem_frame"), dict) else {}
+    cards = [item for item in bundle.get("cards", []) if isinstance(item, dict)]
+    synchronize_policy_state(state, cards)
+    stage_name = stage or str(frame.get("stage", "") or "")
+    updated = _build_runtime_knowledge_bundle(
+        workspace_root=config.root,
+        frame=frame,
+        cards=cards,
+        state=state,
+        stage=stage_name,
+    )
+    updated["session_memory"] = write_session_memory(config, updated.get("session_memory", {}))
+    return updated
 
 
 def render_retrieved_knowledge(bundle: dict[str, Any], *, limit: int = 16000) -> str:

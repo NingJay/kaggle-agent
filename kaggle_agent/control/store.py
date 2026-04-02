@@ -137,11 +137,11 @@ def _entity_id(item) -> str:
         return getattr(item, "validation_id")
     for key in [
         "observation_id",
+        "link_id",
         "claim_id",
         "rule_id",
         "constraint_id",
         "invocation_id",
-        "link_id",
         "envelope_id",
         "typing_id",
         "proposal_typing_id",

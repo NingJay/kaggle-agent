@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from kaggle_agent.branch_typing import AXIS_KEYWORDS, LOW_INFORMATION_PATH_HINTS
 from kaggle_agent.knowledge_reducer import active_constraints, active_policy_rules
 from kaggle_agent.schema import CapabilityInvocationRecord, WorkspaceState
 from kaggle_agent.utils import now_utc_iso
@@ -181,12 +182,45 @@ def _novel_hypothesis_generator(
     }
 
 
+def _branch_typing_compiler(
+    *,
+    state: WorkspaceState,
+    frame: dict[str, Any],
+    **_: Any,
+) -> dict[str, Any]:
+    family = str(frame.get("family", "") or "")
+    constraints = [
+        row
+        for row in active_constraints(state, family=family, run_id=str(frame.get("run_id", "") or ""))
+        if row.constraint_type in {"forbidden_patterns", "required_patterns", "minimum_information_gain_bar"}
+    ]
+    forbidden_patterns: list[str] = []
+    required_patterns: list[str] = []
+    minimum_information_gain_bar = 0.0
+    for row in constraints:
+        if row.constraint_type == "forbidden_patterns":
+            forbidden_patterns.extend(str(item) for item in row.value.get("patterns", []) if str(item))
+        elif row.constraint_type == "required_patterns":
+            required_patterns.extend(str(item) for item in row.value.get("patterns", []) if str(item))
+        elif row.constraint_type == "minimum_information_gain_bar":
+            minimum_information_gain_bar = float(row.value.get("threshold", 0.0) or 0.0)
+    return {
+        "supported_axis_tags": sorted(AXIS_KEYWORDS.keys()),
+        "low_information_patterns": ["calibration_only", "blend_only", *sorted(set(LOW_INFORMATION_PATH_HINTS))],
+        "forbidden_patterns": list(dict.fromkeys(forbidden_patterns)),
+        "required_patterns": list(dict.fromkeys(required_patterns)),
+        "minimum_information_gain_bar": minimum_information_gain_bar,
+        "summary": "Branch typing compiler context from active reducer constraints.",
+    }
+
+
 CAPABILITY_PACKS: dict[str, CapabilityFn] = {
     "ledger_miner": _ledger_miner,
     "veto_checker": _veto_checker,
     "branch_diversifier": _branch_diversifier,
     "submission_bar_checker": _submission_bar_checker,
     "novel_hypothesis_generator": _novel_hypothesis_generator,
+    "branch_typing_compiler": _branch_typing_compiler,
 }
 
 

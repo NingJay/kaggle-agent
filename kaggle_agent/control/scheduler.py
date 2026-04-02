@@ -62,6 +62,21 @@ def _idea_class_cap(work_item: WorkItem) -> int:
     return 1
 
 
+def _budget_key(work_item: WorkItem) -> str:
+    return str(work_item.portfolio_id or f"family:{work_item.family or 'default'}")
+
+
+def _cost_tier(work_item: WorkItem) -> str:
+    return str(work_item.scheduler_hints.get("cost_tier", "") or "medium")
+
+
+def _cost_units(work_item: WorkItem) -> float:
+    hinted = work_item.scheduler_hints.get("cost_units")
+    if isinstance(hinted, (int, float)) and float(hinted) > 0:
+        return float(hinted)
+    return {"low": 1.0, "medium": 2.0, "high": 4.0}.get(_cost_tier(work_item), 2.0)
+
+
 def _memory_summary(state: WorkspaceState, work_item: WorkItem) -> tuple[int, int]:
     strong = 0
     weak = 0
@@ -107,6 +122,10 @@ def _scheduler_score(
         score += 1.0
     if bool(work_item.scheduler_hints.get("low_information_flag")):
         score -= 16.0
+    if grounding_mode == "novel" and bool(work_item.scheduler_hints.get("smoke_only_first")) and _cost_tier(work_item) == "high":
+        score -= 8.0
+    if grounding_mode == "novel" and bool(work_item.scheduler_hints.get("canary_eval_required")):
+        score -= 3.0
     if work_item.portfolio_id:
         score += 6.0 if active_portfolios.get(work_item.portfolio_id, 0) == 0 else -8.0 * active_portfolios.get(work_item.portfolio_id, 0)
     if work_item.idea_class:
@@ -136,11 +155,22 @@ def choose_next_work_items(config: WorkspaceConfig, state: WorkspaceState, *, li
     running_items = _running_work_items(state)
     active_portfolios: dict[str, int] = {}
     active_idea_classes: dict[str, int] = {}
+    active_budget_costs: dict[str, float] = {}
+    active_novel_costs: dict[str, float] = {}
+    active_tier_counts: dict[str, dict[str, int]] = {}
     for item in running_items:
         if item.portfolio_id:
             active_portfolios[item.portfolio_id] = active_portfolios.get(item.portfolio_id, 0) + 1
         if item.idea_class:
             active_idea_classes[item.idea_class] = active_idea_classes.get(item.idea_class, 0) + 1
+        budget_key = _budget_key(item)
+        cost_units = _cost_units(item)
+        active_budget_costs[budget_key] = active_budget_costs.get(budget_key, 0.0) + cost_units
+        if str(item.scheduler_hints.get("grounding_mode", "") or "") == "novel":
+            active_novel_costs[budget_key] = active_novel_costs.get(budget_key, 0.0) + cost_units
+        tier_counts = active_tier_counts.setdefault(budget_key, {})
+        cost_tier = _cost_tier(item)
+        tier_counts[cost_tier] = tier_counts.get(cost_tier, 0) + 1
     scored = sorted(
         ready,
         key=lambda item: (
@@ -161,28 +191,85 @@ def choose_next_work_items(config: WorkspaceConfig, state: WorkspaceState, *, li
     for item in scored:
         portfolio_count = active_portfolios.get(item.portfolio_id, 0) if item.portfolio_id else 0
         idea_count = active_idea_classes.get(item.idea_class, 0) if item.idea_class else 0
+        budget_key = _budget_key(item)
+        cost_units = _cost_units(item)
+        cost_tier = _cost_tier(item)
+        grounding_mode = str(item.scheduler_hints.get("grounding_mode", "") or "")
+        cost_budget = item.scheduler_hints.get("cost_budget")
+        max_budget_share = item.scheduler_hints.get("max_budget_share")
+        cost_caps = item.scheduler_hints.get("cost_caps")
         if item.portfolio_id and portfolio_count >= _portfolio_cap(config, item):
             deferred.append(item)
             continue
         if item.idea_class and idea_count >= _idea_class_cap(item):
             deferred.append(item)
             continue
+        if isinstance(cost_budget, (int, float)) and float(cost_budget) > 0 and active_budget_costs.get(budget_key, 0.0) + cost_units > float(cost_budget):
+            deferred.append(item)
+            continue
+        if (
+            grounding_mode == "novel"
+            and isinstance(cost_budget, (int, float))
+            and float(cost_budget) > 0
+            and isinstance(max_budget_share, (int, float))
+            and float(max_budget_share) > 0
+            and active_novel_costs.get(budget_key, 0.0) + cost_units > float(cost_budget) * float(max_budget_share)
+        ):
+            deferred.append(item)
+            continue
+        if isinstance(cost_caps, dict):
+            tier_cap = cost_caps.get(cost_tier)
+            if isinstance(tier_cap, (int, float)) and active_tier_counts.get(budget_key, {}).get(cost_tier, 0) >= int(float(tier_cap)):
+                deferred.append(item)
+                continue
         selected.append(item)
         if item.portfolio_id:
             active_portfolios[item.portfolio_id] = active_portfolios.get(item.portfolio_id, 0) + 1
         if item.idea_class:
             active_idea_classes[item.idea_class] = active_idea_classes.get(item.idea_class, 0) + 1
+        active_budget_costs[budget_key] = active_budget_costs.get(budget_key, 0.0) + cost_units
+        if grounding_mode == "novel":
+            active_novel_costs[budget_key] = active_novel_costs.get(budget_key, 0.0) + cost_units
+        tier_counts = active_tier_counts.setdefault(budget_key, {})
+        tier_counts[cost_tier] = tier_counts.get(cost_tier, 0) + 1
         if len(selected) >= min(limit, remaining_capacity):
             return selected
     for item in deferred:
         idea_count = active_idea_classes.get(item.idea_class, 0) if item.idea_class else 0
+        budget_key = _budget_key(item)
+        cost_units = _cost_units(item)
+        cost_tier = _cost_tier(item)
+        grounding_mode = str(item.scheduler_hints.get("grounding_mode", "") or "")
+        cost_budget = item.scheduler_hints.get("cost_budget")
+        max_budget_share = item.scheduler_hints.get("max_budget_share")
+        cost_caps = item.scheduler_hints.get("cost_caps")
         if item.idea_class and idea_count >= _idea_class_cap(item):
             continue
+        if isinstance(cost_budget, (int, float)) and float(cost_budget) > 0 and active_budget_costs.get(budget_key, 0.0) + cost_units > float(cost_budget):
+            continue
+        if (
+            grounding_mode == "novel"
+            and isinstance(cost_budget, (int, float))
+            and float(cost_budget) > 0
+            and isinstance(max_budget_share, (int, float))
+            and float(max_budget_share) > 0
+            and active_novel_costs.get(budget_key, 0.0) + cost_units > float(cost_budget) * float(max_budget_share)
+        ):
+            continue
+        if isinstance(cost_caps, dict):
+            tier_cap = cost_caps.get(cost_tier)
+            if isinstance(tier_cap, (int, float)) and active_tier_counts.get(budget_key, {}).get(cost_tier, 0) >= int(float(tier_cap)):
+                continue
         selected.append(item)
         if item.portfolio_id:
             active_portfolios[item.portfolio_id] = active_portfolios.get(item.portfolio_id, 0) + 1
         if item.idea_class:
             active_idea_classes[item.idea_class] = active_idea_classes.get(item.idea_class, 0) + 1
+        active_budget_costs[budget_key] = active_budget_costs.get(budget_key, 0.0) + cost_units
+        if grounding_mode == "novel":
+            active_novel_costs[budget_key] = active_novel_costs.get(budget_key, 0.0) + cost_units
+        tier_counts = active_tier_counts.setdefault(budget_key, {})
+        tier_counts[cost_tier] = tier_counts.get(cost_tier, 0) + 1
         if len(selected) >= min(limit, remaining_capacity):
             break
     return selected[: min(limit, remaining_capacity)]

@@ -19,7 +19,7 @@ from kaggle_agent.adapters.providers.claude_code_exec import run_claude_code_exe
 from kaggle_agent.adapters.providers.claude_headless import run_claude_headless
 from kaggle_agent.adapters.providers.codex_exec import run_codex_exec
 from kaggle_agent.adapters.schema_validation import SchemaValidationError, validate_payload
-from kaggle_agent.knowledge import render_retrieved_knowledge, retrieve_knowledge_bundle_from_root
+from kaggle_agent.knowledge import compact_knowledge_bundle, render_retrieved_knowledge, retrieve_knowledge_bundle_from_root
 from kaggle_agent.utils import atomic_write_json, atomic_write_text, ensure_directory, now_utc_iso, truncate
 
 
@@ -161,13 +161,23 @@ def _doc_block(path: Path) -> str:
     return f"## {path.name}\n\n{text}"
 
 
-def _knowledge_blocks(root: Path, manifest: dict[str, Any], *, stage: str, limit: int = KNOWLEDGE_PROMPT_CHAR_BUDGET) -> str:
-    existing = manifest.get("retrieved_knowledge")
+def _resolved_retrieved_knowledge(
+    ctx: StageContext,
+    root: Path,
+    *,
+    stage: str,
+) -> dict[str, Any]:
+    existing = ctx.input_manifest.get("retrieved_knowledge")
     if isinstance(existing, dict) and existing:
-        rendered_existing = render_retrieved_knowledge(existing, limit=limit)
-        if rendered_existing.strip():
-            return rendered_existing
-    bundle = retrieve_knowledge_bundle_from_root(root, manifest, stage=stage, limit=8)
+        return existing
+    bundle = compact_knowledge_bundle(retrieve_knowledge_bundle_from_root(root, ctx.input_manifest, stage=stage, limit=8))
+    ctx.input_manifest["retrieved_knowledge"] = bundle
+    atomic_write_json(ctx.input_manifest_path, ctx.input_manifest)
+    return bundle
+
+
+def _knowledge_blocks(ctx: StageContext, root: Path, *, stage: str, limit: int = KNOWLEDGE_PROMPT_CHAR_BUDGET) -> str:
+    bundle = _resolved_retrieved_knowledge(ctx, root, stage=stage)
     rendered = render_retrieved_knowledge(bundle, limit=limit)
     return rendered if rendered.strip() else ""
 
@@ -212,7 +222,7 @@ def _build_prompt(
     if docs:
         prompt_sections.append(f"# Operating Contract\n\n{docs}")
     if ctx.stage in KNOWLEDGE_PROMPT_STAGES:
-        knowledge = _knowledge_blocks(docs_root, ctx.input_manifest, stage=ctx.stage)
+        knowledge = _knowledge_blocks(ctx, docs_root, stage=ctx.stage)
         if knowledge:
             prompt_sections.append(f"# Knowledge Context\n\n{knowledge}")
     prompt_sections.append(

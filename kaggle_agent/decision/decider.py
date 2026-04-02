@@ -128,12 +128,15 @@ def _build_search_envelope(payload: dict[str, Any], *, default_turn_id: str) -> 
     else:
         portfolio_policy = payload.get("portfolio_policy", {})
         policy = dict(portfolio_policy) if isinstance(portfolio_policy, dict) else {}
+        grounded_slots = int(payload.get("grounded_branch_slots", 0) or 0)
+        novel_slots = int(payload.get("novel_branch_slots", 0) or 0)
+        slot_budget = grounded_slots + novel_slots
         envelope = {
             "turn_id": default_turn_id,
             "portfolio_mode": str(payload.get("portfolio_mode", "") or ""),
-            "slot_budget": int(payload.get("grounded_branch_slots", 0) or 0) + int(payload.get("novel_branch_slots", 0) or 0),
-            "grounded_branch_slots": int(payload.get("grounded_branch_slots", 0) or 0),
-            "novel_branch_slots": int(payload.get("novel_branch_slots", 0) or 0),
+            "slot_budget": slot_budget,
+            "grounded_branch_slots": grounded_slots,
+            "novel_branch_slots": novel_slots,
             "branch_budget_by_role": dict(payload.get("branch_budget_by_role", {}))
             if isinstance(payload.get("branch_budget_by_role"), dict)
             else {},
@@ -143,9 +146,16 @@ def _build_search_envelope(payload: dict[str, Any], *, default_turn_id: str) -> 
             "per_portfolio_cap": int(policy.get("per_portfolio_cap", 1) or 1),
             "per_idea_class_cap": int(policy.get("per_idea_class_cap", 1) or 1),
             "dispatch_strategy": str(policy.get("dispatch_strategy", "") or ""),
-            "max_budget_share": {"grounded": 0.85, "novel": 0.35},
+            "cost_budget": float(max(2, slot_budget * 2)),
+            "max_budget_share": 0.35 if novel_slots else 0.0,
+            "cost_caps": {
+                "low": float(slot_budget),
+                "medium": float(max(1, grounded_slots)),
+                "high": 1.0,
+            },
             "smoke_only_first": True,
             "canary_eval_required": True,
+            "auto_kill_threshold": max(0.2, float(payload.get("minimum_information_gain_bar", 0.0) or 0.0)),
             "novel_max_cost_tier": "medium",
         }
     envelope["turn_id"] = str(envelope.get("turn_id", "") or default_turn_id)

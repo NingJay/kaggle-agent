@@ -172,9 +172,26 @@ def _summaries_with_component(cards: list[dict[str, Any]], component: str, *, st
     return summaries
 
 
+def _rule_summaries_with_component(policy_rules: list[dict[str, Any]], component: str, *, policy_types: set[str] | None = None) -> list[str]:
+    summaries: list[str] = []
+    for rule in policy_rules:
+        if str(rule.get("component", "")) != component:
+            continue
+        policy_type = str(rule.get("policy_type", ""))
+        if policy_types is not None and policy_type not in policy_types:
+            continue
+        summaries.append(f"{rule.get('policy_type', 'context')}: {rule.get('summary', '')}")
+    return summaries
+
+
 def _bundle_cards(knowledge_bundle: dict[str, Any]) -> list[dict[str, Any]]:
     cards = knowledge_bundle.get("cards", [])
     return [item for item in cards if isinstance(item, dict)] if isinstance(cards, list) else []
+
+
+def _bundle_policy_rules(knowledge_bundle: dict[str, Any]) -> list[dict[str, Any]]:
+    rules = knowledge_bundle.get("policy_rules", [])
+    return [item for item in rules if isinstance(item, dict)] if isinstance(rules, list) else []
 
 
 def _branch_patterns(branch_input: dict[str, Any]) -> list[str]:
@@ -231,8 +248,9 @@ def _fallback_probe_branch_candidates(
     used = _used_probe_signatures(config, state, experiment.family)
     selected: set[tuple[int, float, int]] = set()
     cards = _bundle_cards(knowledge_bundle)
-    coverage_reason = _summaries_with_component(cards, "class_coverage", stances={"positive", "conditional"})
-    calibration_veto = _summaries_with_component(cards, "prior_calibration", stances={"negative"})
+    policy_rules = _bundle_policy_rules(knowledge_bundle)
+    coverage_reason = _rule_summaries_with_component(policy_rules, "class_coverage", policy_types={"require", "prefer", "conditional"})
+    calibration_veto = _rule_summaries_with_component(policy_rules, "prior_calibration", policy_types={"veto", "avoid"})
 
     coverage_sig = _next_unused_probe_signature(
         [(64, 0.25, 4), (96, 0.25, 4), (96, 0.35, 4), (128, 0.35, 4)],
@@ -426,26 +444,26 @@ def _fallback_branch_candidates(
     )
 
 
-def _policy_cards(research: dict[str, Any], decision: dict[str, Any], knowledge_bundle: dict[str, Any]) -> list[dict[str, Any]]:
+def _policy_rules(research: dict[str, Any], decision: dict[str, Any], knowledge_bundle: dict[str, Any]) -> list[dict[str, Any]]:
     seen: set[str] = set()
     merged: list[dict[str, Any]] = []
     for source in (
-        research.get("policy_cards", []),
-        knowledge_bundle.get("policy_cards", []),
+        research.get("policy_rules", []),
+        knowledge_bundle.get("policy_rules", []),
     ):
         if not isinstance(source, list):
             continue
         for item in source:
             if not isinstance(item, dict):
                 continue
-            card_id = str(item.get("card_id", ""))
-            if not card_id or card_id in seen:
+            rule_id = str(item.get("rule_id", ""))
+            if not rule_id or rule_id in seen:
                 continue
-            seen.add(card_id)
+            seen.add(rule_id)
             merged.append(dict(item))
     selected_ids = {str(item) for item in decision.get("selected_policy_cards", []) if str(item)}
     if selected_ids:
-        merged.sort(key=lambda item: (str(item.get("card_id", "")) not in selected_ids, -float(item.get("confidence", 0.0) or 0.0)))
+        merged.sort(key=lambda item: (str(item.get("rule_id", "")) not in selected_ids, -float(item.get("confidence", 0.0) or 0.0)))
     return merged
 
 
@@ -534,7 +552,7 @@ def _evaluate_branch_candidate(
     stage_run_id: str,
     family: str,
     source_config: dict[str, Any],
-    policy_cards: list[dict[str, Any]],
+    policy_rules: list[dict[str, Any]],
     branch_memories: list[dict[str, Any]],
     policy: dict[str, Any],
     search_envelope: dict[str, Any],
@@ -567,6 +585,9 @@ def _evaluate_branch_candidate(
     forbidden_patterns = {str(item) for item in search_envelope.get("forbidden_patterns", []) if str(item)}
     required_patterns = {str(item) for item in search_envelope.get("required_patterns", []) if str(item)}
     minimum_information_gain_bar = float(search_envelope.get("minimum_information_gain_bar", 0.0) or 0.0)
+    cost_caps = dict(search_envelope.get("cost_caps", {})) if isinstance(search_envelope.get("cost_caps"), dict) else {}
+    smoke_only_first = bool(search_envelope.get("smoke_only_first", False))
+    canary_eval_required = bool(search_envelope.get("canary_eval_required", False))
     score = ROLE_WEIGHTS.get(branch_role, 0.0)
     policy_trace: list[str] = [f"role:{branch_role}:{score:.1f}"]
     veto_reasons: list[str] = []
@@ -613,16 +634,20 @@ def _evaluate_branch_candidate(
         veto_reasons.append("novel-without-required-evidence")
     if grounding_mode == "novel" and cost_tier == "high" and not override_reason:
         veto_reasons.append("novel-high-cost-without-override")
+    required_evidence_blob = " ".join(str(item) for item in branch["required_evidence"]).lower()
+    if grounding_mode == "novel" and cost_tier == "high" and canary_eval_required and "canary" not in required_evidence_blob and "smoke" not in required_evidence_blob and not override_reason:
+        veto_reasons.append("novel-high-cost-without-canary")
+    if cost_caps:
+        tier_cap = cost_caps.get(cost_tier)
+        if isinstance(tier_cap, (int, float)) and float(tier_cap) <= 0 and not override_reason:
+            veto_reasons.append(f"cost-tier-blocked:{cost_tier}")
 
-    for card in policy_cards:
-        component = str(card.get("component", ""))
+    for rule in policy_rules:
+        component = str(rule.get("component", ""))
         if component != idea_class:
             continue
-        policy_type = str(card.get("policy_type", "context"))
-        confidence = float(card.get("confidence", 0.0) or 0.0)
-        branch.setdefault("knowledge_card_ids", [])
-        if str(card.get("card_id", "")) and str(card.get("card_id", "")) not in branch["knowledge_card_ids"]:
-            branch["knowledge_card_ids"].append(str(card.get("card_id", "")))
+        policy_type = str(rule.get("policy_type", "context"))
+        confidence = float(rule.get("confidence", 0.0) or 0.0)
         if policy_type == "require":
             score += 8.0 * confidence
         elif policy_type == "prefer":
@@ -630,13 +655,13 @@ def _evaluate_branch_candidate(
         elif policy_type == "conditional":
             score += 2.5 * confidence
         elif policy_type in {"avoid", "veto"}:
-            reason = f"{policy_type}:{component}:{card.get('card_id', '')}"
+            reason = f"{policy_type}:{component}:{rule.get('rule_id', '')}"
             if override_reason:
                 score -= 2.0 * confidence
                 policy_trace.append(f"override:{reason}")
             else:
                 veto_reasons.append(reason)
-        policy_trace.append(f"policy:{policy_type}:{component}:{card.get('card_id', '')}")
+        policy_trace.append(f"policy:{policy_type}:{component}:{rule.get('rule_id', '')}")
 
     if idea_class in deprioritized_axes and not override_reason:
         veto_reasons.append(f"deprioritized-axis:{idea_class}")
@@ -677,6 +702,11 @@ def _evaluate_branch_candidate(
     branch["info_gain_estimate"] = info_gain_estimate
     branch["info_gain_estimate_id"] = str(info_gain_estimate.get("estimate_id", ""))
     branch["cost_tier"] = cost_tier
+    max_budget_share_raw = search_envelope.get("max_budget_share", 0.0)
+    if isinstance(max_budget_share_raw, dict):
+        max_budget_share = float(max_budget_share_raw.get(grounding_mode, 0.0) or 0.0)
+    else:
+        max_budget_share = float(max_budget_share_raw or 0.0)
     branch["scheduler_hints"] = {
         "portfolio_cap": int(search_envelope.get("per_portfolio_cap", policy.get("per_portfolio_cap", 1)) or 1),
         "idea_class_cap": int(search_envelope.get("per_idea_class_cap", policy.get("per_idea_class_cap", 1)) or 1),
@@ -686,6 +716,13 @@ def _evaluate_branch_candidate(
         "low_information_flag": bool(proposal_typing.get("low_information_flag", False)),
         "grounding_mode": grounding_mode,
         "cost_tier": cost_tier,
+        "cost_units": {"low": 1.0, "medium": 2.0, "high": 4.0}.get(cost_tier, 2.0),
+        "cost_budget": float(search_envelope.get("cost_budget", 0.0) or 0.0),
+        "max_budget_share": max_budget_share,
+        "cost_caps": cost_caps,
+        "smoke_only_first": smoke_only_first,
+        "canary_eval_required": canary_eval_required,
+        "auto_kill_threshold": float(search_envelope.get("auto_kill_threshold", 0.0) or 0.0),
     }
     return branch
 
@@ -698,7 +735,7 @@ def _prune_branch_candidates(
     stage_run_id: str,
     family: str,
     source_config: dict[str, Any],
-    policy_cards: list[dict[str, Any]],
+    policy_rules: list[dict[str, Any]],
     branch_memories: list[dict[str, Any]],
     policy: dict[str, Any],
     search_envelope: dict[str, Any],
@@ -718,7 +755,7 @@ def _prune_branch_candidates(
             stage_run_id=stage_run_id,
             family=family,
             source_config=source_config,
-            policy_cards=policy_cards,
+            policy_rules=policy_rules,
             branch_memories=branch_memories,
             policy=policy,
             search_envelope=search_envelope,
@@ -788,7 +825,7 @@ def _prune_branch_candidates(
     policy_trace = list(
         dict.fromkeys(
             [
-                *(f"card:{item.get('card_id', '')}:{item.get('policy_type', '')}" for item in policy_cards[:6]),
+                *(f"rule:{item.get('rule_id', '')}:{item.get('policy_type', '')}" for item in policy_rules[:6]),
                 *(trace for item in selected for trace in item.get("policy_trace", [])),
             ]
         )
@@ -1072,7 +1109,7 @@ def _canonicalize_plan_payload(
     ]
     policy = _portfolio_policy(decision)
     search_envelope = _search_envelope(state, decision, run_id=run.run_id, family=experiment.family)
-    policy_cards = _policy_cards(research, decision, knowledge_bundle)
+    policy_rules = _policy_rules(research, decision, knowledge_bundle)
     branch_memories = _branch_memories(research, decision, knowledge_bundle)
     candidate_branches, selected_branch_inputs, pruned_branches, overridden_branches, policy_trace = _prune_branch_candidates(
         branch_inputs,
@@ -1081,7 +1118,7 @@ def _canonicalize_plan_payload(
         stage_run_id=stage_run_id,
         family=experiment.family,
         source_config=source_config,
-        policy_cards=policy_cards,
+        policy_rules=policy_rules,
         branch_memories=branch_memories,
         policy=policy,
         search_envelope=search_envelope,

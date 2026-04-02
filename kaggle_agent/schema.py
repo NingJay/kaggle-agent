@@ -439,6 +439,9 @@ class CapabilityPack(_Serializable):
     applies_to: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     priority_hint: float = 0.0
+    budget_limit: int = 1
+    cache_key: str = ""
+    cache_break_policy: str = "rebuild_each_stage"
     source_path: str = ""
 
 

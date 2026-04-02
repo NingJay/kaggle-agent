@@ -662,6 +662,23 @@ def envelope_violations(
     cost_tier = str(realized_payload.get("cost_tier", proposal_payload.get("cost_tier", "medium")) or "medium")
     if grounding_mode == "novel" and COST_TIER_ORDER.get(cost_tier, 1) > COST_TIER_ORDER.get(max_novel_cost_tier, 1):
         violations.append(f"novel-cost-tier:{cost_tier}>{max_novel_cost_tier}")
+    cost_caps = dict(envelope.get("cost_caps", {})) if isinstance(envelope.get("cost_caps"), dict) else {}
+    tier_cap = cost_caps.get(cost_tier)
+    if isinstance(tier_cap, (int, float)) and float(tier_cap) <= 0:
+        violations.append(f"cost-tier-blocked:{cost_tier}")
+    required_evidence = [
+        str(item)
+        for item in (
+            realized_payload.get("required_evidence", [])
+            if isinstance(realized_payload.get("required_evidence"), list)
+            else proposal_payload.get("required_evidence", [])
+        )
+        if str(item)
+    ]
+    required_evidence_blob = " ".join(required_evidence).lower()
+    if grounding_mode == "novel" and bool(envelope.get("canary_eval_required", False)):
+        if "smoke" not in required_evidence_blob and "canary" not in required_evidence_blob:
+            violations.append("novel-missing-canary-evidence")
     return violations
 
 
