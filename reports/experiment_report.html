@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiment Report</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --card: #fffdf9;
+      --ink: #1f2937;
+      --line: #d6cec2;
+      --accent: #0f766e;
+    }
+    body { margin: 0; background: linear-gradient(135deg, #f7f2e9, #ece3d4); color: var(--ink); font-family: Georgia, serif; }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px 18px 48px; }
+    h1 { margin: 0 0 20px; }
+    .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+    th { background: #faf6ee; }
+    code { font-family: Consolas, monospace; }
+    ul { margin: 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Experiment Report</h1>
+  <div class="grid"><section class='card'><h2>Experiments</h2><table><thead><tr><th>ID</th><th>Status</th><th>Priority</th><th>Family</th><th>Config</th></tr></thead><tbody><tr><td>exp-0001-class-coverage-fix-resolve-23-unfitted-classes</td><td>succeeded</td><td>21</td><td>perch_cached_probe</td><td><code>BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml</code></td></tr><tr><td>exp-0002-pseudo-label-unfitted-classes-from-bayesian-prior</td><td>succeeded</td><td>19</td><td>perch_cached_probe</td><td><code>BirdCLEF-2026-Codebase/configs/generated/pseudo-label-unfitted-classes-from-bayesian-prior.yaml</code></td></tr><tr><td>exp-0003-class-coverage-fix-resolve-23-unfitted-classes</td><td>running</td><td>24</td><td>perch_cached_probe</td><td><code>BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml</code></td></tr><tr><td>exp-perch-baseline</td><td>succeeded</td><td>20</td><td>perch_cached_probe</td><td><code>BirdCLEF-2026-Codebase/configs/default.yaml</code></td></tr></tbody></table></section>
+<section class='card'><h2>Recent Runs</h2><table><thead><tr><th>Run</th><th>Status</th><th>Cursor</th><th>Metric</th><th>Value</th></tr></thead><tbody><tr><td>run-0001-perch-baseline__perch-cached-probe-baseline</td><td>succeeded</td><td>complete</td><td>val_soundscape_macro_roc_auc</td><td>0.664922</td></tr><tr><td>run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes__class-coverage-fix-resolve-23-unfitted-classes</td><td>succeeded</td><td>complete</td><td>val_soundscape_macro_roc_auc</td><td>0.672667</td></tr><tr><td>run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior</td><td>succeeded</td><td>complete</td><td>val_soundscape_macro_roc_auc</td><td>0.665053</td></tr><tr><td>run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes__class-coverage-fix-resolve-23-unfitted-classes</td><td>running</td><td>complete</td><td></td><td></td></tr></tbody></table></section></div>
+</main>
+</body>
+</html>

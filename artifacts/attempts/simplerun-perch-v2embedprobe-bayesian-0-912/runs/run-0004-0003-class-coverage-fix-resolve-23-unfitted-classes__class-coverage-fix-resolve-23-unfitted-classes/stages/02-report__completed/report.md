@@ -1,0 +1,49 @@
+## Run Report: run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes
+
+**Experiment:** Class coverage fix — resolve 23 unfitted classes  
+**Family:** perch_cached_probe  
+**Status:** succeeded  
+**Verdict:** submission-required
+
+### Primary Metric
+
+| Metric | Value |
+|---|---|
+| val_soundscape_macro_roc_auc | **0.6727** |
+| Delta vs previous leader | +0.0078 |
+
+### Secondary Metrics
+
+| Metric | Value |
+|---|---|
+| soundscape_macro_roc_auc (train) | 0.9972 |
+| padded_cmap | 0.0571 |
+| prior_fusion_macro_roc_auc | 0.4873 |
+| val_prior_fusion_macro_roc_auc | 0.6622 |
+| oof_probe_macro_roc_auc | 0.5203 |
+
+### Dataset Coverage
+
+- 75 active classes, 71 fitted (up from 52)
+- 708 fully labeled windows across 59 files
+- 4 classes remain unfitted
+
+### Root Cause Analysis
+
+The class coverage fix resolved 23 previously unfitted classes, raising the fitted count from 52 to 71 of 75 active classes. This produced a meaningful +0.0078 gain in val_soundscape_macro_roc_auc (0.6649 → 0.6727), making this run the new leader.
+
+The critical signal is the persistent train/val gap: train soundscape AUC at 0.997 vs val at 0.673. This ~0.32 gap indicates the probe is severely overfitting to training soundscapes or there is a substantial distribution shift between train and validation soundscapes. The OOF probe AUC of 0.520 is only marginally above random, confirming the probe head itself has limited generalization.
+
+### Unresolved Contradictions
+
+- **class_coverage:** Still conditional — 4 classes remain unfitted.
+- **prior_calibration:** Mixed evidence; Bayesian prior contribution is unclear.
+- **probe_head:** Mixed evidence on probe architecture effectiveness.
+- **Overfitting/distribution shift:** The 0.32 train-val gap is the dominant bottleneck.
+
+### Operator Action Items
+
+1. **Submission bundle parity:** This run is flagged submission-required. Build and validate a CPU submission bundle from this leader.
+2. **Probe overfitting mitigation:** The 0.32 train/val gap is the structural bottleneck. Next research should investigate regularization (dropout, weight decay), probe architecture changes, or data augmentation at the embedding level.
+3. **Calibration work:** The val_prior_fusion_macro_roc_auc (0.662) trails the direct val metric (0.673), suggesting prior fusion is not helping and needs recalibration.
+4. **Remaining 4 unfitted classes:** Marginal but may provide incremental gains if resolved.

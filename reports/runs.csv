@@ -1,0 +1,5 @@
+run_id,experiment_id,work_item_id,status,stage_cursor,metric_name,metric_value
+run-0001-perch-baseline,exp-perch-baseline,workitem-perch-baseline,succeeded,complete,val_soundscape_macro_roc_auc,0.664922
+run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes,exp-0001-class-coverage-fix-resolve-23-unfitted-classes,workitem-0001-class-coverage-fix-resolve-23-unfitted-classes,succeeded,complete,val_soundscape_macro_roc_auc,0.672667
+run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior,exp-0002-pseudo-label-unfitted-classes-from-bayesian-prior,workitem-0002-pseudo-label-unfitted-classes-from-bayesian-prior,succeeded,complete,val_soundscape_macro_roc_auc,0.665053
+run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes,exp-0003-class-coverage-fix-resolve-23-unfitted-classes,workitem-0003-class-coverage-fix-resolve-23-unfitted-classes,running,,,

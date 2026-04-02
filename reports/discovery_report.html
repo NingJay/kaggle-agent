@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Discovery Report</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --card: #fffdf9;
+      --ink: #1f2937;
+      --line: #d6cec2;
+      --accent: #0f766e;
+    }
+    body { margin: 0; background: linear-gradient(135deg, #f7f2e9, #ece3d4); color: var(--ink); font-family: Georgia, serif; }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px 18px 48px; }
+    h1 { margin: 0 0 20px; }
+    .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+    th { background: #faf6ee; }
+    code { font-family: Consolas, monospace; }
+    ul { margin: 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Discovery Report</h1>
+  <div class="grid"><section class='card'><h2>Findings</h2><ul><li>Perch cached-probe baseline completed: val_soundscape_macro_roc_auc=0.6649218274358575 and verdict submission-required.</li><li>Class coverage fix — resolve 23 unfitted classes completed: val_soundscape_macro_roc_auc=0.6726671893669534 and verdict submission-required.</li><li>Pseudo-label unfitted classes from Bayesian prior completed: val_soundscape_macro_roc_auc=0.6650530943368517 and verdict submission-required.</li></ul></section>
+<section class='card'><h2>Issues</h2><ul><li>No issues yet.</li></ul></section>
+<section class='card'><h2>Queue</h2><ul><li>Pseudo-label unfitted classes from Bayesian prior (complete)</li><li>Perch cached-probe baseline (complete)</li><li>Class coverage fix — resolve 23 unfitted classes (complete)</li><li>Class coverage fix — resolve 23 unfitted classes (running)</li></ul></section></div>
+</main>
+</body>
+</html>

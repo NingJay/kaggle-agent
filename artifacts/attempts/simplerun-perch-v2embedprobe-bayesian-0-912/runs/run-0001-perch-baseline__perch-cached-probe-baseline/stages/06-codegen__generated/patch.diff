@@ -1,0 +1,13 @@
+diff --git a/BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml b/BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml
+index 6186302..3944f6e 100644
+--- a/BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml
++++ b/BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml
+@@ -22,7 +22,7 @@ training:
+   backend: sklearn_cached_probe
+   reference_bayesian_pipeline: true
+   probe_pca_dim: 32
+-  probe_min_pos: 8
++  probe_min_pos: 1
+   probe_c: 0.25
+   probe_alpha: 0.4
+   probe_group_folds: 5

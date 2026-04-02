@@ -1,0 +1,193 @@
+{
+  "stage": "research",
+  "root_cause": "The probe model is the bottleneck: train soundscape ROC-AUC (0.992) vs val (0.665) reveals severe overfitting or train/val distribution gap. The Bayesian prior is paradoxically stronger on validation (0.662) than train (0.487), confirming the probe itself is the weak link. Additionally, only 52/75 classes are fitted (31% coverage deficit), which blocks submission bar criteria per 04_submission_bar.md. The immediate task is submission bundle parity and calibration, but the structural class coverage gap and probe overfitting must be addressed to improve the score meaningfully.",
+  "queries": [
+    "perch_cached_probe class coverage deficit fix unfitted classes",
+    "probe overfitting train val distribution gap regularization",
+    "submission bundle parity calibration cached_probe",
+    "prior fusion blend ratio negative results exp-0010",
+    "probe head architecture improvements frozen perch embeddings"
+  ],
+  "adopt_now": [
+    "[class_coverage] Fix the 23/75 unfitted classes before any other intervention. Only 52/75 classes are fitted in the current run (card: imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline). The structural class coverage gap is the single blocking issue — no calibration, ensemble, or post-processing is meaningful until all active classes receive fitted probes.",
+    "[probe_head] Submission bundle parity is the immediate deliverable. The current run (val AUC 0.665) is the first end-to-end success; package it as a CPU-only, internet-off submission bundle. Per 04_submission_bar (card: imports-kaggle-agent-04-submission-bar-md-example), this baseline alone does not clear the submission bar (it is round 1 of a simple cached-embeddings + linear probe), but establishing bundle parity unblocks the iteration loop.",
+    "[probe_head] Treat val_soundscape_macro_roc_auc as the primary signal, with prior_fusion_macro_roc_auc as a weaker fallback only. Per experiment rules (card: imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation), holdout-aware soundscape validation is the intended local primary signal for the cached-probe runtime."
+  ],
+  "consider": [
+    "[prior_calibration] Conditional — explore temperature scaling or isotonic calibration on the probe logits to close the train/val gap. The prior fusion metric (0.487 train, 0.662 val) suggests the Bayesian prior already provides useful holdout signal. However, blend-ratio grid search already regressed in exp-0010 (card: imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state), so avoid naive blending. Only pursue if class coverage is first addressed.",
+    "[probe_head] Conditional — investigate MLP probe head with regularization to reduce train/val overfitting. Exp-0011 showed dropout (0.3-0.5) suppressed gradient signal on the small training set (card: imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader), so lighter regularization or data augmentation may be more appropriate. The branch_typing_compiler flags calibration_only, blend_only, and temperature as low-information patterns — any probe head work must carry more signal than these.",
+    "[class_coverage] Conditional — augment training data or adjust label strategy to cover the 23 missing classes. This may require examining the data pipeline for label mismatch or insufficient per-class samples."
+  ],
+  "reject": [
+    "[prior_calibration] Reject naive prior-fusion blend ratio tuning. Exp-0010 (card: imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state) showed the MLP probe and Bayesian prior predictions are correlated, not complementary — blending dilutes discriminative power and produced a -0.0148 regression.",
+    "[probe_head] Reject submitting this baseline without further iteration. Per 04_submission_bar (card: imports-kaggle-agent-04-submission-bar-md-example), a round-1 Perch baseline scoring 0.665 is explicitly marked as premature for submission. The pipeline needs at least calibration and coverage fixes before scoring a real submission.",
+    "[probe_head] Reject heavy dropout regularization (0.3-0.5). Exp-0011 (card: imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader) confirmed dropout suppresses already-scarce gradient signal on the ~700-window training set with no overfitting benefit. The frozen Perch embedding space imposes a fundamental ceiling on probe-level regularization gains.",
+    "[probe_head] Reject random-guess configurations. Earlier debug runs (cards: imports-kaggle-agent-research-run-0001-perch-debug-smoke-md-run-0001-perch-debug-smoke, imports-kaggle-agent-research-run-0003-0002-debug-md-run-0003-0002-debug) showed that frozen heads or mismatched labels produce ROC-AUC=0.5 — any new probe head variant must verify gradient flow and non-random predictions early."
+  ],
+  "knowledge_files_seen": 5,
+  "knowledge_card_ids": [
+    "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+    "imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+    "imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+    "imports-kaggle-agent-04-submission-bar-md-example",
+    "imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader",
+    "imports-kaggle-agent-experiment-conclusions-md-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state",
+    "imports-kaggle-agent-research-run-0003-0002-debug-md-run-0003-0002-debug",
+    "imports-kaggle-agent-research-run-0001-perch-debug-smoke-md-run-0001-perch-debug-smoke"
+  ],
+  "positive_priors": [
+    "class_coverage [card:imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline]: 52/75 classes fitted, 31% coverage deficit is the single blocking issue. Fix unfitted classes before all other interventions.",
+    "probe_head [card:imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation]: Use val_soundscape_macro_roc_auc as primary signal; prior_fusion_macro_roc_auc is weaker fallback only.",
+    "prior_calibration [card:imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader]: Bayesian prior provides useful holdout signal (0.662 val vs 0.487 train), confirming probe is the weak link, not the prior."
+  ],
+  "negative_vetoes": [
+    "prior_calibration [card:imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state]: Naive blend-ratio grid search regressed by -0.0148; MLP probe and Bayesian prior predictions are correlated, not complementary.",
+    "probe_head [card:imports-kaggle-agent-research-run-0001-perch-debug-smoke-md-run-0001-perch-debug-smoke, card:imports-kaggle-agent-research-run-0003-0002-debug-md-run-0003-0002-debug]: Frozen heads or mismatched labels produce ROC-AUC=0.5; always verify gradient flow early.",
+    "probe_head [card:imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader]: Heavy dropout (0.3-0.5) suppresses gradient signal on ~700-window training set with no overfitting benefit.",
+    "probe_head [card:imports-kaggle-agent-04-submission-bar-md-example]: Round-1 Perch baseline does not clear submission bar; do not submit without further iteration."
+  ],
+  "conditional_leads": [
+    "probe_head [card:imports-kaggle-agent-experiment-conclusions-md-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state]: Embedding-level mixup produced marginal improvement (AUC 0.665). Only viable after class coverage is fixed.",
+    "class_coverage: Augment training data or adjust label strategy to cover 23 missing classes. Requires examining data pipeline for label mismatch or insufficient per-class samples.",
+    "prior_calibration: Temperature scaling or isotonic calibration on probe logits may close train/val gap, but branch_typing_compiler flags calibration_only as low-information. Must pair with coverage fix."
+  ],
+  "policy_cards": [
+    {
+      "rule_id": "policy-class-coverage",
+      "component": "class_coverage",
+      "policy_type": "prefer",
+      "confidence": 0.36,
+      "override_required": false,
+      "summary": "class_coverage has stronger supporting evidence than contradictory evidence."
+    },
+    {
+      "rule_id": "policy-prior-calibration",
+      "component": "prior_calibration",
+      "policy_type": "conditional",
+      "confidence": 0.28,
+      "override_required": true,
+      "summary": "prior_calibration remains conditional because the evidence is mixed or incomplete."
+    },
+    {
+      "rule_id": "policy-probe-head",
+      "component": "probe_head",
+      "policy_type": "conditional",
+      "confidence": 0.28,
+      "override_required": true,
+      "summary": "probe_head remains conditional because the evidence is mixed or incomplete."
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+      "component": "class_coverage",
+      "stance": "positive",
+      "summary": "52/75 classes fitted, 31% coverage deficit is the single blocking issue."
+    },
+    {
+      "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+      "component": "prior_calibration",
+      "stance": "negative",
+      "summary": "Blend-ratio grid search regressed by -0.0148; predictions are correlated, not complementary."
+    },
+    {
+      "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader",
+      "component": "prior_calibration",
+      "stance": "positive",
+      "summary": "Dropout regularization showed 2/11 success rate; lane at diminishing returns within frozen Perch embedding space."
+    },
+    {
+      "claim_id": "claim-seed-imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+      "component": "probe_head",
+      "stance": "conditional",
+      "summary": "Holdout-aware soundscape validation is the intended local primary signal."
+    },
+    {
+      "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state",
+      "component": "probe_head",
+      "stance": "positive",
+      "summary": "Embedding-level mixup produced marginal AUC improvement."
+    },
+    {
+      "claim_id": "claim-seed-imports-kaggle-agent-research-run-0003-0002-debug-md-run-0003-0002-debug",
+      "component": "probe_head",
+      "stance": "negative",
+      "summary": "Debug run produced identical random-guess metrics (ROC-AUC=0.5)."
+    }
+  ],
+  "contradictions": [
+    {
+      "rule_id": "policy-prior-calibration",
+      "component": "prior_calibration",
+      "type": "conditional_rule_has_counterevidence",
+      "summary": "Mixed evidence: exp-0011 (dropout) positive on component but showed regression; exp-0010 (blend ratio) definitively negative. Lane has 2/11 success rate."
+    },
+    {
+      "rule_id": "policy-probe-head",
+      "component": "probe_head",
+      "type": "conditional_rule_has_counterevidence",
+      "summary": "Mixed evidence: exp-0008 (embedding mixup) positive but marginal; earlier debug smokes negative. Resolution requires testing whether coverage deficit alone explains train/val gap."
+    }
+  ],
+  "constraints": [
+    {
+      "source": "branch_typing_compiler",
+      "type": "low_information_guard",
+      "patterns": [
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "calibration",
+        "prior",
+        "temperature",
+        "threshold"
+      ],
+      "constraint": "Branches matching these patterns must demonstrate higher information gain than baseline."
+    },
+    {
+      "source": "04_submission_bar",
+      "type": "submission_bar",
+      "constraint": "Round-1 Perch baselines do not clear submission bar. Minimum 4+ rounds with multiple techniques required."
+    },
+    {
+      "source": "veto_checker",
+      "type": "no_active_vetos",
+      "constraint": "No forbidden patterns or override-required components currently active."
+    }
+  ],
+  "selected_capability_packs": [
+    "veto_checker",
+    "branch_typing_compiler",
+    "ledger_miner"
+  ],
+  "open_questions": [
+    "Will fixing the 23 unfitted classes alone close the train/val AUC gap, or does the probe architecture itself need fundamental change?",
+    "Is the frozen Perch embedding space a hard ceiling for this lane, as suggested by the 2/11 success rate in exp-0011?",
+    "Can lighter regularization (e.g. label smoothing, weight decay tuning) reduce train/val overfitting without suppressing gradient signal on the small training set?"
+  ],
+  "retrieval_queries_next_turn": [
+    "perch_cached_probe unfitted classes data pipeline fix",
+    "submission bundle CPU offline dry-run cached probe",
+    "label smoothing small dataset regularization probe head"
+  ],
+  "hypothesis_backlog": [
+    {
+      "hypothesis": "Fixing the 23 unfitted classes will raise val AUC above 0.68 by closing the class coverage gap.",
+      "component": "class_coverage",
+      "priority": 1,
+      "status": "untested"
+    },
+    {
+      "hypothesis": "Lighter regularization (label smoothing, weight decay) will reduce train/val overfitting without suppressing gradient signal.",
+      "component": "probe_head",
+      "priority": 2,
+      "status": "untested"
+    },
+    {
+      "hypothesis": "The frozen Perch embedding space is a hard ceiling and a different backbone is needed for significant AUC gains.",
+      "component": "backbone",
+      "priority": 3,
+      "status": "untested"
+    }
+  ]
+}

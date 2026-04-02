@@ -1,0 +1,53 @@
+[
+  {
+    "estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "Class coverage fix — resolve 23 unfitted classes",
+    "family": "perch_cached_probe",
+    "idea_class": "grounded",
+    "grounding_mode": "grounded",
+    "novelty_score": 1.0,
+    "estimated_gain": 0.68,
+    "cost_tier": "low",
+    "rationale": [
+      "cheap branch"
+    ],
+    "created_at": "2026-04-02T22:15:44+00:00"
+  },
+  {
+    "estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "Class coverage fix — resolve 23 unfitted classes",
+    "family": "perch_cached_probe",
+    "idea_class": "grounded",
+    "grounding_mode": "grounded",
+    "novelty_score": 1.0,
+    "estimated_gain": 0.84,
+    "cost_tier": "low",
+    "rationale": [
+      "structural axis change",
+      "cheap branch"
+    ],
+    "created_at": "2026-04-02T22:15:44+00:00"
+  },
+  {
+    "estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0005-plan",
+    "title": "Pseudo-label unfitted classes from Bayesian prior",
+    "family": "perch_cached_probe",
+    "idea_class": "novel",
+    "grounding_mode": "novel",
+    "novelty_score": 1.0,
+    "estimated_gain": 0.88,
+    "cost_tier": "low",
+    "rationale": [
+      "structural axis change",
+      "novel lane bonus",
+      "cheap branch"
+    ],
+    "created_at": "2026-04-02T22:15:44+00:00"
+  }
+]

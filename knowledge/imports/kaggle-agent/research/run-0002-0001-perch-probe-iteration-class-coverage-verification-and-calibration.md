@@ -1,0 +1,7 @@
+Perch probe iteration 2 confirms the class coverage deficit is the blocking structural issue. The model fitted only 52 classes but the active evaluation set contains 75 classes, leaving 23 classes (31% of the target) completely unrepresented in the probe. Validation ROC-AUC holding steady at 0.665 across iterations is expected behavior when coverage is incomplete—calibration cannot improve predictions for classes the model was never trained on.
+
+The learned probe still outperforms prior fusion on the same holdout split (0.665 vs 0.662), confirming the embedding head adds discriminative signal for the classes it does cover. This validates the pipeline architecture but highlights that coverage expansion is the prerequisite for further gains.
+
+Root cause: structural coverage gap, not calibration or threshold tuning. The next iteration must either expand training data to include the 23 missing classes or filter the active class set to match fitted coverage. Data expansion is preferred if the missing classes appear in the competition target distribution; class filtering is acceptable only if the missing classes are rare or out-of-scope.
+
+This is iteration round 2. Per knowledge/04_submission_bar.md, submission requires ≥5 rounds with applied techniques like ensemble, calibration, post-processing, and domain adaptation. The current result is progress validation, not a submission candidate. Continue iterating on coverage first, then calibration, then submission bundle work.

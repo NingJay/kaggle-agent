@@ -1,0 +1,14 @@
+{
+  "stage": "report",
+  "headline": "Pseudo-labeling Bayesian prior run finished at 0.665 val AUC, narrowly below leader at 0.673.",
+  "focus": "Determine whether the pseudo-labeling approach has enough signal to pursue further or should be retired in favor of the class-coverage-fix leader.",
+  "best_run_id": "run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+  "best_run_metric": 0.6726671893669534,
+  "primary_metric_value": 0.6650530943368517,
+  "root_cause": "Pseudo-labeling unfitted classes from the Bayesian prior produced only a marginal +0.00013 improvement over the original baseline (0.6649 vs 0.6651), and is -0.0076 behind the current leader (class-coverage-fix at 0.6727). The probe overfitting pattern persists: train soundscape AUC 0.992 vs val 0.665. The Bayesian prior is paradoxically stronger on validation (0.662) than train (0.487), confirming the probe head itself remains the bottleneck. Pseudo-labeling did not meaningfully close the coverage or overfitting gap.",
+  "verdict": "marginal-negative",
+  "finding_titles": [
+    "Pseudo-label unfitted classes from Bayesian prior completed"
+  ],
+  "issue_titles": []
+}

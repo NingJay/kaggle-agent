@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run Report run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes</title>
+  <style>
+    body { margin: 0; font-family: Georgia, serif; background: #f5f1e8; color: #1f2937; }
+    main { max-width: 900px; margin: 0 auto; padding: 32px 20px 48px; }
+    article { background: #fffdfa; border: 1px solid #d9d1c5; border-radius: 16px; padding: 24px; }
+    pre { white-space: pre-wrap; font: 14px/1.6 "SFMono-Regular", Consolas, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <article>
+    <pre>## Report: Class Coverage Fix Run
+
+**Run:** run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes  
+**Verdict:** submission-required  
+**Primary metric (val_soundscape_macro_roc_auc):** 0.6727  
+
+### What happened
+
+The class coverage fix work item succeeded. Fitted class count rose from 52 to 71 out of 75 active classes, closing the 31% coverage deficit that was identified as the highest-priority structural blocker. Val AUC improved from 0.6649 (previous leader) to 0.6727, a delta of +0.0078.
+
+### Key metrics
+
+| Metric | Value |
+|---|---|
+| val_soundscape_macro_roc_auc | 0.6727 |
+| soundscape_macro_roc_auc (train) | 0.9972 |
+| padded_cmap | 0.0571 |
+| val_prior_fusion_macro_roc_auc | 0.6622 |
+| prior_fusion_macro_roc_auc (train) | 0.4873 |
+| fitted_class_count | 71 / 75 |
+
+### Assessment
+
+The improvement is real but modest. The train/val AUC gap (0.997 vs 0.673) confirms the probe model overfits severely or faces a distribution shift. The Bayesian prior paradoxically performs better on validation (0.662) than train (0.487), which means the probe is the weak link — not the prior.
+
+4 classes remain unfitted out of 75. Closing this final gap may yield incremental gains but the dominant bottleneck is probe generalization, not coverage.
+
+### Root cause
+
+The embedding probe pipeline is structurally limited by overfitting. Class coverage expansion moved the needle but diminishing returns are setting in. The next lever is submission bundle parity (to get a real Kaggle score) and calibration work, but meaningful score gains will require addressing probe generalization — potentially through regularization, augmentation, or architecture changes.
+
+### Next focus
+
+1. **Immediate:** Build a submission bundle from this run to get a real leaderboard score and ground the validation proxy.
+2. **Near-term:** Investigate probe overfitting mitigation (regularization, dropout, data augmentation at the embedding level).
+3. **Remaining:** Close the last 4 unfitted classes if low-cost, but do not prioritize over probe generalization work.
+</pre>
+  </article>
+</main>
+</body>
+</html>

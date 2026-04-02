@@ -1,0 +1,105 @@
+[
+  {
+    "realized_typing_id": "realized-run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes-run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes-general-un",
+    "run_id": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+    "stage_run_id": "stage-0018-codegen",
+    "title": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+    "family": "",
+    "config_path": "",
+    "typing_signature": "general|unknown|2cc0e35d8a6d",
+    "typing_payload": {
+      "typing_kind": "realized",
+      "typing_signature": "general|unknown|2cc0e35d8a6d",
+      "signature_payload": {
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "changes": [],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "general",
+      "axis_tags": [
+        "general"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "pattern_tags": [],
+      "changed_paths": [],
+      "change_count": 0,
+      "low_information_flag": true,
+      "grounding_mode": "grounded",
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "generated_config_path": "",
+      "source_config_path": ""
+    },
+    "proposal_typing_id": "",
+    "drift_summary": [],
+    "created_at": "2026-04-02T22:22:30+00:00"
+  },
+  {
+    "realized_typing_id": "realized-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-class-cove",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0006-codegen",
+    "title": "Class coverage fix — resolve 23 unfitted classes",
+    "family": "perch_cached_probe",
+    "config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__running/generated_config.yaml",
+    "typing_signature": "class_coverage+probe_head|model+training|36fbf3a77ba7",
+    "typing_payload": {
+      "typing_kind": "realized",
+      "typing_signature": "class_coverage+probe_head|model+training|36fbf3a77ba7",
+      "signature_payload": {
+        "axis_tags": [
+          "class_coverage",
+          "probe_head"
+        ],
+        "change_surface": [
+          "model",
+          "training"
+        ],
+        "changes": [
+          {
+            "path": "experiment.name",
+            "after": "class-coverage-fix-resolve-23-unfitted-classes"
+          },
+          {
+            "path": "training.probe_min_pos",
+            "after": 1
+          }
+        ],
+        "work_type": "ablation_terminal"
+      },
+      "idea_class": "grounded",
+      "axis_tags": [
+        "class_coverage",
+        "probe_head"
+      ],
+      "change_surface": [
+        "training",
+        "model"
+      ],
+      "pattern_tags": [
+        "coverage_first",
+        "probe_training_change"
+      ],
+      "changed_paths": [
+        "training.probe_min_pos",
+        "BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml"
+      ],
+      "change_count": 2,
+      "low_information_flag": false,
+      "grounding_mode": "grounded",
+      "cost_tier": "medium",
+      "work_type": "ablation_terminal",
+      "generated_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__running/generated_config.yaml",
+      "source_config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/BirdCLEF-2026-Codebase/configs/default.yaml"
+    },
+    "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+    "drift_summary": [],
+    "created_at": "2026-04-02T22:20:11+00:00"
+  }
+]

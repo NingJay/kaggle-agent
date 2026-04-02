@@ -1,0 +1,652 @@
+BirdCLEF+ 2026 - Competition Analysis Report
+🐦 BirdCLEF+ 2026
+Competition Analysis Report — EDA, Prior Solutions Review & Strategy Guide
+📍 Pantanal, Brazil
+🦜 234 Species
+🎯 Macro ROC-AUC
+💰 $45,000 Prize Pool
+🖥️ CPU-only Inference
+Report generated: March 13, 2026 | Competition deadline: June 3, 2026
+Table of Contents
+Competition Overview
+Exploratory Data Analysis (EDA)
+Taxonomy & Species Distribution
+Training Audio Data
+Labeled Soundscapes
+Key Data Challenges
+Prior Year Solutions Review (BirdCLEF 2024 & 2025)
+Recommended Approaches for 2026
+Suggested Pipeline Architecture
+Inference Optimization Strategy
+Key Insights & Conclusions
+Action Timeline
+Advanced Imbalance & Species Analysis
+Geographic Domain Gap Analysis
+Soundscape Temporal Analysis
+Multi-Label Co-occurrence & Species Coverage
+Label Noise & Secondary Label Deep Dive
+Training Strategy Insights (Weights & Groups)
+Advanced EDA Summary & Insights
+1. Competition Overview
+BirdCLEF+ 2026 is a Kaggle code competition focused on passive acoustic monitoring (PAM) of wildlife in the
+Brazilian Pantanal — the world's largest tropical wetland (150,000+ km²), home to 650+ bird
+species and countless other fauna. A growing network of 1,000 acoustic recorders generates continuous audio
+that is too large to review manually. The goal is to build a machine learning system that detects and classifies
+wildlife species from 5-second audio windows.
+234
+Species to classify
+35,549
+Training recordings
+~600
+Test soundscapes (1 min each)
+90 min
+CPU inference time limit
+$45K
+Total prize pool
+5 sec
+Prediction window size
+Task Description
+For each 5-second window of every test soundscape, predict the probability of each of the 234 species being
+present. The submission is a CSV with one row per window and 234 probability columns.
+The evaluation metric is macro-averaged ROC-AUC (skipping classes with no true positives in test).
+Key Constraints
+CPU-only inference — GPU notebooks are disabled (1 min runtime). All inference must run on CPU in 90 min.
+No internet access during submission — models must be pre-packaged in the notebook.
+Freely available external data and pre-trained models are allowed.
+Submission notebook: 90 min CPU runtime max.
+Competition Timeline
+March 11, 2026
+Competition start date — data available now
+May 27, 2026
+Entry deadline & team merger deadline
+June 3, 2026
+Final submission deadline
+June 17, 2026
+Working note submission deadline (optional, $5K prize)
+Data Sources
+Training audio comes from two sources:
+Xeno-canto (XC) — community recordings of bird vocalizations, with quality ratings 1–5
+iNaturalist (iNat) — citizen science recordings, typically unrated
+Additionally, expert-labeled train_soundscapes from the actual Pantanal recording sites provide in-domain data.
+2. Exploratory Data Analysis (EDA)
+2.1 Taxonomy & Species Distribution
+The competition covers 234 species across 5 taxonomic classes:
+Aves
+162 species (69.2%)
+Amphibia
+35 species (14.9%)
+Insecta
+28 species (11.9%)
+Mammalia
+8 species (3.4%)
+Reptilia
+1
+⚠️ Critical Insight: Extreme Taxonomic Imbalance
+Birds (Aves) dominate both species count (69%) and training recordings (97.9%). Non-bird classes are severely
+underrepresented, especially Reptilia with only 1 species and 1 training recording .
+This creates a fundamental few-shot learning challenge for non-bird taxa.
+2.2 Training Audio Data (train.csv)
+35,549
+Total recordings
+206
+Species with recordings
+2.60
+Average quality rating
+36.1%
+Unrated recordings (0)
+Recordings per Taxonomic Class
+Aves
+34,799 (97.9%)
+Amphibia
+451
+451 (1.3%)
+Insecta
+199
+199 (0.6%)
+Mammalia
+99
+99 (0.3%)
+Reptilia
+1
+1 (0.003%)
+Data Source Distribution
+Xeno-canto
+23,043 recordings (64.8%)
+iNaturalist
+12,506 recordings (35.2%)
+Per-Species Recording Statistics
+Metric Value Implication
+Minimum recordings per species 1 Extreme few-shot challenge
+Maximum recordings per species 499 Near hard cap (~500)
+Average recordings per species 172.6 Reasonable for most birds
+Species with <10 recordings 25 Needs special treatment
+Species with ≤5 recordings 18 Zero/few-shot problem
+Recordings with secondary labels 4,372 (12.3%) Multi-label opportunity
+Top 5 Species by Recording Count
+Species Code Recordings Note
+rubthr1 499 Ruby-throated Hummingbird
+banana 498 Bananaquit
+fepowl 497 Ferruginous Pygmy-Owl
+soulap1 497 Southern Lapwing
+houspa 496 House Sparrow
+Quality Rating Analysis
+Recordings are rated 1–5 by Xeno-canto users (0 = no rating, mostly iNat). Key observations:
+Average rating: 2.60 (medium quality)
+36.1% have no rating — these are all iNaturalist recordings
+Ratings are reduced by 0.5 when background species are present
+Strategy: Consider filtering or weighting by rating during training. Low-quality recordings add noise but also diversity.
+Geographic Coverage
+Training data has wide geographic spread but is not Pantanal-specific:
+Latitude: -54.86° to +69.58° (global coverage)
+Longitude: -159.66° to +175.32° (global coverage)
+ℹ️ Domain Gap: Training audio is from global XC/iNat sources; test soundscapes are from the
+specific Pantanal region. Species may have regional "dialects." Consider filtering training data by geographic
+proximity to Brazil/South America when possible.
+2.3 Labeled Soundscapes (train_soundscapes_labels.csv)
+66
+Labeled soundscape files
+1,478
+Labeled 5-second segments
+75
+Species annotated
+89.4%
+Multi-species segments
+Key Soundscape Observations
+Metric Value Implication
+Average segments per file 22.4 Most files are fully annotated (24 segments = 2 min)
+Min segments per file 4 Some files partially annotated
+Multi-species segments 89.4% Heavily multi-label; test data will be similar
+Species in soundscapes 75 (of 234 total) Many species ONLY appear in soundscapes
+🚨 Critical Note from Data Description: "Some species with occurrences in the hidden test
+data might ONLY have train samples in the labeled portion of train_soundscapes and NOT in train_audio."
+This means failing to properly use soundscape labels will cause you to miss entire test species.
+Top 10 Most Common Species in Labeled Soundscapes
+Species Code Segment Count Note
+65380 666 High frequency in Pantanal soundscapes
+517063 626 Very common in test region
+22973 426 Likely dominant species
+555146 420
+23158 350
+24279 346
+24321 344
+22967 310
+66971 298
+47158son25 168 Insect sonotype (no species-level ID)
+Insect Sonotypes
+Many insect species lack species-level identification and appear as "sonotypes" (e.g., 47158son16 , 47158son25 ).
+These are treated as valid classes for prediction. This adds complexity as sonotypes are defined acoustically rather than taxonomically.
+2.4 Key Data Challenges Summary
+Challenge 1: Severe Class Imbalance
+97.9% of training recordings are birds. Non-bird species (Amphibia, Insecta, Mammalia, Reptilia) are severely
+underrepresented. The lone Reptilia species has exactly 1 training recording.
+Challenge 2: Few-Shot Species
+25 species have fewer than 10 training recordings. 18 species have ≤5 recordings.
+These require zero/few-shot learning techniques.
+Challenge 3: Domain Shift
+Training data is short, focal recordings of individual animals (XC/iNat).
+Test data is continuous passive recordings of entire soundscapes with overlapping species and background noise.
+This is the #1 performance bottleneck historically.
+Challenge 4: Multi-Label Detection
+89.4% of soundscape segments contain multiple simultaneous species.
+Models must do multi-label classification, not single-label.
+Challenge 5: CPU-Only Inference Constraint
+~600 one-minute soundscapes must be processed in 90 minutes on CPU.
+That is ~600 × 12 = 7,200 five-second segments. Heavy models will not fit.
+Inference speed is as critical as model accuracy.
+Challenge 6: Unlabeled Soundscape Data
+Additional train_soundscapes without labels are available — a huge opportunity for
+semi-supervised learning and pseudo-labeling.
+3. Prior Year Solutions Review
+3.1 BirdCLEF+ 2025 (Multi-taxon, Colombia)
+BirdCLEF+ 2025 was the first year to include multi-taxonomic species (birds + amphibians + insects + mammals)
+from the Middle Magdalena Valley, Colombia — similar scope to 2026. Top results achieved ROC-AUC ~0.92–0.93.
+2nd Place Solution (VSydorskyy, ROC-AUC: 0.928 private)
+Five core pillars:
+Strong baseline model — EfficientNetV2-S (tf_efficientnetv2_s_in21k) and NfNet-L0 (eca_nfnet_l0)
+In-domain transfer learning — Pretrained on previous BirdCLEF data (2021–2024) before fine-tuning on 2025
+Semi-supervised learning via model distillation — To mitigate domain shift between focal recordings and soundscapes
+Post-processing — Score calibration and species-level thresholding
+Model ensembling — Multiple architectures blended for final prediction
+Key Finding: Adding large volumes of extra external data slightly degraded performance.
+The 2025 dataset was already sufficiently sized. Focus on quality of training rather than quantity.
+5th Place Solution Summary
+Final ensemble: EfficientNet-l0, B4, B3; RegNetY-016; RegNetY-008; EfficientNet-B0 (for amphibians/insects)
+Pretraining on all BirdCLEF 2021–2024 data improved AUC from 0.855 → 0.868
+Pseudo-labeling with MixUp and StochasticDepth
+Power scaling and multiple rounds of pseudo-labeling
+Quantile-Mix (α=0.5) ensembling: combining mean and rank-averaged predictions
+General BirdCLEF+ 2025 Top-Team Patterns
+Technique Usage Impact
+EfficientNet (B0/B3/B4/V2-S) Universal ★★★★★
+Pretraining on prior BirdCLEF data Most teams ★★★★☆ (+1–2% AUC)
+Pseudo-labeling / Semi-supervised Most top teams ★★★★☆
+Mel-spectrogram + CNN Universal ★★★★★
+FilterAugment / Time masking Most teams ★★★☆☆
+SoftAUCLoss Some teams ★★★★☆
+TFLite/ONNX inference Critical for CPU ★★★★★
+Perch / BirdNET embeddings Several teams ★★★☆☆
+Quantile-Mix ensembling Top teams ★★★★☆
+SED (Sound Event Detection) Some teams ★★★☆☆
+Novel Techniques in 2025 (Noteworthy)
+Spectrogram Token Skip-Gram (STSG) — Converts audio into discrete tokens from Mel-spectrograms; enables lightweight tokenized inference
+TFLite inference optimization — ~10x speedup for Perch model (16 min inference), enabling heavier models within CPU limit
+BirdSetEfficientNetB1 — Best single model: public 0.810, private 0.778
+Adding external noise (human speech) — Improved robustness to real-world soundscapes
+3.2 BirdCLEF 2024 (Birds only, India)
+Focused on 182 Indian bird species. Key findings relevant to 2026:
+Train 10s, infer 5s — A widely adopted strategy: train on 10-second audio windows but predict on the 5-second test windows
+Transfer learning — Google Bird Vocalization Classifier, BirdNET, EnCodec embeddings as features
+Pseudo multi-label classification — Generate pseudo-labels for unlabeled soundscapes to reduce domain shift
+BirdNET embeddings — Achieved 0.63 public score with BirdNET + Bird Vocalization pseudo-labels (lightweight baseline)
+Transformer positional encodings — To leverage temporal context within soundscape segments
+Noisy label handling — XC ratings used for label weighting; low-rated recordings de-weighted
+3.3 Historical Patterns (2021–2024)
+Year Region Classes Key Innovation
+2021 Cornell, USA Birds Established mel-spectrogram CNN baseline
+2022 Hawaii, USA Birds Domain adaptation, SED models
+2023 Multi-region Birds Semi-supervised, large pretraining
+2024 India Birds Pseudo multi-label, BirdNET/Perch
+2025 Colombia Multi-taxon Distillation, TFLite optimization
+2026 Brazil (Pantanal) Multi-taxon ???
+4. Recommended Approaches for 2026
+4.1 Foundation: Audio Feature Extraction
+HIGH PRIORITY Mel-Spectrogram CNN (Proven Baseline)
+Convert audio to Mel-spectrogram images and apply 2D CNNs. This is the universal foundation of all top solutions.
+Settings: 32kHz sample rate, n_mels=128, hop_length=320 (10ms), window 5–10 seconds
+Augmentation: Time masking, frequency masking, MixUp, FilterAugment, gain jitter, Gaussian noise
+librosa torchaudio albumentations
+MEDIUM PRIORITY Pre-trained Bioacoustic Embeddings
+Use Google Perch or BirdNET as feature extractors, fine-tuned on competition data.
+Perch (Google): Multi-species audio embedding model, state of the art; use TFLite for fast CPU inference
+BirdNET : Specialized bird call classifier; strong prior BirdCLEF performance
+BirdSetEfficientNetB1 : Best single pre-trained model in 2025 (public 0.810)
+TFLite ONNX Google Perch
+4.2 Model Architecture
+HIGH PRIORITY EfficientNet Family
+The dominant architecture across all recent BirdCLEF competitions. Excellent accuracy/speed tradeoff for CPU inference.
+EfficientNetV2-S (tf_efficientnetv2_s_in21k) — strong baseline, used by 2nd place 2025
+EfficientNet-B0/B3/B4 — lightweight options for ensemble diversity
+ECA-NfNet-L0 — alternative architecture for ensemble diversity
+timm PyTorch
+MEDIUM PRIORITY Sound Event Detection (SED) Models
+Frame-level prediction within each clip; particularly useful for detecting species at specific moments in soundscapes.
+Complement CNN classifiers with SED for better temporal localization.
+4.3 Training Strategy
+HIGH PRIORITY Multi-Stage Pretraining
+Stage 1 : Pretrain on all historical BirdCLEF data (2021–2025) — proven +1–2% AUC improvement
+Stage 2 : Fine-tune on 2026 training data (train.csv + soundscape labels)
+Stage 3 : Semi-supervised training using pseudo-labeled unlabeled soundscapes
+HIGH PRIORITY Semi-Supervised Learning / Pseudo-Labeling
+Train initial models → predict on unlabeled train_soundscapes → use confident predictions as additional training labels → retrain.
+Multiple rounds of pseudo-labeling progressively improve domain adaptation.
+Use threshold ≥ 0.7–0.8 confidence for pseudo-label inclusion
+Apply power scaling to soft pseudo-labels
+Combine with MixUp for regularization
+HIGH PRIORITY Train 10s → Infer 5s Strategy
+Train models on 10-second audio windows (more context, more data diversity) but inference on 5-second windows to match test format.
+This consistently improves performance across multiple years.
+MEDIUM PRIORITY Loss Function: SoftAUCLoss
+Optimize directly for the evaluation metric (AUC) rather than cross-entropy. SoftAUCLoss is resistant to overfitting while supporting soft labels from pseudo-labeling. Combine with BCE for stability.
+4.4 Handling Non-Bird Species (Key 2026 Challenge)
+HIGH PRIORITY Specialized Non-Bird Sub-Models
+Given the extreme imbalance (Reptilia: 1 recording!), specialized handling is essential:
+Train separate or weighted models for Amphibia, Insecta, Mammalia, Reptilia
+Leverage labeled soundscapes heavily — they contain in-domain non-bird calls
+Use different augmentation strategies: non-bird calls have very different spectral properties
+Consider oversampling non-bird species during training (weighted sampling)
+For the single Reptilia recording: treat as extreme few-shot; use embedding similarity
+MEDIUM PRIORITY External Data for Non-Birds
+Augment rare non-bird species with external recordings:
+iNaturalist additional recordings for amphibians/reptiles in South America
+FrogID / AnuranSet datasets for amphibian calls
+DCASE datasets for insect sound events
+4.5 Ensemble Strategy
+HIGH PRIORITY Quantile-Mix Ensembling
+Blend multiple model predictions using Quantile-Mix (α=0.5): combine mean averaging and rank averaging of predictions.
+Recommended ensemble composition:
+2–3 EfficientNet variants (different sizes for diversity)
+1 Perch/BirdNET-based model
+1 SED model
+⚠️ CPU Inference Constraint: Each additional model in the ensemble adds inference time.
+Profile inference speed carefully. Use TFLite/ONNX conversion to maximize speed.
+4.6 Post-Processing
+MEDIUM PRIORITY Score Calibration & Species Prior
+Apply species-specific thresholds learned from validation soundscapes
+Use temporal smoothing: if species detected in adjacent 5-second windows, boost confidence
+Apply geographic/habitat priors: Pantanal species lists from literature
+Power scaling of predictions: raise scores to power p (p < 1) to spread probability mass
+5. Suggested Pipeline Architecture
+Training Pipeline
+Step Input Process Output
+1. Audio Loading OGG files @ 32kHz Load with librosa/soundfile, pad/crop to fixed length Waveforms
+2. Feature Extraction Waveforms Mel-spectrogram (128 mels, 5–10s windows) Spectrogram images
+3. Augmentation Spectrograms Time mask, freq mask, MixUp, FilterAugment, noise Augmented specs
+4. Pretraining All BirdCLEF 2021–2025 Train EfficientNetV2-S classifier Pretrained weights
+5. Fine-tuning train.csv + soundscape labels Fine-tune with SoftAUCLoss + BCE; weighted sampling Fine-tuned model
+6. Pseudo-labeling Unlabeled soundscapes Predict → filter high confidence → add to training Pseudo-labeled dataset
+7. Semi-supervised retrain Real + pseudo labels Retrain with MixUp, StochasticDepth Final models
+8. ONNX/TFLite export PyTorch models Convert for fast CPU inference Optimized models
+Inference Pipeline (90-min CPU budget)
+Step Process Est. Time
+Load soundscapes Load ~600 OGG files @ 32kHz ~5 min
+Segment audio Split into 5-second windows (7,200 segments) <1 min
+Feature extraction Batch mel-spectrogram computation ~5 min
+Model inference ONNX/TFLite batch inference (234 classes × 7,200 windows) ~60 min
+Post-processing Temporal smoothing, calibration, ensembling ~5 min
+Write submission.csv Format and write output <1 min
+Total ~77 min (within 90 min limit)
+Recommended Technology Stack
+Python 3.10+
+PyTorch
+timm (EfficientNet)
+librosa / torchaudio
+ONNX Runtime
+scikit-learn (AUC)
+pandas / numpy
+soundfile
+albumentations
+Google Perch (TFLite)
+6. Inference Optimization Strategy
+The 90-minute CPU-only constraint is the defining technical challenge of BirdCLEF+ 2026. Getting this right is essential — a better model that times out scores zero.
+Techniques to Fit Within 90 Minutes
+Technique Speedup Tradeoff
+ONNX Runtime export 2–4x vs PyTorch Minimal accuracy loss
+TFLite export ~10x for Perch Model-dependent
+OpenVINO 2–3x on Intel CPUs Platform-specific
+Batch inference (large batches) 2–5x vs single More RAM usage
+FP16 / INT8 quantization 1.5–3x Small accuracy drop
+Smaller model (EfficientNet-B0) 3–4x vs B4 Less accurate
+Parallel segment processing Nx (N cores) CPU memory bound
+Pre-compute all spectrograms Avoid recompute RAM usage
+Recommended Inference Strategy
+Convert all models to ONNX. Use ONNX Runtime with multi-threading enabled.
+Process all 600 soundscapes in batches. Budget ~8 seconds per soundscape (90 min / 600 files = 9 sec/file with margin).
+Profile on CPU before finalizing ensemble size. Start with 2 models and add more only if time budget allows.
+7. Key Insights & Conclusions
+Insight 1: Non-Bird Species Are the Differentiator
+All competitors will get birds right. The leaderboard positions will be determined by how well models
+handle Amphibia (35 species, 451 recordings), Insecta (28 species, 199 recordings), Mammalia (8 species, 99 recordings),
+and critically Reptilia (1 species, 1 recording). These are the hardest and most differentiating targets.
+Invest heavily in non-bird species handling.
+Insight 2: Labeled Soundscapes Are Gold
+The 66 labeled soundscape files with 1,478 segments are from the same recording sites as test data.
+They represent in-domain, in-distribution data with expert annotations. Some species only appear here.
+Use these as: (a) primary fine-tuning data, (b) validation set for post-processing calibration,
+(c) domain adaptation source. These are more valuable per-sample than XC data.
+Insight 3: CPU Inference is the Real Bottleneck
+Many Kaggle competitors fail to optimize for CPU inference and waste their accuracy advantage because
+their notebooks time out. Convert to ONNX/TFLite early in development. Profile constantly.
+A 0.92 AUC model that finishes in time beats a 0.95 AUC model that times out.
+Insight 4: Pretraining on Prior BirdCLEF Data Is Essential
+Every top 2025 solution used pretraining on 2021–2024 BirdCLEF data. This consistently adds +1–2% AUC.
+The Pantanal overlaps with South American species covered in prior competitions.
+This is a free performance boost — do this first.
+Insight 5: Pseudo-Labeling for Domain Adaptation
+The biggest performance gap is between focal recordings (training) and passive soundscapes (test).
+Semi-supervised pseudo-labeling of unlabeled train_soundscapes directly addresses this.
+Multiple rounds with increasing confidence thresholds progressively improve domain alignment.
+Insight 6: Multi-Label Training is Non-Negotiable
+89.4% of soundscape segments contain multiple species simultaneously.
+Binary cross-entropy with sigmoid (not softmax) for multi-label is mandatory.
+SoftAUCLoss with multi-label support directly optimizes for the evaluation metric.
+Insight 7: Quality Over Quantity for External Data
+The 2025 winner analysis showed that large volumes of extra external data can hurt performance.
+Focus on geographic relevance (South America, Brazil specifically) and use quality ratings from Xeno-canto
+to filter or weight training samples. The labeled soundscapes are higher quality than most XC data.
+Recommended Priority Stack
+Priority Task Expected Impact
+1 EfficientNetV2-S baseline on mel-spectrograms ~0.80–0.85 AUC
+2 Pretraining on BirdCLEF 2021–2025 data +1–2% AUC
+3 Incorporate labeled soundscapes in training +1–2% AUC
+4 ONNX export + CPU inference profiling Ensures submission success
+5 Pseudo-labeling of unlabeled soundscapes +1–3% AUC
+6 Non-bird specialized handling Key differentiator
+7 Multi-model ensemble + Quantile-Mix +0.5–1% AUC
+8 Post-processing calibration +0.5% AUC
+8. Action Timeline (March → June 2026)
+Week 1–2 (Mar 11–25): Foundation
+• Complete EDA of all CSV files and audio samples
+• Set up training pipeline: audio loading → mel-spectrogram → EfficientNet-B0
+• Establish baseline submission (verify inference <90 min CPU)
+• Download BirdCLEF 2021–2025 datasets for pretraining
+Week 3–4 (Mar 25 – Apr 8): Strong Baseline
+• Train EfficientNetV2-S pretrained on 2021–2025 BirdCLEF data
+• Fine-tune on 2026 train.csv + soundscape labels
+• Implement ONNX export and validate inference speed
+• Submit first competitive notebook
+Week 5–7 (Apr 8–29): Domain Adaptation
+• Implement pseudo-labeling pipeline for unlabeled soundscapes
+• Experiment with SoftAUCLoss and weighted sampling for non-birds
+• Add FilterAugment, MixUp, and noise augmentation
+• Run ablations to understand each component's contribution
+Week 8–10 (Apr 29 – May 20): Ensemble & Polish
+• Train ECA-NfNet-L0 and EfficientNet-B3/B4 as ensemble members
+• Implement Quantile-Mix ensemble
+• Post-processing: temporal smoothing, species calibration
+• Investigate Perch embeddings as additional ensemble member
+Week 11–12 (May 20 – Jun 3): Final Submissions
+• Focus on submission reliability (no timeouts!)
+• Final ensemble selection based on CV vs public LB analysis
+• Prepare 2 best submissions for final selection
+• Consider working note submission for $2,500 prize (deadline Jun 17)
+Advanced Exploratory Data Analysis
+Imbalance metrics · Geographic domain gap · Temporal patterns · Co-occurrence analysis · Label quality · Training strategy
+📊 Advanced Imbalance & Species Analysis
+0.4896
+Gini coefficient
+0.923
+Entropy ratio
+18
+Species with ≤5 recordings
+29.0% of data
+Top-10% species hold
+The Gini coefficient of 0.4896 confirms extreme imbalance — 1.0 would be perfectly unequal.
+The entropy ratio of 0.923 (vs. 1.0 for a balanced dataset) shows the label distribution
+is far from uniform. The top 10% of species account for
+29.0% of all recordings,
+while the bottom 10% contribute only
+0.21% .
+Modeling implication 18 species have ≤5 recordings and 4 species have exactly 1 recording. These require zero/few-shot techniques — standard supervised training will not generalise.
+Few-Shot Species Detail (Bottom 25)
+Code Common Name Class Recordings Avg Rating Source
+116570 Southern Spectacled Caiman Reptilia 1 0.00 iNat
+23150 Central Dwarf Frog Amphibia 1 0.00 iNat
+516975 Hooded Capuchin Mammalia 1 0.00 iNat
+23724 Waxy Monkey Tree Frog Amphibia 1 0.00 iNat
+209233 Feral Horse Mammalia 2 0.00 iNat
+24321 Mato Grosso Snouted Tree Fro Amphibia 2 0.00 iNat
+70711 Cei's White-lipped Frog Amphibia 2 0.00 iNat
+25214 Muller's Termite Frog Amphibia 3 0.00 iNat
+555123 Usina Tree Frog Amphibia 3 0.00 iNat
+74580 Black-tailed Marmoset Mammalia 3 1.00 XC/iNat
+64898 Yungas de la Paz Poison Frog Amphibia 3 1.33 XC/iNat
+476521 Cuyaba Dwarf Frog Amphibia 3 0.00 iNat
+sptnig1 Spot-tailed Nightjar Aves 3 0.00 iNat
+23176 Cope's Swamp Froglet Amphibia 4 1.25 XC/iNat
+1595929 Uruguay Harlequin Frog Amphibia 5 1.00 XC/iNat
+66971 Paraguayan Swimming Frog Amphibia 5 0.00 iNat
+738183 White-coated Titi Mammalia 5 1.00 XC/iNat
+23154 Bahia Dwarf Frog Amphibia 5 0.00 iNat
+67252 Milk Frog Amphibia 6 2.17 XC/iNat
+22985 Peter's Jungle Frog Amphibia 6 0.67 XC/iNat
+22961 Pointedbelly Frog Amphibia 6 0.83 XC/iNat
+22930 Basin White-lipped Frog Amphibia 6 0.50 XC/iNat
+760266 Prionacris erosa Insecta 7 0.00 iNat
+22967 Marbled White-lipped Frog Amphibia 8 0.00 iNat
+555145 Polka-dot Tree Frog Amphibia 9 0.61 XC/iNat
+🌎 Geographic Domain Gap Analysis
+4.1%
+Within 500 km of Pantanal
+43.0%
+Within 1500 km
+71.4%
+Within 3000 km
+10.8%
+From other continents >6000 km
+Training data is collected globally from Xeno-canto and iNaturalist, but the test soundscapes come
+from a specific location in the Pantanal, Brazil (≈ lat −17°, lon −56°).
+Only 43.0% of training recordings are within 1,500 km of the test region.
+10.8% come from other continents entirely — these may introduce acoustic patterns
+(different dialects, habitats, background sounds) that hurt generalisation to the test soundscapes.
+Domain Gap is Severe Only 4.1% of training recordings come from within 500 km of the Pantanal. Geographic filtering or proximity-based sample weighting should be applied during fine-tuning.
+Species with NO Nearby Recordings (0% within 1500 km, ≥5 total)
+5 species have all their training recordings far from the test region.
+These face both a domain gap AND potential label shift.
+Code Common Name Class Total Recs Mean Dist from Pantanal
+23154 Bahia Dwarf Frog Amphibia 5 2340 km
+47144 Domestic Dog Mammalia 43 14555 km
+66971 Paraguayan Swimming Frog Amphibia 5 1698 km
+74113 Highland Mammalia 10 8492 km
+redjun Red Junglefowl Aves 208 15542 km
+🕐 Soundscape Temporal Analysis
+9
+Unique recording sites
+2021-10-16 → 2025-08-31
+Date range
+66
+Unique soundscape files
+Soundscape filenames encode recording site, date, and UTC time.
+The labeled soundscapes span 9 sites recorded from 2021-10-16 → 2025-08-31.
+Dawn Chorus & Dusk Activity
+The Pantanal (UTC−4) has peak bird activity at dawn (05:00–09:00 local) and dusk (17:00–21:00 local). Stratifying training by time-of-day — or adding hour-of-day as an auxiliary feature — can improve detection of time-specific vocalisers such as nocturnal frogs and insects.
+Site-Level Analysis
+Knowing which recording site each soundscape comes from allows site-specific post-processing (e.g. site-level species prior probabilities). Sites with more labeled data can inform pseudo-label confidence thresholds for unlabeled files from the same site.
+🔗 Multi-Label Co-occurrence & Species Coverage
+159
+Only in train_audio
+47
+In BOTH datasets
+28
+Only in soundscapes (CRITICAL)
+89.4%
+Multi-species windows
+10
+Max species in one window
+Top 12 Co-occurring Species Pairs
+Species A Species B Co-occur Count Jaccard Similarity
+Dwarf Tree Frog Chaco Tree Frog 382 0.543
+Dwarf Tree Frog Southern Orange-legg 376 0.410
+Dwarf Tree Frog Mato Grosso Snouted 316 0.455
+Dwarf Tree Frog Lesser Snouted Tree 302 0.425
+Dwarf Tree Frog Pale-legged Weeping 300 0.419
+Dwarf Tree Frog Paraguayan Swimming 282 0.413
+Southern Orange-legg Whistling Grass Frog 276 0.356
+Whistling Grass Frog Marbled White-lipped 252 0.521
+Chaco Tree Frog Lesser Snouted Tree 238 0.451
+Southern Orange-legg Chaco Tree Frog 234 0.288
+Pale-legged Weeping Lesser Snouted Tree 226 0.481
+Pale-legged Weeping Mato Grosso Snouted 222 0.470
+Species ONLY in Soundscape Labels — Critical for Modeling 28 species appear in the labeled soundscapes but have ZERO train_audio recordings. These species can ONLY be learned from the soundscape label segments. Ignoring them will directly cost AUC on the test set.
+Species Existing Only in Soundscape Labels (28 species)
+Code Common Name Class Soundscape Segment Count
+517063 Southern Orange-legged Leaf Amphibia 626
+47158son25 Insect sonotype25 Insecta 168
+1491113 Guaraní leaf-litter frog Amphibia 158
+47158son07 Insect sonotype07 Insecta 96
+47158son17 Insect sonotype17 Insecta 86
+47158son11 Insect sonotype11 Insecta 72
+47158son13 Insect sonotype13 Insecta 72
+47158son03 Insect sonotype03 Insecta 66
+47158son10 Insect sonotype10 Insecta 66
+47158son23 Insect sonotype23 Insecta 48
+47158son22 Insect sonotype22 Insecta 48
+47158son24 Insect sonotype24 Insecta 48
+47158son01 Insect sonotype01 Insecta 46
+47158son21 Insect sonotype21 Insecta 44
+47158son06 Insect sonotype06 Insecta 36
+47158son08 Insect sonotype08 Insecta 34
+47158son04 Insect sonotype04 Insecta 34
+47158son14 Insect sonotype14 Insecta 24
+47158son15 Insect sonotype15 Insecta 24
+25073 Chiasmocleis mehelyi Amphibia 24
+47158son20 Insect sonotype20 Insecta 24
+47158son18 Insect sonotype18 Insecta 24
+47158son16 Insect sonotype16 Insecta 24
+47158son02 Insect sonotype02 Insecta 14
+47158son09 Insect sonotype09 Insecta 12
+47158son12 Insect sonotype12 Insecta 10
+47158son19 Insect sonotype19 Insecta 10
+47158son05 Insect sonotype05 Insecta 6
+🔍 Label Noise & Secondary Label Deep Dive
+7,431
+Total secondary label occurrences
+161
+Unique species as background
+161
+Species appearing in both roles
+4,372
+Recordings with ≥1 secondary label
+Label Noise Insight Species that frequently appear as secondary labels in other recordings are likely to co-occur in soundscapes. This information can be used to build a co-occurrence prior for post-processing: if species A is detected, raise the prior probability of its common co-occurrers.
+⚙️ Training Strategy Insights
+N/A
+Class weight ratio (balanced)
+487×
+CB-Loss weight ratio
+18
+Zero/few-shot species (≤5)
+123
+Species with >100 recordings
+Balanced Class Weights
+sklearn not available Install scikit-learn to compute balanced class weights.
+CB-Loss: Effective Number of Samples
+Class-Balanced Loss (Cui et al. 2019) uses the effective number of samples E(n) = (1 − β^n)/(1 − β)
+with β = 0.9999. The resulting weight ratio of 487× between the rarest and most common
+species means training without balancing will heavily bias toward common birds.
+Species Training Groups & Recommended Strategies
+Group Species Count Total Recordings Class Breakdown
+1. Zero/few-shot (1–5) 18 52 Amphibia:12, Mammalia:4, Aves:1, Reptilia:1
+2. Low-data (6–20) 18 200 Amphibia:12, Aves:2, Mammalia:2, Insecta:2
+3. Medium (21–100) 47 2,891 Aves:37, Amphibia:8, Mammalia:2
+4. High-data (>100) 123 32,406 Aves:122, Insecta:1
+🔑 Advanced EDA Summary & Key Insights
+Key Metrics from Advanced EDA
+Metric Value / Finding
+Gini coefficient 0.4896 — severe imbalance
+Entropy ratio 0.923 / 1.000 (far from balanced)
+Few-shot species (≤5 recs) 18 species
+Species ONLY in soundscapes 28 — no train_audio recordings
+Multi-label window rate 89.4% of soundscape windows
+Max species in one window 10 simultaneous species
+Geographic domain gap 10.8% of training recs from other continents (>6000 km)
+Near-Pantanal recs ( 4.1% of training recordings
+Balanced class weight ratio N/A
+CB-Loss weight ratio 487×
+Secondary label rate 12.3% of recordings
+Unique background species 161 species appear as backgrounds
+Top co-occurring pair Dwarf Tree Frog + Chaco Tree Frog (382 windows, Jaccard=0.543)
+Top 10 Actionable Modeling Insights
+1. Use soundscape labels as primary fine-tune data
+They are expert-annotated, in-domain, from the exact recording sites as the test set.
+2. 28 species exist ONLY in soundscape labels
+These have zero train_audio recordings. Handle with embedding similarity or prototype networks on the soundscape segments.
+3. Pretrain on BirdCLEF 2021–2025 before fine-tuning on 2026
+All top 2025 solutions did this. Free +1–2% AUC improvement.
+4. Class weight ratio is 0× — address imbalance explicitly
+Use CB-Loss (β=0.9999), balanced sampling, or SoftAUCLoss. Training without balancing will fail on rare species.
+5. Only 4.1% of training recs are within 500 km of Pantanal
+Apply geographic filtering or proximity-based sample weighting during fine-tuning. Recs far from Pantanal may introduce harmful noise.
+6. Convert to ONNX/TFLite before testing inference speed
+The 90-min CPU limit is hard. A great model that times out scores zero.
+7. Pseudo-label unlabeled soundscapes
+Train model → predict unlabeled soundscapes → filter high-confidence → retrain. Bridges the focal-recording / passive-soundscape domain gap.
+8. Train on 10-second windows, infer on 5-second windows
+Consistent with top solutions in 2024 and 2025. More context during training improves representations.
+9. 89.4% of soundscape windows are multi-species
+Use sigmoid + BCE for multi-label output. Never softmax. Add temporal smoothing across adjacent windows at inference.
+10. Exploit species co-occurrence as a post-processing prior
+The top pair (Dwarf Tree Frog + Chaco Tree Frog) co-occurs in 382 windows. If A is detected with confidence, slightly boost B's score.
+Sources & References
+BirdCLEF+ 2025 | Kaggle
+BirdCLEF+ 2025: Overview of the competition and key decisions of the top-5 teams
+VSydorskyy — BirdCLEF 2025 2nd Place Solution (GitHub)
+myso1987 — BirdCLEF 2025 5th Place Solution (GitHub)
+Distilling Spectrograms into Tokens: Fast and Lightweight Bioacoustic Classification for BirdCLEF+ 2025
+Transfer Learning with Pseudo Multi-Label Birdcall Classification for DS@GT BirdCLEF 2024
+BirdCLEF 2024 | Kaggle
+BirdCLEF2024 1st Solution Explained
+How I Climbed to the Top 2% in BirdCLEF+ 2025 (Medium)
+BirdCLEF-2025 EDA & EfficientNet Ensemble (GitHub, Top 100)
+BirdCLEF+ 2025 Perch Embeddings | Kaggle
+BirdCLEF+ 2026 competition files: description.txt, data_description.txt, train.csv, taxonomy.csv, train_soundscapes_labels.csv
+BirdCLEF+ 2026 Competition Analysis Report | Generated March 13, 2026 |
+Open in browser and use Ctrl+P → Save as PDF to export

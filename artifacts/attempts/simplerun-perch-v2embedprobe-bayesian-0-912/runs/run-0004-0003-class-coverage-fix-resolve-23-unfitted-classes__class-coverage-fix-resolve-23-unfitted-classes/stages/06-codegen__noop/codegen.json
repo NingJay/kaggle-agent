@@ -1,0 +1,111 @@
+{
+  "stage": "codegen",
+  "status": "noop",
+  "reason": "plan_status=hold",
+  "generated_config_path": "",
+  "run_bundle_path": "",
+  "patch_path": "",
+  "code_state_ref": "",
+  "verify_artifacts_ref": "",
+  "verify_command": "",
+  "verify_status": "skipped",
+  "verify_summary": "Codegen provider was not invoked because the plan is `hold`.",
+  "worktree_path": "",
+  "base_commit": "",
+  "head_commit": "",
+  "changed_files": [],
+  "provider_runtime": "deterministic-skip",
+  "allowed_edit_roots": [
+    "train_sed.py",
+    "BirdCLEF-2026-Codebase/configs",
+    "BirdCLEF-2026-Codebase/src",
+    "BirdCLEF-2026-Codebase/train.py",
+    "BirdCLEF-2026-Codebase/inference.py",
+    "BirdCLEF-2026-Codebase/scripts"
+  ],
+  "smoke_status": "skipped",
+  "smoke_summary": "Codegen provider was not invoked because the plan is `hold`.",
+  "portfolio_id": "",
+  "branch_role": "",
+  "idea_class": "",
+  "knowledge_card_ids": [],
+  "policy_trace": [],
+  "branch_memory_ids": [],
+  "scheduler_hints": {},
+  "proposal_typing": {},
+  "proposal_typing_id": "",
+  "info_gain_estimate": {},
+  "info_gain_estimate_id": "",
+  "source_config_path": "",
+  "motivation_summary": "",
+  "realized_typing": {
+    "realized_typing_id": "realized-run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes-run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes-general-un",
+    "run_id": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+    "stage_run_id": "stage-0018-codegen",
+    "title": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+    "family": "",
+    "config_path": "",
+    "typing_signature": "general|unknown|2cc0e35d8a6d",
+    "typing_payload": {
+      "typing_kind": "realized",
+      "typing_signature": "general|unknown|2cc0e35d8a6d",
+      "signature_payload": {
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "changes": [],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "general",
+      "axis_tags": [
+        "general"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "pattern_tags": [],
+      "changed_paths": [],
+      "change_count": 0,
+      "low_information_flag": true,
+      "grounding_mode": "grounded",
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "generated_config_path": "",
+      "source_config_path": ""
+    },
+    "proposal_typing_id": "",
+    "drift_summary": [],
+    "typing_kind": "realized",
+    "signature_payload": {
+      "axis_tags": [
+        "general"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "changes": [],
+      "work_type": "experiment_iteration"
+    },
+    "idea_class": "general",
+    "axis_tags": [
+      "general"
+    ],
+    "change_surface": [
+      "unknown"
+    ],
+    "pattern_tags": [],
+    "changed_paths": [],
+    "change_count": 0,
+    "low_information_flag": true,
+    "grounding_mode": "grounded",
+    "cost_tier": "low",
+    "work_type": "experiment_iteration",
+    "generated_config_path": "",
+    "source_config_path": "",
+    "created_at": "2026-04-02T22:22:30+00:00"
+  },
+  "realized_typing_id": "realized-run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes-run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes-general-un"
+}

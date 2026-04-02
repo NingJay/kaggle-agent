@@ -1,0 +1,28 @@
+[
+  {
+    "envelope_id": "envelope-run-0001-perch-baseline",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0004-decision",
+    "family": "perch_cached_probe",
+    "turn_id": "stage-0004-decision",
+    "envelope": {
+      "family": "perch_cached_probe",
+      "objective_metric": "val_soundscape_macro_roc_auc",
+      "current_best": 0.6649,
+      "target": 0.7,
+      "forbidden_components": [
+        "probe_head"
+      ],
+      "low_information_patterns": [
+        "calibration_only",
+        "blend_only",
+        "temperature",
+        "threshold"
+      ],
+      "turn_id": "stage-0004-decision"
+    },
+    "status": "active",
+    "created_at": "2026-04-02T22:13:38+00:00",
+    "updated_at": "2026-04-02T22:13:38+00:00"
+  }
+]

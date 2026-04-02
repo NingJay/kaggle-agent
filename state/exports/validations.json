@@ -1,0 +1,46 @@
+[
+  {
+    "validation_id": "validation-0001",
+    "work_item_id": "workitem-perch-baseline",
+    "source_stage_run_id": "stage-0008-validate",
+    "spec_id": "spec-0002",
+    "status": "validated",
+    "summary": "Validated 3 follow-up branches and queued 3 work items.",
+    "output_json_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/08-validate__validated/validate.json",
+    "output_md_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/08-validate__validated/validate.md",
+    "created_at": "2026-04-02T22:21:57+00:00"
+  },
+  {
+    "validation_id": "validation-0002",
+    "work_item_id": "workitem-0001-class-coverage-fix-resolve-23-unfitted-classes",
+    "source_stage_run_id": "stage-0012-validate",
+    "spec_id": "",
+    "status": "not_required",
+    "summary": "No follow-up experiment required.",
+    "output_json_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes__class-coverage-fix-resolve-23-unfitted-classes/stages/08-validate__not-required/validate.json",
+    "output_md_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes__class-coverage-fix-resolve-23-unfitted-classes/stages/08-validate__not-required/validate.md",
+    "created_at": "2026-04-02T22:21:57+00:00"
+  },
+  {
+    "validation_id": "validation-0003",
+    "work_item_id": "workitem-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "source_stage_run_id": "stage-0015-validate",
+    "spec_id": "",
+    "status": "not_required",
+    "summary": "No follow-up experiment required.",
+    "output_json_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/stages/08-validate__not-required/validate.json",
+    "output_md_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/stages/08-validate__not-required/validate.md",
+    "created_at": "2026-04-02T22:21:59+00:00"
+  },
+  {
+    "validation_id": "validation-0004",
+    "work_item_id": "workitem-0003-class-coverage-fix-resolve-23-unfitted-classes",
+    "source_stage_run_id": "stage-0020-validate",
+    "spec_id": "",
+    "status": "not_required",
+    "summary": "No follow-up experiment required.",
+    "output_json_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes__class-coverage-fix-resolve-23-unfitted-classes/stages/08-validate__not-required/validate.json",
+    "output_md_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes__class-coverage-fix-resolve-23-unfitted-classes/stages/08-validate__not-required/validate.md",
+    "created_at": "2026-04-02T22:22:30+00:00"
+  }
+]

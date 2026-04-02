@@ -1,0 +1,11 @@
+[
+  {
+    "note_id": "note-0001",
+    "run_id": "run-0001-perch-baseline",
+    "title": "Research summary for run-0001-perch-baseline",
+    "summary": "[class_coverage] Fix the 23/75 unfitted classes before any other intervention. Only 52/75 classes are fitted in the current run (card: imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline). The structural class coverage gap is the single blocking issue — no calibration, ensemble, or post-processing is meaningful until all active classes receive fitted probes.; [probe_head] Submission bundle parity is the immediate deliverable. The current run (val AUC 0.665) is the first end-to-end success; package it as a CPU-only, internet-off submission bundle. Per 04_submission_bar (card: imports-kaggle-agent-04-submission-bar-md-example), this baseline alone does not clear the submission bar (it is round 1 of a simple cached-embeddings + linear probe), but establishing bundle parity unblocks the iteration loop.; [probe_head] Treat val_soundscape_macro_roc_auc as the primary signal, with prior_fusion_macro_roc_auc as a weaker fallback only. Per experiment rules (card: imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation), holdout-aware soundscape validation is the intended local primary signal for the cached-probe runtime.",
+    "stance": "adopt_now",
+    "source_type": "adapter",
+    "created_at": "2026-04-02T22:11:54+00:00"
+  }
+]

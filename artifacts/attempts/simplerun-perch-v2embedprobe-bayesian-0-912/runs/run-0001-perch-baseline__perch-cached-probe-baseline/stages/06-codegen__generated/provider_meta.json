@@ -1,0 +1,20 @@
+{
+  "provider": "codex",
+  "model": "",
+  "schema_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/schemas/codegen.schema.json",
+  "raw_stdout_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/raw_stdout.txt",
+  "raw_stderr_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/raw_stderr.txt",
+  "raw_event_log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/06-codegen__generated/events.jsonl",
+  "session_id": "019d5044-4d42-7a52-83e4-f40ab9257eeb",
+  "thread_id": "019d5044-4d42-7a52-83e4-f40ab9257eeb",
+  "exit_code": 0,
+  "started_at": "2026-04-02T22:15:46+00:00",
+  "completed_at": "2026-04-02T22:20:06+00:00",
+  "materialization_mode": "agentic",
+  "provider_runtime": "codex mode:agentic env:inherit",
+  "stage_workspace_root": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/workspace",
+  "stage_workspace_storage_root": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running",
+  "stage_workspace_mode": "snapshot-repo",
+  "workspace_root_used": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/workspace",
+  "verify_root": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/verify_runtime"
+}

@@ -1,0 +1,77 @@
+[
+  {
+    "constraint_id": "constraint-run-0001-perch-baseline-branch_budget",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0004-decision",
+    "family": "perch_cached_probe",
+    "scope": "branch_budget",
+    "constraint_type": "branch_budget",
+    "summary": "Grounded vs novel branch slot allocation.",
+    "value": {
+      "grounded_branch_slots": 1,
+      "novel_branch_slots": 1,
+      "branch_budget_by_role": {
+        "primary": 1,
+        "hedge": 1,
+        "novel": 1
+      }
+    },
+    "status": "active",
+    "created_at": "2026-04-02T22:13:38+00:00",
+    "updated_at": "2026-04-02T22:13:38+00:00"
+  },
+  {
+    "constraint_id": "constraint-run-0001-perch-baseline-forbidden_patterns",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0004-decision",
+    "family": "perch_cached_probe",
+    "scope": "branch_generation",
+    "constraint_type": "forbidden_patterns",
+    "summary": "Forbidden plan patterns for the next portfolio.",
+    "value": {
+      "patterns": [
+        "probe_head",
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "temperature",
+        "threshold"
+      ]
+    },
+    "status": "active",
+    "created_at": "2026-04-02T22:13:38+00:00",
+    "updated_at": "2026-04-02T22:13:38+00:00"
+  },
+  {
+    "constraint_id": "constraint-run-0001-perch-baseline-minimum_information_gain_bar",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0004-decision",
+    "family": "perch_cached_probe",
+    "scope": "branch_selection",
+    "constraint_type": "minimum_information_gain_bar",
+    "summary": "Minimum information-gain bar for selecting branches.",
+    "value": {
+      "threshold": 0.05
+    },
+    "status": "active",
+    "created_at": "2026-04-02T22:13:38+00:00",
+    "updated_at": "2026-04-02T22:13:38+00:00"
+  },
+  {
+    "constraint_id": "constraint-run-0001-perch-baseline-required_patterns",
+    "run_id": "run-0001-perch-baseline",
+    "stage_run_id": "stage-0004-decision",
+    "family": "perch_cached_probe",
+    "scope": "branch_generation",
+    "constraint_type": "required_patterns",
+    "summary": "Required plan patterns for the next portfolio.",
+    "value": {
+      "patterns": [
+        "class_coverage"
+      ]
+    },
+    "status": "active",
+    "created_at": "2026-04-02T22:13:38+00:00",
+    "updated_at": "2026-04-02T22:13:38+00:00"
+  }
+]

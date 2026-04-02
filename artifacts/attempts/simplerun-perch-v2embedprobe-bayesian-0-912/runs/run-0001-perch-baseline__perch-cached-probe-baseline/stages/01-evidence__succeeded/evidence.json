@@ -1,0 +1,88 @@
+{
+  "stage": "evidence",
+  "run_id": "run-0001-perch-baseline",
+  "experiment_id": "exp-perch-baseline",
+  "work_item_id": "workitem-perch-baseline",
+  "status": "succeeded",
+  "primary_metric_name": "val_soundscape_macro_roc_auc",
+  "primary_metric_value": 0.6649218274358575,
+  "secondary_metrics": {
+    "soundscape_macro_roc_auc": 0.9917962737271673,
+    "padded_cmap": 0.062459648467587774,
+    "prior_fusion_macro_roc_auc": 0.4872921815675346,
+    "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+  },
+  "all_metrics": {
+    "soundscape_macro_roc_auc": 0.9917962737271673,
+    "padded_cmap": 0.062459648467587774,
+    "prior_fusion_macro_roc_auc": 0.4872921815675346,
+    "oof_probe_macro_roc_auc": 0.5200037034712385,
+    "val_soundscape_macro_roc_auc": 0.6649218274358575,
+    "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+  },
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+  "verdict": "submission-required",
+  "dataset_summary": {
+    "cache_row_count": 708,
+    "fully_labeled_windows": 708,
+    "fully_labeled_files": 59,
+    "active_class_count": 75,
+    "fitted_class_count": 52
+  },
+  "artifacts": {
+    "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/result.json",
+    "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/metrics.json",
+    "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/runtime/artifacts.json"
+  },
+  "metric_deltas": {
+    "vs_leader": 0.0,
+    "vs_parent": null
+  },
+  "anomalies": [],
+  "promotion_candidates": [
+    "Promote run-0001-perch-baseline if validation remains trustworthy against the current leader."
+  ],
+  "demotion_candidates": [],
+  "open_questions": [
+    "What exact change caused the current root cause: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+  ],
+  "observation_atoms": [
+    {
+      "observation_id": "observation-run-0001-perch-baseline-evidence-primary-metric-primary-metric",
+      "run_id": "run-0001-perch-baseline",
+      "stage_name": "evidence",
+      "family": "perch_cached_probe",
+      "component": "primary_metric",
+      "metric_name": "val_soundscape_macro_roc_auc",
+      "comparator": "leader",
+      "value": 0.6649218274358575,
+      "direction": "flat",
+      "axis_tags": [
+        "general"
+      ],
+      "summary": "val_soundscape_macro_roc_auc recorded for run-0001-perch-baseline",
+      "source_type": "primary_metric",
+      "source_ref": "run-0001-perch-baseline",
+      "created_at": "2026-04-02T22:09:50+00:00"
+    },
+    {
+      "observation_id": "observation-run-0001-perch-baseline-evidence-root-cause-runtime",
+      "run_id": "run-0001-perch-baseline",
+      "stage_name": "evidence",
+      "family": "perch_cached_probe",
+      "component": "runtime",
+      "metric_name": "",
+      "comparator": "",
+      "value": null,
+      "direction": "",
+      "axis_tags": [
+        "general"
+      ],
+      "summary": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+      "source_type": "root_cause",
+      "source_ref": "run-0001-perch-baseline",
+      "created_at": "2026-04-02T22:09:50+00:00"
+    }
+  ],
+  "session_memory": {}
+}

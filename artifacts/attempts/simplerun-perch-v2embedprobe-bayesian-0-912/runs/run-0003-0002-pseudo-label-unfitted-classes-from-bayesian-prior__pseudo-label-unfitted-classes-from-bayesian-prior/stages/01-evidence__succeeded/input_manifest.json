@@ -1,0 +1,178 @@
+{
+  "run": {
+    "run_id": "run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "experiment_id": "exp-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "work_item_id": "workitem-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "spec_id": "spec-0003",
+    "status": "succeeded",
+    "command": "python /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/code_state_workspace/train_sed.py --config /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/code_state_workspace/BirdCLEF-2026-Codebase/configs/generated/pseudo-label-unfitted-classes-from-bayesian-prior.yaml",
+    "cwd": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/code_state_workspace",
+    "run_dir": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime",
+    "log_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/train.log",
+    "started_at": "2026-04-02T22:21:59+00:00",
+    "completed_at": "2026-04-02T22:22:33+00:00",
+    "pid": null,
+    "gpu_id": "",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6650530943368517,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917852694622145,
+      "padded_cmap": 0.06248650735575377,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "code_state_ref": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/workspace",
+    "lifecycle_template": "branch_terminal_experiment",
+    "stage_plan": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report"
+    ],
+    "error": "",
+    "artifact_paths": {
+      "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/result.json",
+      "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/metrics.json",
+      "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/artifacts.json"
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "stage_cursor": "evidence",
+    "stage_error": "",
+    "stage_updated_at": "2026-04-02T22:22:33+00:00",
+    "latest_stage_run_id": "stage-0021-evidence"
+  },
+  "experiment": {
+    "id": "exp-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "title": "Pseudo-label unfitted classes from Bayesian prior",
+    "hypothesis": "Work item workitem-0002-pseudo-label-unfitted-classes-from-bayesian-prior: Pseudo-label unfitted classes from Bayesian prior",
+    "family": "perch_cached_probe",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/pseudo-label-unfitted-classes-from-bayesian-prior.yaml",
+    "priority": 19,
+    "work_item_id": "workitem-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "spec_id": "spec-0003",
+    "depends_on": [],
+    "tags": [
+      "ablation_terminal",
+      "v2"
+    ],
+    "status": "succeeded",
+    "launch_mode": "background",
+    "code_state_ref": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/workspace",
+    "latest_run_id": "run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "latest_decision_id": "",
+    "created_at": "2026-04-02T22:21:59+00:00",
+    "updated_at": "2026-04-02T22:22:33+00:00",
+    "notes": [],
+    "dedupe_key": "workitem:workitem-0002-pseudo-label-unfitted-classes-from-bayesian-prior:experiment",
+    "source_decision_id": "",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "idea_class": "novel",
+    "branch_role": "novel",
+    "branch_rank": 1,
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause-diagnosis",
+      "research-run-0001-perch-baseline-md-unresolved-questions"
+    ]
+  },
+  "work_item": {
+    "id": "workitem-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "title": "Pseudo-label unfitted classes from Bayesian prior",
+    "work_type": "ablation_terminal",
+    "family": "perch_cached_probe",
+    "priority": 19,
+    "status": "reviewing",
+    "config_path": "BirdCLEF-2026-Codebase/configs/generated/pseudo-label-unfitted-classes-from-bayesian-prior.yaml",
+    "lifecycle_template": "branch_terminal_experiment",
+    "target_run_id": "",
+    "pipeline": [
+      "codegen",
+      "critic",
+      "validate",
+      "execute",
+      "evidence",
+      "report"
+    ],
+    "depends_on": [],
+    "latest_run_id": "run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "latest_stage_run_id": "stage-0021-evidence",
+    "latest_spec_id": "spec-0003",
+    "source_run_id": "run-0001-perch-baseline",
+    "source_stage_run_id": "stage-0008-validate",
+    "source_decision_id": "",
+    "dedupe_key": "plan:run-0001:pseudo-label-prior:novel",
+    "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+    "parent_work_item_id": "workitem-perch-baseline",
+    "idea_class": "novel",
+    "branch_role": "novel",
+    "branch_rank": 1,
+    "knowledge_card_ids": [
+      "research-run-0001-perch-baseline-md-root-cause-diagnosis",
+      "research-run-0001-perch-baseline-md-unresolved-questions"
+    ],
+    "notes": [
+      "Pseudo-labeling from high-confidence Bayesian prior predictions on unfitted classes will improve coverage and discriminative power simultaneously.",
+      "Novel branch. Novel hypothesis generator suggests pseudo_label as unexplored axis. Bayesian prior val AUC 0.662 provides usable signal for unfitted classes. Addresses coverage gap from data perspective rather than architecture. No veto conflicts."
+    ],
+    "policy_trace": [
+      "role:novel:0.0"
+    ],
+    "branch_memory_ids": [],
+    "scheduler_hints": {
+      "portfolio_cap": 1,
+      "idea_class_cap": 1,
+      "dispatch_priority": 9.28,
+      "expected_information_gain": 0.88,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "grounding_mode": "novel",
+      "cost_tier": "low",
+      "cost_units": 1.0,
+      "cost_budget": 0.0,
+      "max_budget_share": 0.0,
+      "cost_caps": {},
+      "smoke_only_first": false,
+      "canary_eval_required": false,
+      "auto_kill_threshold": 0.0
+    },
+    "created_at": "2026-04-02T22:21:57+00:00",
+    "updated_at": "2026-04-02T22:22:33+00:00"
+  },
+  "result": {
+    "experiment_name": "pseudo-label-unfitted-classes-from-bayesian-prior",
+    "config_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/code_state_workspace/BirdCLEF-2026-Codebase/configs/generated/pseudo-label-unfitted-classes-from-bayesian-prior.yaml",
+    "primary_metric_name": "val_soundscape_macro_roc_auc",
+    "primary_metric_value": 0.6650530943368517,
+    "secondary_metrics": {
+      "soundscape_macro_roc_auc": 0.9917852694622145,
+      "padded_cmap": 0.06248650735575377,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "all_metrics": {
+      "soundscape_macro_roc_auc": 0.9917852694622145,
+      "padded_cmap": 0.06248650735575377,
+      "prior_fusion_macro_roc_auc": 0.4872921815675346,
+      "oof_probe_macro_roc_auc": 0.519679434814831,
+      "val_soundscape_macro_roc_auc": 0.6650530943368517,
+      "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+    },
+    "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "verdict": "submission-required",
+    "artifacts": {
+      "oof_predictions": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/oof_predictions.npz",
+      "probe_bundle": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/probe_bundle.pkl",
+      "probe_metadata": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior__pseudo-label-unfitted-classes-from-bayesian-prior/runtime/probe_metadata.json"
+    },
+    "dataset_summary": {
+      "cache_row_count": 708,
+      "fully_labeled_windows": 708,
+      "fully_labeled_files": 59,
+      "active_class_count": 75,
+      "fitted_class_count": 52
+    },
+    "summary_markdown": "## Runtime Summary\n- Backend: sklearn_cached_probe (reference_bayesian_pipeline)\n- Cache root: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/input/perch-meta\n- Cached rows: 708\n- Fully labeled windows: 708\n- Active classes: 75\n- Fitted classes: 52\n- Probe PCA dim: 32\n- Probe min positives: 8\n- Probe C: 0.25\n- Use raw Perch scores: True\n- Probe alpha: 0.4\n- Prior lambda event: 0.4\n- Prior lambda texture: 1.0\n- Prior lambda proxy texture: 0.8\n- Smooth texture alpha: 0.35\n- prior_fusion_macro_roc_auc=0.487292\n- soundscape_macro_roc_auc=0.991785 (full-pipeline resubstitution)\n- oof_probe_macro_roc_auc=0.519679\n- padded_cmap=0.062487\n### Holdout Validation (sites: S03, S08, S13, S19)\n- Train: 47 files (564 windows)\n- Val: 12 files (144 windows)\n- val_soundscape_macro_roc_auc=0.665053\n- val_prior_fusion_macro_roc_auc=0.662212\n- Val fitted classes: 34"
+  }
+}

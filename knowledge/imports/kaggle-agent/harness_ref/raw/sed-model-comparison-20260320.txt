@@ -1,0 +1,369 @@
+BirdCLEF 2026 — SED Model Comparison
+BirdCLEF 2026 — SED Model Comparison Report
+EfficientNet-B0/B2/B3 · EfficientNetV2-S · ASL · Soft Knowledge Distillation · Multi-round Pseudo Labels
+Generated: 2026-03-20
+Total experiments: 28 | Validation: 312-clip soundscape holdout
+Best Soundscape Val AUC
+0.8139
+sed-b0-v30-multipseu @ ep6
+ASL + r1–r5 pseudo + soft KD
+4-Fold Best (Ongoing)
+0.8033
+sed-b0-4fold-v30-fold0 @ ep10
+GroupKFold · ep13/35 in progress
+Best Holdout AUC
+0.9915
+sed-b0-v27-soft-boost
+Soundscape val 0.7804
+Backbone Progression
+B0 baseline (v5): 0.7527
+B0 + ASL (v9): 0.7755
+B0 + soft KD (v28): 0.8053
+B0 + pseudo r1-r5 (v30): 0.8139
+Validation Metrics Explained
+Soundscape Val AUC
+Macro ROC-AUC on a fixed set of 312 labeled clips from train_soundscapes . Measured every epoch during training. This is our primary model selection metric as it reflects cross-domain generalization from train_audio → soundscape environment. Typical range: 0.70–0.82.
+Holdout AUC
+Macro ROC-AUC on a separate held-out split of train_audio recordings, evaluated post-training using the best checkpoint. This measures within-domain accuracy. Typical range: 0.87–0.99. Note: The large gap between soundscape val and holdout AUC reflects genuine domain shift between controlled recordings and field soundscapes.
+Key insight: Soundscape val AUC is a better proxy for competition performance than holdout AUC, because the test set consists of field soundscapes. A model with soundscape val 0.81 outperforms one with 0.78 in practice, regardless of holdout score differences.
+All SED Experiments — Soundscape Val AUC
+Experiment
+Backbone
+Loss
+Key Technique
+SS Val AUC ↑
+Holdout AUC
+Best Ep
+Status
+Phase 1 — Initial Baselines
+sed-b0-v5
+B0-NS
+BCE
+Baseline · clip+frame dual BCE
+0.7527
+0.9192
+7
+done
+sed-b0-v6
+B0-NS
+BCE
+Extended 30 epochs
+0.7163
+—
+21
+done
+sed-b0-v10-cutmix
+B0-NS
+BCE
+CutMix augmentation
+0.7060
+—
+2
+done
+sed-b0-v11-soft-sec
+B0-NS
+BCE
+Soft secondary labels
+0.7098
+—
+3
+done
+sed-b0-v12-bce
+B0-NS
+BCE
+Plain BCE (no dual)
+0.7263
+—
+2
+done
+sed-b0-v16-rating3
+B0-NS
+BCE
+Rating ≥ 3 filter only
+0.6250
+—
+2
+poor
+Phase 2 — Asymmetric Loss (ASL) Experiments
+sed-b0-v9-asl
+B0-NS
+ASL
+ASL γ⁻=4 + pseudo r1 · 20ep soup
+0.7755
+0.9467
+20
+done
+sed-b0-v13-asl-cutmix
+B0-NS
+ASL
+ASL + CutMix
+0.7467
+—
+6
+done
+sed-b0-v15-no-sec
+B0-NS
+ASL
+ASL · no secondary labels
+0.6842
+—
+1
+done
+sed-b0-v26-asl-npcen
+B0-NS
+ASL
+ASL + NPCEN frontend
+0.7262
+0.9574
+3
+done
+Phase 3 — Dual Loss Ablations
+sed-b0-v21-dual-rating3
+B0-NS
+Dual BCE
+Dual (clip 0.5 + frame 0.5) · rating ≥ 3
+0.7289
+—
+13
+done
+sed-b0-v22-dual-noclipmix
+B0-NS
+Dual BCE
+Dual · no ClipMix ablation
+0.7485
+0.8658
+5
+⬇ no clipmix hurts
+Phase 4 — Knowledge Distillation from Perch
+sed-b0-v23-perch-asl-aug
+B0-NS
+ASL
+Perch augmentation KD
+0.7367
+—
+4
+done
+sed-b0-v24-soft-pseudo
+B0-NS
+ASL +softKD
+Soft pseudo-label KD (early attempt)
+0.8141
+0.9199
+12
+breakout
+sed-b0-v27-soft-boost
+B0-NS
+ASL +softKD
+Boosted soft pseudo weight
+0.7804
+0.9915
+10
+done
+Phase 5 — Multi-round Pseudo Labels (r1–r5)
+sed-b0-v28-final-combo
+B0-NS
+ASL +softKD
+r4 pseudo + soft KD 10× · SpecAugment
+0.8053
+0.9861
+9
+strong
+sed-b0-v30-bgnoise
+B0-NS
+ASL +softKD
+r1–r5 pseudo + background noise aug
+0.7725
+0.9627
+4
+⬇ bg noise hurts
+sed-b0-v30-multipseu ★
+B0-NS
+ASL +softKD
+r1–r5 pseudo · soft KD 10× · no bg noise
+0.8139
+0.9839
+6
+★ SED SOTA
+Phase 6 — 4-Fold GroupKFold (v30 formula, In Progress)
+sed-b0-4fold-v30-fold0
+B0-NS
+ASL +softKD
+GroupKFold fold 0 · same v30 formula
+0.8033
+—
+10
+ep13/35 running
+sed-b0-4fold-v30-fold1
+B0-NS
+ASL +softKD
+GroupKFold fold 1
+0.7952
+—
+3
+early stop ep9
+sed-b0-4fold-v30-fold2
+B0-NS
+ASL +softKD
+GroupKFold fold 2
+0.7656
+—
+4
+ep4/35 running
+Alternative Backbones
+sed-b2-v1
+B2
+ASL
+EfficientNet-B2 (5M params)
+0.7104
+—
+2
+underperforms B0
+sed-b3-v1-asl
+B3-NS
+ASL +softKD
+B3 full formula · oscillates after ep2
+0.7805
+0.9553
+2
+early stop ep8
+sed-b3-v1-fold0
+B3-NS
+ASL +softKD
+B3 4-fold fold 0
+0.7778
+—
+5
+terminated ep8
+sed-b3-v1-fold1
+B3-NS
+ASL +softKD
+B3 4-fold fold 1
+0.7577
+—
+5
+terminated ep6
+sed-v2s-v1
+V2S
+BCE
+EfficientNetV2-S baseline
+0.7012
+0.7976
+11
+poor transfer
+sed-v2s-v3-full-kitchen
+V2S
+ASL +softKD
+V2S full v30 formula · instability
+0.7592
+—
+5
+oscillates
+Soundscape Val AUC — B0 Progression
+B0 Series: Soundscape Val AUC by Experiment
+Backbone Comparison (Best Soundscape Val AUC)
+Soundscape Val AUC vs Holdout AUC — Domain Gap Analysis
+The domain gap (holdout − soundscape val) ranges from +0.14 to +0.22 AUC units,
+reflecting the difficulty of generalizing from curated train_audio to field soundscapes .
+B0-v27-soft-boost achieves the highest holdout AUC (0.9915) despite moderate soundscape val (0.7804).
+Key Findings & Ablations
+✅ What Works
+ASL over BCE (+0.023)
+v5 BCE=0.7527 → v9 ASL=0.7755. Asymmetric focusing (γ⁻=4, γ⁺=0, clip=0.05) suppresses easy negatives more effectively in highly imbalanced 234-class settings.
+Soft Knowledge Distillation (+0.030)
+v9 ASL=0.7755 → v27 soft-boost=0.7804 → v28=0.8053. Perch teacher soft labels on soundscape clips bridge the domain gap: SED learns to mimic Perch's confident detections on unlabeled field recordings.
+Multi-round Pseudo Labels r1–r5 (+0.008)
+v28=0.8053 → v30-multipseu=0.8139. Combining 5 rounds of Perch-generated pseudo labels (1168 soft clips) provides more diverse supervision signal than single-round pseudo.
+ClipMix in Dual-loss
+v22 without ClipMix dropped from ~0.77 → 0.7485. ClipMix is essential for dual (clip+frame) loss configurations to prevent frame-level labels from conflicting with clip-level targets.
+NS-JFT Pretraining for B0
+tf_efficientnet_b0.ns_jft_in1k consistently outperforms standard ImageNet init. Noisy-student pretraining on JFT-300M provides richer low-level audio feature initialisation.
+❌ What Doesn't Work
+Background Noise Augmentation (−0.041)
+v30-multipseu=0.8139 → v30-bgnoise=0.7725. Adding SNR [5,30] dB background noise alongside multi-round pseudo labels hurts soundscape adaptation. Pseudo labels were generated on clean audio — heavy noise creates train/inference distribution mismatch.
+Soft Secondary Labels (−0.043)
+v11 soft-sec=0.7098 vs v5 BCE=0.7527. Soft secondary labels introduce conflicting gradients: species that co-occur statistically may not co-occur in this specific 5-second clip.
+Rating Filter ≥ 3 (−0.128)
+v16 rating3=0.6250. Filtering to high-quality recordings reduces training diversity too aggressively for a 234-species task. Data quantity dominates quality at this class count.
+EfficientNetV2-S (−0.043 vs B0)
+V2S v1=0.7012, V2S v3-kitchen=0.7592 — both below B0 v30=0.8139. Despite larger capacity (21M params), V2S shows worse soundscape generalization. The ImageNet-21k pretraining may overfit to visual features that transfer poorly to spectrograms.
+B3 Instability After Warmup
+B3 best at ep2 (0.7805) then severe oscillation through ep8. With LR=5e-4 and 1536-dim features, B3's larger gradient norms destabilize training post-warmup. Holdout AUC (0.9553) remains high despite unstable soundscape val.
+⚠️ Mixed / Uncertain
+NPCEN Frontend (holdout +0.011, ss_val −0.051)
+v26-asl-npcen: ss_val=0.7262, holdout=0.9574. NPCEN raised holdout AUC substantially but soundscape val dropped. Adaptive gain normalization may over-fit to train_audio distribution. Outcome depends on which metric is the better LB proxy.
+EfficientNet-B3 (holdout 0.9553 but ss unstable)
+Best per-domain score (holdout=0.9553) suggests B3 does learn strong features. The soundscape instability is an optimization problem, not a capacity problem. Lower LR (2e-4) + longer warmup (5 ep) may stabilize it. Not yet tested.
+Dual BCE (clip + frame)
+Dual loss adds frame-level supervision but requires ClipMix for stable training. With ClipMix, v20-dual-mixup08 reaches ~0.783. Without ClipMix, v22 drops to 0.7485. Net benefit over ASL-only unclear — ASL alone (v9) achieves 0.7755 without ClipMix dependency.
+4-Fold GroupKFold (Ongoing)
+fold0 best=0.8033, fold1=0.7952 (early stop), fold2=0.7656 (still training). GroupKFold should produce diverse checkpoints for model soups. Whether the soup exceeds v30-multipseu single model (0.8139) is the key question.
+Technique Contribution Analysis (Cumulative)
+Step
+Change Introduced
+Experiment
+SS Val AUC
+Δ AUC
+Holdout AUC
+1
+BCE baseline · clip+frame dual loss
+sed-b0-v5
+0.7527
+—
+0.9192
+2
+Replace BCE with ASL (γ⁻=4, γ⁺=0, clip=0.05) · 20 ep soup
+sed-b0-v9-asl
+0.7755
++0.023
+0.9467
+3
+Add soft KD from Perch on soundscape clips (frame_loss_weight=0.5)
+sed-b0-v27-soft-boost
+0.7804
++0.005
+0.9915
+4
+Add round-4 pseudo soundscape labels (1168 clips) · soft KD 10×
+sed-b0-v28-final-combo
+0.8053
++0.025
+0.9861
+5
+Background noise augmentation (SNR 5–30 dB)
+sed-b0-v30-bgnoise
+0.7725
+−0.033 (bg noise hurts)
+0.9627
+6
+Multi-round pseudo r1–r5 (no bg noise) · combined pseudo CSV
+sed-b0-v30-multipseu
+0.8139
++0.086 vs baseline
+0.9839
+7
+4-Fold GroupKFold · same v30 formula (fold0, ongoing)
+sed-b0-4fold-v30-fold0
+0.8033 (ep13)
+in progress
+—
+Net improvement B0 baseline → v30-multipseu: +0.086 soundscape val AUC
+(0.7527 → 0.8139). Primary drivers: ASL (+0.023), soft KD (+0.005), multi-round pseudo labels (+0.036 total for v28+v30).
+Shared Architecture (All Experiments)
+Backbone
+B0 (default): tf_efficientnet_b0.ns_jft_in1k
+4.0M params · 1280-dim features
+B2: tf_efficientnet_b2 · 9.1M
+B3-NS: tf_efficientnet_b3_ns · 12M · 1536-dim
+V2S: tf_efficientnetv2_s · 21M
+Frequency Pooling + Head
+GEMFreqPool (p_init=3.0, learnable)
+Generalized mean over frequency axis
+AttentionSEDHead
+FC → tanh attention + softmax over time → weighted sum
+Mel Spectrogram
+SR: 32,000 Hz · Clip: 5s
+n_fft: 2048 · hop: 512
+n_mels: 224 · fmin: 0 · fmax: 16k
+Per-sample min-max normalization
+AmplitudeToDB (top_db=80)
+BirdCLEF 2026 — SED Model Comparison Report — Generated 2026-03-20 — All val AUC on 312-clip soundscape holdout

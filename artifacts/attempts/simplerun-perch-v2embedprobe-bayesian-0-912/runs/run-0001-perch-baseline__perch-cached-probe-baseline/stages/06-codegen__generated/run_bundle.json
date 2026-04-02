@@ -1,0 +1,17 @@
+{
+  "spec_type": "experiment",
+  "title": "Class coverage fix — resolve 23 unfitted classes",
+  "family": "perch_cached_probe",
+  "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml",
+  "launch_mode": "background",
+  "dedupe_key": "plan:run-0001:class-coverage-fix:primary",
+  "code_state_ref": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/workspace",
+  "verify_artifacts_ref": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/state/worktrees/codegen/06-codegen__running/verify_runtime",
+  "verify_command": "/home/staff/jiayining/miniconda3/envs/kaggle-agent/bin/python ./train_sed.py --config configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml",
+  "verify_status": "passed",
+  "verify_summary": "Verify run completed with val_soundscape_macro_roc_auc=0.6718809613270702 and verdict=submission-required.",
+  "changed_files": [
+    "BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml"
+  ],
+  "provider_runtime": "codex mode:agentic env:inherit"
+}

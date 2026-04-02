@@ -1,0 +1,14 @@
+{
+  "stage": "report",
+  "headline": "Class coverage fix improves val AUC to 0.6727, becoming new leader.",
+  "focus": "Submission bundle parity and probe overfitting mitigation",
+  "best_run_id": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+  "best_run_metric": 0.6726994510451058,
+  "primary_metric_value": 0.6726994510451058,
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration. The class coverage fix resolved 23 unfitted classes, raising fitted class count from 52 to 71 of 75 active classes. This yielded a +0.0078 improvement in val_soundscape_macro_roc_auc over the previous leader (0.6649 → 0.6727). However, 4 classes remain unfitted, and the probe still shows a severe train/val gap (train soundscape AUC 0.997 vs val 0.673), indicating overfitting or distribution shift remains the structural bottleneck.",
+  "verdict": "submission-required",
+  "finding_titles": [
+    "Class coverage fix — resolve 23 unfitted classes completed"
+  ],
+  "issue_titles": []
+}

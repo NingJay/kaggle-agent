@@ -1,0 +1,4456 @@
+{
+  "stage": "plan",
+  "plan_status": "planned",
+  "source_run_id": "run-0001-perch-baseline",
+  "reason": "Primary branch. Required pattern class_coverage. Strongest policy support (conditional with positive empirical evidence: 52→67 gave +0.013). 31% coverage deficit is the structural blocker blocking all downstream improvements.",
+  "title": "Class coverage fix — resolve 23 unfitted classes",
+  "family": "perch_cached_probe",
+  "hypothesis": "Fixing the 23 unfitted classes will raise val AUC above 0.68 by closing the class coverage gap from 52/75 to 75/75 fitted classes.",
+  "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml",
+  "source_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+  "priority": 21,
+  "depends_on": [],
+  "tags": [
+    "experiment_iteration",
+    "class_coverage",
+    "primary_branch",
+    "v2"
+  ],
+  "launch_mode": "background",
+  "dedupe_key": "plan:run-0001:class-coverage-fix:primary",
+  "work_type": "ablation_terminal",
+  "lifecycle_template": "branch_terminal_experiment",
+  "target_run_id": "",
+  "stage_plan": [
+    "codegen",
+    "critic",
+    "validate",
+    "execute",
+    "evidence",
+    "report"
+  ],
+  "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+  "knowledge_card_ids": [
+    "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+    "imports-kaggle-agent-experiment-conclusions-md-run-0002-0001-perch-probe-full-class-coverage-expansion",
+    "research-run-0001-perch-baseline-md-root-cause-diagnosis",
+    "imports-kaggle-agent-research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed"
+  ],
+  "problem_frame": {
+    "stage": "plan",
+    "run_id": "run-0001-perch-baseline",
+    "family": "perch_cached_probe",
+    "title": "Class coverage fix — resolve 23 unfitted classes",
+    "root_cause": "The probe model is the bottleneck: train soundscape ROC-AUC (0.992) vs val (0.665) reveals severe overfitting or train/val distribution gap. The Bayesian prior is paradoxically stronger on validation (0.662) than train (0.487), confirming the probe itself is the weak link. Additionally, only 52/75 classes are fitted (31% coverage deficit), which blocks submission bar criteria per 04_submission_bar.md. The immediate task is submission bundle parity and calibration, but the structural class coverage gap and probe overfitting must be addressed to improve the score meaningfully.",
+    "hypothesis": "The class coverage deficit (23/75 unfitted classes) is the single highest-priority structural blocker with positive policy support (prefer). The veto checker forbids probe_head, the branch_typing_compiler flags calibration_only/blend_only as low-information, and exp-0010 definitively killed naive blend-ratio tuning. The branch diversifier recommends class_coverage (primary) + prior_calibration (hedge). The novel hypothesis generator suggests pseudo_label as an unexplored axis. Collapsing to a single calibration tweak would violate the decision rules requiring multi-branch search when below target.",
+    "objective_metric": "val_soundscape_macro_roc_auc",
+    "current_metric_value": 0.6649218274358575,
+    "focus": "",
+    "next_action": "Launch a multi-branch portfolio targeting class coverage (primary) and pseudo-label (novel), with a hedged prior_calibration branch conditional on coverage fix.",
+    "adopt_now": [
+      "[class_coverage] Fix the 23/75 unfitted classes before any other intervention. Only 52/75 classes are fitted in the current run (card: imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline). The structural class coverage gap is the single blocking issue — no calibration, ensemble, or post-processing is meaningful until all active classes receive fitted probes.",
+      "[probe_head] Submission bundle parity is the immediate deliverable. The current run (val AUC 0.665) is the first end-to-end success; package it as a CPU-only, internet-off submission bundle. Per 04_submission_bar (card: imports-kaggle-agent-04-submission-bar-md-example), this baseline alone does not clear the submission bar (it is round 1 of a simple cached-embeddings + linear probe), but establishing bundle parity unblocks the iteration loop.",
+      "[probe_head] Treat val_soundscape_macro_roc_auc as the primary signal, with prior_fusion_macro_roc_auc as a weaker fallback only. Per experiment rules (card: imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation), holdout-aware soundscape validation is the intended local primary signal for the cached-probe runtime."
+    ],
+    "consider": [
+      "[prior_calibration] Conditional — explore temperature scaling or isotonic calibration on the probe logits to close the train/val gap. The prior fusion metric (0.487 train, 0.662 val) suggests the Bayesian prior already provides useful holdout signal. However, blend-ratio grid search already regressed in exp-0010 (card: imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state), so avoid naive blending. Only pursue if class coverage is first addressed.",
+      "[probe_head] Conditional — investigate MLP probe head with regularization to reduce train/val overfitting. Exp-0011 showed dropout (0.3-0.5) suppressed gradient signal on the small training set (card: imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader), so lighter regularization or data augmentation may be more appropriate. The branch_typing_compiler flags calibration_only, blend_only, and temperature as low-information patterns — any probe head work must carry more signal than these.",
+      "[class_coverage] Conditional — augment training data or adjust label strategy to cover the 23 missing classes. This may require examining the data pipeline for label mismatch or insufficient per-class samples."
+    ],
+    "reject": [
+      "[prior_calibration] Reject naive prior-fusion blend ratio tuning. Exp-0010 (card: imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state) showed the MLP probe and Bayesian prior predictions are correlated, not complementary — blending dilutes discriminative power and produced a -0.0148 regression.",
+      "[probe_head] Reject submitting this baseline without further iteration. Per 04_submission_bar (card: imports-kaggle-agent-04-submission-bar-md-example), a round-1 Perch baseline scoring 0.665 is explicitly marked as premature for submission. The pipeline needs at least calibration and coverage fixes before scoring a real submission.",
+      "[probe_head] Reject heavy dropout regularization (0.3-0.5). Exp-0011 (card: imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader) confirmed dropout suppresses already-scarce gradient signal on the ~700-window training set with no overfitting benefit. The frozen Perch embedding space imposes a fundamental ceiling on probe-level regularization gains.",
+      "[probe_head] Reject random-guess configurations. Earlier debug runs (cards: imports-kaggle-agent-research-run-0001-perch-debug-smoke-md-run-0001-perch-debug-smoke, imports-kaggle-agent-research-run-0003-0002-debug-md-run-0003-0002-debug) showed that frozen heads or mismatched labels produce ROC-AUC=0.5 — any new probe head variant must verify gradient flow and non-random predictions early."
+    ],
+    "query_terms": [
+      "perch_cached_probe",
+      "class",
+      "coverage",
+      "fix",
+      "resolve",
+      "unfitted",
+      "classes",
+      "the",
+      "probe",
+      "model",
+      "bottleneck",
+      "train",
+      "soundscape",
+      "roc",
+      "auc",
+      "992",
+      "val",
+      "665",
+      "reveals",
+      "severe",
+      "overfitting",
+      "distribution",
+      "gap",
+      "bayesian"
+    ]
+  },
+  "candidate_branches": [
+    {
+      "title": "Class coverage fix — resolve 23 unfitted classes",
+      "family": "perch_cached_probe",
+      "hypothesis": "Fixing the 23 unfitted classes will raise val AUC above 0.68 by closing the class coverage gap from 52/75 to 75/75 fitted classes.",
+      "reason": "Primary branch. Required pattern class_coverage. Strongest policy support (conditional with positive empirical evidence: 52→67 gave +0.013). 31% coverage deficit is the structural blocker blocking all downstream improvements.",
+      "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "source_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "priority": 21,
+      "depends_on": [],
+      "tags": [
+        "experiment_iteration",
+        "class_coverage",
+        "primary_branch",
+        "v2"
+      ],
+      "launch_mode": "background",
+      "dedupe_key": "plan:run-0001:class-coverage-fix:primary",
+      "work_type": "ablation_terminal",
+      "branch_role": "primary",
+      "idea_class": "grounded",
+      "branch_rank": 1,
+      "knowledge_card_ids": [
+        "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+        "imports-kaggle-agent-experiment-conclusions-md-run-0002-0001-perch-probe-full-class-coverage-expansion",
+        "research-run-0001-perch-baseline-md-root-cause-diagnosis",
+        "imports-kaggle-agent-research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed"
+      ],
+      "policy_trace": [
+        "role:primary:8.0"
+      ],
+      "expected_information_gain": 0.84,
+      "falsification_criterion": "Val AUC does not improve when all 75 classes are fitted",
+      "kill_criterion": "After fixing coverage, val AUC remains below 0.66",
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [
+        "fitted_class_count reaches 75/75",
+        "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+      ],
+      "config_overrides": [
+        {
+          "path": "probe.min_samples_per_class",
+          "value": 1
+        },
+        {
+          "path": "probe.rare_class_oversample",
+          "value": true
+        },
+        {
+          "path": "probe.early_stopping_patience_rare",
+          "value": 50
+        }
+      ],
+      "axis_tags": [
+        "class_coverage"
+      ],
+      "change_surface": [
+        "probe.min_samples_per_class",
+        "probe.rare_class_oversample",
+        "probe.early_stopping_patience_rare"
+      ],
+      "pattern_tags": [
+        "probe_training_change"
+      ],
+      "avoided_vetoes": [],
+      "policy_score": 18.04,
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|051b8a4d0e47",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"early_stopping_patience_rare\": 50, \"min_samples_per_class\": 1, \"rare_class_oversample\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|051b8a4d0e47",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "min_samples_per_class": 1,
+                  "rare_class_oversample": true,
+                  "early_stopping_patience_rare": 50
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [
+            "fitted_class_count reaches 75/75",
+            "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "min_samples_per_class": 1,
+                "rare_class_oversample": true,
+                "early_stopping_patience_rare": 50
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [
+          "fitted_class_count reaches 75/75",
+          "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|051b8a4d0e47",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"early_stopping_patience_rare\": 50, \"min_samples_per_class\": 1, \"rare_class_oversample\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|051b8a4d0e47",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "min_samples_per_class": 1,
+                  "rare_class_oversample": true,
+                  "early_stopping_patience_rare": 50
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [
+            "fitted_class_count reaches 75/75",
+            "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "min_samples_per_class": 1,
+                "rare_class_oversample": true,
+                "early_stopping_patience_rare": 50
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [
+          "fitted_class_count reaches 75/75",
+          "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "idea_class": "grounded",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.84,
+        "cost_tier": "low",
+        "rationale": [
+          "structural axis change",
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "primary"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 18.04,
+        "expected_information_gain": 0.84,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      }
+    },
+    {
+      "title": "Class coverage fix — resolve 23 unfitted classes",
+      "branch_role": "primary",
+      "target_component": "class_coverage",
+      "idea_class": "grounded",
+      "status": "kept",
+      "rationale": "Required pattern, strongest policy support, 31% coverage deficit is structural blocker. Prior evidence: 52→67 classes gave +0.013 AUC.",
+      "expected_information_gain": 0.68,
+      "policy_score": 17.08,
+      "pattern_tags": [],
+      "falsification_criterion": "Reject if Class coverage fix — resolve 23 unfitted classes does not improve holdout validation.",
+      "kill_criterion": "Kill the branch if it only changes low-information post-processing.",
+      "avoided_vetoes": [],
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "policy_trace": [
+        "role:primary:8.0"
+      ],
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "grounded|unknown|77db76954fb5",
+        "typing_signature_json": "{\"axis_tags\": [\"grounded\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "grounded|unknown|77db76954fb5",
+          "signature_payload": {
+            "axis_tags": [
+              "grounded"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "grounded"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "grounded|unknown|77db76954fb5",
+        "typing_signature_json": "{\"axis_tags\": [\"grounded\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "grounded|unknown|77db76954fb5",
+          "signature_payload": {
+            "axis_tags": [
+              "grounded"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "grounded"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "idea_class": "grounded",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.68,
+        "cost_tier": "low",
+        "rationale": [
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "primary"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 17.08,
+        "expected_information_gain": 0.68,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      }
+    },
+    {
+      "title": "Label smoothing regularization on probe logits",
+      "branch_role": "hedge",
+      "target_component": "prior_calibration",
+      "idea_class": "conditional",
+      "status": "kept",
+      "rationale": "Lighter regularization than dropout (exp-0011 failure). Targets loss function not architecture. Conditional on coverage fix.",
+      "expected_information_gain": 0.68,
+      "policy_score": 14.08,
+      "pattern_tags": [],
+      "falsification_criterion": "Reject if Label smoothing regularization on probe logits does not improve holdout validation.",
+      "kill_criterion": "Kill the branch if it only changes low-information post-processing.",
+      "avoided_vetoes": [],
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "policy_trace": [
+        "role:hedge:5.0"
+      ],
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "conditional|unknown|64d5edcaba7b",
+        "typing_signature_json": "{\"axis_tags\": [\"conditional\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "conditional|unknown|64d5edcaba7b",
+          "signature_payload": {
+            "axis_tags": [
+              "conditional"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "conditional",
+          "axis_tags": [
+            "conditional"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "conditional"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "conditional",
+        "axis_tags": [
+          "conditional"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "conditional|unknown|64d5edcaba7b",
+        "typing_signature_json": "{\"axis_tags\": [\"conditional\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "conditional|unknown|64d5edcaba7b",
+          "signature_payload": {
+            "axis_tags": [
+              "conditional"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "conditional",
+          "axis_tags": [
+            "conditional"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "conditional"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "conditional",
+        "axis_tags": [
+          "conditional"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "idea_class": "conditional",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.68,
+        "cost_tier": "low",
+        "rationale": [
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "hedge"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 14.08,
+        "expected_information_gain": 0.68,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      }
+    },
+    {
+      "title": "Label smoothing regularization on probe logits",
+      "family": "perch_cached_probe",
+      "hypothesis": "Label smoothing (epsilon 0.05-0.1) on probe logits will reduce the 0.327 train/val AUC gap without suppressing gradient signal, unlike heavy dropout which failed in exp-0011.",
+      "reason": "Hedge branch. Conditional prior_calibration policy. Label smoothing targets loss function not architecture, distinct from vetoed probe_head pattern. Must pair with coverage fix to avoid low-information classification. Exp-0011 showed dropout kills gradient signal; label smoothing is a lighter intervention.",
+      "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "source_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "priority": 20,
+      "depends_on": [],
+      "tags": [
+        "experiment_iteration",
+        "prior_calibration",
+        "hedge_branch",
+        "v2"
+      ],
+      "launch_mode": "background",
+      "dedupe_key": "plan:run-0001:label-smoothing:hedge",
+      "work_type": "ablation_terminal",
+      "branch_role": "hedge",
+      "idea_class": "conditional",
+      "branch_rank": 2,
+      "knowledge_card_ids": [
+        "imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader",
+        "research-run-0001-perch-baseline-md-root-cause-diagnosis"
+      ],
+      "policy_trace": [
+        "role:hedge:5.0"
+      ],
+      "expected_information_gain": 0.84,
+      "falsification_criterion": "Label smoothing does not reduce train/val AUC gap",
+      "kill_criterion": "Train/val gap remains above 0.25 after label smoothing",
+      "grounding_mode": "conditional",
+      "unsupported_claims": [],
+      "required_evidence": [
+        "Train/val AUC gap narrows by at least 0.05",
+        "Val AUC does not regress below 0.665"
+      ],
+      "config_overrides": [
+        {
+          "path": "probe.label_smoothing",
+          "value": 0.1
+        },
+        {
+          "path": "probe.min_samples_per_class",
+          "value": 1
+        },
+        {
+          "path": "probe.rare_class_oversample",
+          "value": true
+        }
+      ],
+      "axis_tags": [
+        "prior_calibration",
+        "class_coverage"
+      ],
+      "change_surface": [
+        "probe.label_smoothing",
+        "probe.min_samples_per_class",
+        "probe.rare_class_oversample"
+      ],
+      "pattern_tags": [
+        "probe_training_change"
+      ],
+      "avoided_vetoes": [],
+      "policy_score": 14.04,
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|1b54839543a7",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"label_smoothing\": 0.1, \"min_samples_per_class\": 1, \"rare_class_oversample\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|1b54839543a7",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "label_smoothing": 0.1,
+                  "min_samples_per_class": 1,
+                  "rare_class_oversample": true
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "conditional",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "conditional",
+          "unsupported_claims": [],
+          "required_evidence": [
+            "Train/val AUC gap narrows by at least 0.05",
+            "Val AUC does not regress below 0.665"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "label_smoothing": 0.1,
+                "min_samples_per_class": 1,
+                "rare_class_oversample": true
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "conditional",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "conditional",
+        "unsupported_claims": [],
+        "required_evidence": [
+          "Train/val AUC gap narrows by at least 0.05",
+          "Val AUC does not regress below 0.665"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|1b54839543a7",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"label_smoothing\": 0.1, \"min_samples_per_class\": 1, \"rare_class_oversample\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|1b54839543a7",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "label_smoothing": 0.1,
+                  "min_samples_per_class": 1,
+                  "rare_class_oversample": true
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "conditional",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "conditional",
+          "unsupported_claims": [],
+          "required_evidence": [
+            "Train/val AUC gap narrows by at least 0.05",
+            "Val AUC does not regress below 0.665"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "label_smoothing": 0.1,
+                "min_samples_per_class": 1,
+                "rare_class_oversample": true
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "conditional",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "conditional",
+        "unsupported_claims": [],
+        "required_evidence": [
+          "Train/val AUC gap narrows by at least 0.05",
+          "Val AUC does not regress below 0.665"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "idea_class": "conditional",
+        "grounding_mode": "conditional",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.84,
+        "cost_tier": "low",
+        "rationale": [
+          "structural axis change",
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "hedge"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 14.04,
+        "expected_information_gain": 0.84,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "conditional",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      }
+    },
+    {
+      "title": "Pseudo-label unfitted classes from Bayesian prior",
+      "branch_role": "novel",
+      "target_component": "pseudo_label",
+      "idea_class": "novel",
+      "status": "kept",
+      "rationale": "Novel hypothesis generator recommendation. Bayesian prior val AUC 0.662 provides usable signal. Addresses coverage from data perspective.",
+      "expected_information_gain": 0.68,
+      "policy_score": 9.08,
+      "pattern_tags": [],
+      "falsification_criterion": "Reject if Pseudo-label unfitted classes from Bayesian prior does not improve holdout validation.",
+      "kill_criterion": "Kill the branch if it only changes low-information post-processing.",
+      "avoided_vetoes": [],
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "policy_trace": [
+        "role:novel:0.0"
+      ],
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "novel|unknown|f7d552c24817",
+        "typing_signature_json": "{\"axis_tags\": [\"novel\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "novel|unknown|f7d552c24817",
+          "signature_payload": {
+            "axis_tags": [
+              "novel"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "novel",
+          "axis_tags": [
+            "novel"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "novel"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "novel",
+        "axis_tags": [
+          "novel"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "novel|unknown|f7d552c24817",
+        "typing_signature_json": "{\"axis_tags\": [\"novel\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "novel|unknown|f7d552c24817",
+          "signature_payload": {
+            "axis_tags": [
+              "novel"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "novel",
+          "axis_tags": [
+            "novel"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "novel"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "novel",
+        "axis_tags": [
+          "novel"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "idea_class": "novel",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.68,
+        "cost_tier": "low",
+        "rationale": [
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "novel"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 9.08,
+        "expected_information_gain": 0.68,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      }
+    },
+    {
+      "title": "Pseudo-label unfitted classes from Bayesian prior",
+      "family": "perch_cached_probe",
+      "hypothesis": "Pseudo-labeling from high-confidence Bayesian prior predictions on unfitted classes will improve coverage and discriminative power simultaneously.",
+      "reason": "Novel branch. Novel hypothesis generator suggests pseudo_label as unexplored axis. Bayesian prior val AUC 0.662 provides usable signal for unfitted classes. Addresses coverage gap from data perspective rather than architecture. No veto conflicts.",
+      "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "source_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "priority": 19,
+      "depends_on": [],
+      "tags": [
+        "experiment_iteration",
+        "pseudo_label",
+        "novel_branch",
+        "v2"
+      ],
+      "launch_mode": "background",
+      "dedupe_key": "plan:run-0001:pseudo-label-prior:novel",
+      "work_type": "ablation_terminal",
+      "branch_role": "novel",
+      "idea_class": "novel",
+      "branch_rank": 3,
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-root-cause-diagnosis",
+        "research-run-0001-perch-baseline-md-unresolved-questions"
+      ],
+      "policy_trace": [
+        "role:novel:0.0"
+      ],
+      "expected_information_gain": 0.88,
+      "falsification_criterion": "Pseudo-labeled classes do not achieve above-random predictions (AUC > 0.5)",
+      "kill_criterion": "Pseudo-labeling produces no class coverage improvement or degrades existing class performance",
+      "grounding_mode": "novel",
+      "unsupported_claims": [
+        "pseudo_label may unlock holdout improvements despite limited direct support"
+      ],
+      "required_evidence": [
+        "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+        "Overall val AUC improves vs baseline 0.665"
+      ],
+      "config_overrides": [
+        {
+          "path": "probe.pseudo_label_from_prior",
+          "value": true
+        },
+        {
+          "path": "probe.pseudo_label_confidence_threshold",
+          "value": 0.7
+        },
+        {
+          "path": "probe.pseudo_label_unfitted_only",
+          "value": true
+        }
+      ],
+      "axis_tags": [
+        "pseudo_label",
+        "class_coverage"
+      ],
+      "change_surface": [
+        "probe.pseudo_label_from_prior",
+        "probe.pseudo_label_confidence_threshold",
+        "probe.pseudo_label_unfitted_only"
+      ],
+      "pattern_tags": [
+        "probe_training_change"
+      ],
+      "avoided_vetoes": [],
+      "policy_score": 9.28,
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|bc08494baf1a",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"pseudo_label_confidence_threshold\": 0.7, \"pseudo_label_from_prior\": true, \"pseudo_label_unfitted_only\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|bc08494baf1a",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "pseudo_label_from_prior": true,
+                  "pseudo_label_confidence_threshold": 0.7,
+                  "pseudo_label_unfitted_only": true
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "novel",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "novel",
+          "unsupported_claims": [
+            "pseudo_label may unlock holdout improvements despite limited direct support"
+          ],
+          "required_evidence": [
+            "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+            "Overall val AUC improves vs baseline 0.665"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "pseudo_label_from_prior": true,
+                "pseudo_label_confidence_threshold": 0.7,
+                "pseudo_label_unfitted_only": true
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "novel",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "novel",
+        "unsupported_claims": [
+          "pseudo_label may unlock holdout improvements despite limited direct support"
+        ],
+        "required_evidence": [
+          "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+          "Overall val AUC improves vs baseline 0.665"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|bc08494baf1a",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"pseudo_label_confidence_threshold\": 0.7, \"pseudo_label_from_prior\": true, \"pseudo_label_unfitted_only\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|bc08494baf1a",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "pseudo_label_from_prior": true,
+                  "pseudo_label_confidence_threshold": 0.7,
+                  "pseudo_label_unfitted_only": true
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "novel",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "novel",
+          "unsupported_claims": [
+            "pseudo_label may unlock holdout improvements despite limited direct support"
+          ],
+          "required_evidence": [
+            "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+            "Overall val AUC improves vs baseline 0.665"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "pseudo_label_from_prior": true,
+                "pseudo_label_confidence_threshold": 0.7,
+                "pseudo_label_unfitted_only": true
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "novel",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "novel",
+        "unsupported_claims": [
+          "pseudo_label may unlock holdout improvements despite limited direct support"
+        ],
+        "required_evidence": [
+          "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+          "Overall val AUC improves vs baseline 0.665"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "idea_class": "novel",
+        "grounding_mode": "novel",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.88,
+        "cost_tier": "low",
+        "rationale": [
+          "structural axis change",
+          "novel lane bonus",
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "novel"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 9.28,
+        "expected_information_gain": 0.88,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "novel",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      }
+    },
+    {
+      "hypothesis": "Fixing the 23 unfitted classes will raise val AUC above 0.68 by closing the class coverage gap.",
+      "component": "class_coverage",
+      "priority": 1,
+      "status": "testing",
+      "pattern_tags": [],
+      "expected_information_gain": 0.41,
+      "falsification_criterion": "Reject if this branch does not improve holdout validation.",
+      "kill_criterion": "Kill the branch if it only changes low-information post-processing.",
+      "avoided_vetoes": [],
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "idea_class": "general",
+      "branch_role": "explore",
+      "policy_score": 10.46,
+      "policy_trace": [
+        "role:explore:3.0"
+      ],
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [
+        "low-information-typing"
+      ],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "perch_cached_probe-branch",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "general|unknown|2cc0e35d8a6d",
+        "typing_signature_json": "{\"axis_tags\": [\"general\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "general|unknown|2cc0e35d8a6d",
+          "signature_payload": {
+            "axis_tags": [
+              "general"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "general",
+          "axis_tags": [
+            "general"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": true,
+          "requires_override": true,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "general"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "general",
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": true,
+        "requires_override": true,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "perch_cached_probe-branch",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "general|unknown|2cc0e35d8a6d",
+        "typing_signature_json": "{\"axis_tags\": [\"general\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "general|unknown|2cc0e35d8a6d",
+          "signature_payload": {
+            "axis_tags": [
+              "general"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "general",
+          "axis_tags": [
+            "general"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": true,
+          "requires_override": true,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "general"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "general",
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": true,
+        "requires_override": true,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "perch_cached_probe-branch",
+        "family": "perch_cached_probe",
+        "idea_class": "general",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.41,
+        "cost_tier": "low",
+        "rationale": [
+          "low-information branch surface",
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": true,
+        "required_patterns_matched": [],
+        "branch_role": ""
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 10.46,
+        "expected_information_gain": 0.41,
+        "novelty_score": 1.0,
+        "low_information_flag": true,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      }
+    }
+  ],
+  "branch_plans": [
+    {
+      "title": "Class coverage fix — resolve 23 unfitted classes",
+      "family": "perch_cached_probe",
+      "hypothesis": "Fixing the 23 unfitted classes will raise val AUC above 0.68 by closing the class coverage gap from 52/75 to 75/75 fitted classes.",
+      "reason": "Primary branch. Required pattern class_coverage. Strongest policy support (conditional with positive empirical evidence: 52→67 gave +0.013). 31% coverage deficit is the structural blocker blocking all downstream improvements.",
+      "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml",
+      "source_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "priority": 21,
+      "depends_on": [],
+      "tags": [
+        "experiment_iteration",
+        "class_coverage",
+        "primary_branch",
+        "v2"
+      ],
+      "launch_mode": "background",
+      "dedupe_key": "plan:run-0001:class-coverage-fix:primary",
+      "work_type": "ablation_terminal",
+      "lifecycle_template": "branch_terminal_experiment",
+      "target_run_id": "",
+      "stage_plan": [
+        "codegen",
+        "critic",
+        "validate",
+        "execute",
+        "evidence",
+        "report"
+      ],
+      "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+      "idea_class": "grounded",
+      "branch_role": "primary",
+      "branch_rank": 0,
+      "knowledge_card_ids": [
+        "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+        "imports-kaggle-agent-experiment-conclusions-md-run-0002-0001-perch-probe-full-class-coverage-expansion",
+        "research-run-0001-perch-baseline-md-root-cause-diagnosis",
+        "imports-kaggle-agent-research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed"
+      ],
+      "policy_trace": [
+        "role:primary:8.0"
+      ],
+      "branch_memory_ids": [],
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 18.04,
+        "expected_information_gain": 0.84,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      },
+      "policy_score": 18.04,
+      "expected_information_gain": 0.84,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "grounding_mode": "grounded",
+      "cost_tier": "low",
+      "typing_signature": "probe_head|model|051b8a4d0e47",
+      "axis_tags": [
+        "probe_head"
+      ],
+      "change_surface": [
+        "model"
+      ],
+      "falsification_criterion": "Val AUC does not improve when all 75 classes are fitted",
+      "kill_criterion": "After fixing coverage, val AUC remains below 0.66",
+      "avoided_vetoes": [],
+      "pattern_tags": [
+        "probe_training_change"
+      ],
+      "config_overrides": [
+        {
+          "path": "probe.min_samples_per_class",
+          "value": 1
+        },
+        {
+          "path": "probe.rare_class_oversample",
+          "value": true
+        },
+        {
+          "path": "probe.early_stopping_patience_rare",
+          "value": 50
+        }
+      ],
+      "unsupported_claims": [],
+      "required_evidence": [
+        "fitted_class_count reaches 75/75",
+        "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+      ],
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|051b8a4d0e47",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"early_stopping_patience_rare\": 50, \"min_samples_per_class\": 1, \"rare_class_oversample\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|051b8a4d0e47",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "min_samples_per_class": 1,
+                  "rare_class_oversample": true,
+                  "early_stopping_patience_rare": 50
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [
+            "fitted_class_count reaches 75/75",
+            "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "min_samples_per_class": 1,
+                "rare_class_oversample": true,
+                "early_stopping_patience_rare": 50
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [
+          "fitted_class_count reaches 75/75",
+          "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "idea_class": "grounded",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.84,
+        "cost_tier": "low",
+        "rationale": [
+          "structural axis change",
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "primary"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|051b8a4d0e47",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"early_stopping_patience_rare\": 50, \"min_samples_per_class\": 1, \"rare_class_oversample\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|051b8a4d0e47",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "min_samples_per_class": 1,
+                  "rare_class_oversample": true,
+                  "early_stopping_patience_rare": 50
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [
+            "fitted_class_count reaches 75/75",
+            "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "min_samples_per_class": 1,
+                "rare_class_oversample": true,
+                "early_stopping_patience_rare": 50
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [
+          "fitted_class_count reaches 75/75",
+          "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      }
+    },
+    {
+      "title": "Pseudo-label unfitted classes from Bayesian prior",
+      "family": "perch_cached_probe",
+      "hypothesis": "Pseudo-labeling from high-confidence Bayesian prior predictions on unfitted classes will improve coverage and discriminative power simultaneously.",
+      "reason": "Novel branch. Novel hypothesis generator suggests pseudo_label as unexplored axis. Bayesian prior val AUC 0.662 provides usable signal for unfitted classes. Addresses coverage gap from data perspective rather than architecture. No veto conflicts.",
+      "config_path": "BirdCLEF-2026-Codebase/configs/generated/pseudo-label-unfitted-classes-from-bayesian-prior.yaml",
+      "source_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "priority": 19,
+      "depends_on": [],
+      "tags": [
+        "experiment_iteration",
+        "pseudo_label",
+        "novel_branch",
+        "v2"
+      ],
+      "launch_mode": "background",
+      "dedupe_key": "plan:run-0001:pseudo-label-prior:novel",
+      "work_type": "ablation_terminal",
+      "lifecycle_template": "branch_terminal_experiment",
+      "target_run_id": "",
+      "stage_plan": [
+        "codegen",
+        "critic",
+        "validate",
+        "execute",
+        "evidence",
+        "report"
+      ],
+      "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+      "idea_class": "novel",
+      "branch_role": "novel",
+      "branch_rank": 1,
+      "knowledge_card_ids": [
+        "research-run-0001-perch-baseline-md-root-cause-diagnosis",
+        "research-run-0001-perch-baseline-md-unresolved-questions"
+      ],
+      "policy_trace": [
+        "role:novel:0.0"
+      ],
+      "branch_memory_ids": [],
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 9.28,
+        "expected_information_gain": 0.88,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "novel",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      },
+      "policy_score": 9.28,
+      "expected_information_gain": 0.88,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "grounding_mode": "novel",
+      "cost_tier": "low",
+      "typing_signature": "probe_head|model|bc08494baf1a",
+      "axis_tags": [
+        "probe_head"
+      ],
+      "change_surface": [
+        "model"
+      ],
+      "falsification_criterion": "Pseudo-labeled classes do not achieve above-random predictions (AUC > 0.5)",
+      "kill_criterion": "Pseudo-labeling produces no class coverage improvement or degrades existing class performance",
+      "avoided_vetoes": [],
+      "pattern_tags": [
+        "probe_training_change"
+      ],
+      "config_overrides": [
+        {
+          "path": "probe.pseudo_label_from_prior",
+          "value": true
+        },
+        {
+          "path": "probe.pseudo_label_confidence_threshold",
+          "value": 0.7
+        },
+        {
+          "path": "probe.pseudo_label_unfitted_only",
+          "value": true
+        }
+      ],
+      "unsupported_claims": [
+        "pseudo_label may unlock holdout improvements despite limited direct support"
+      ],
+      "required_evidence": [
+        "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+        "Overall val AUC improves vs baseline 0.665"
+      ],
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|bc08494baf1a",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"pseudo_label_confidence_threshold\": 0.7, \"pseudo_label_from_prior\": true, \"pseudo_label_unfitted_only\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|bc08494baf1a",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "pseudo_label_from_prior": true,
+                  "pseudo_label_confidence_threshold": 0.7,
+                  "pseudo_label_unfitted_only": true
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "novel",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "novel",
+          "unsupported_claims": [
+            "pseudo_label may unlock holdout improvements despite limited direct support"
+          ],
+          "required_evidence": [
+            "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+            "Overall val AUC improves vs baseline 0.665"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "pseudo_label_from_prior": true,
+                "pseudo_label_confidence_threshold": 0.7,
+                "pseudo_label_unfitted_only": true
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "novel",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "novel",
+        "unsupported_claims": [
+          "pseudo_label may unlock holdout improvements despite limited direct support"
+        ],
+        "required_evidence": [
+          "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+          "Overall val AUC improves vs baseline 0.665"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "idea_class": "novel",
+        "grounding_mode": "novel",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.88,
+        "cost_tier": "low",
+        "rationale": [
+          "structural axis change",
+          "novel lane bonus",
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "novel"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|bc08494baf1a",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"pseudo_label_confidence_threshold\": 0.7, \"pseudo_label_from_prior\": true, \"pseudo_label_unfitted_only\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|bc08494baf1a",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "pseudo_label_from_prior": true,
+                  "pseudo_label_confidence_threshold": 0.7,
+                  "pseudo_label_unfitted_only": true
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "novel",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "novel",
+          "unsupported_claims": [
+            "pseudo_label may unlock holdout improvements despite limited direct support"
+          ],
+          "required_evidence": [
+            "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+            "Overall val AUC improves vs baseline 0.665"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "pseudo_label_from_prior": true,
+                "pseudo_label_confidence_threshold": 0.7,
+                "pseudo_label_unfitted_only": true
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "novel",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "novel",
+        "unsupported_claims": [
+          "pseudo_label may unlock holdout improvements despite limited direct support"
+        ],
+        "required_evidence": [
+          "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+          "Overall val AUC improves vs baseline 0.665"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      }
+    },
+    {
+      "title": "Class coverage fix — resolve 23 unfitted classes",
+      "family": "perch_cached_probe",
+      "hypothesis": "Fixing the 23 unfitted classes will raise val AUC above 0.68 by closing the class coverage gap from 52/75 to 75/75 fitted classes.",
+      "reason": "Required pattern, strongest policy support, 31% coverage deficit is structural blocker. Prior evidence: 52→67 classes gave +0.013 AUC.",
+      "config_path": "BirdCLEF-2026-Codebase/configs/generated/class-coverage-fix-resolve-23-unfitted-classes.yaml",
+      "source_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "priority": 24,
+      "depends_on": [
+        "workitem-perch-baseline"
+      ],
+      "tags": [
+        "perch_cached_probe",
+        "planned",
+        "branch-search",
+        "primary",
+        "grounded"
+      ],
+      "launch_mode": "background",
+      "dedupe_key": "plan:run-0001-perch-baseline:portfolio-run-0001-perch-baseline-perch-cached-probe:02:class-coverage-fix-resolve-23-unfitted-classes",
+      "work_type": "experiment_iteration",
+      "lifecycle_template": "branch_experiment",
+      "target_run_id": "",
+      "stage_plan": [
+        "codegen",
+        "critic",
+        "validate",
+        "execute",
+        "evidence",
+        "report",
+        "research",
+        "decision",
+        "plan",
+        "submission"
+      ],
+      "portfolio_id": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+      "idea_class": "grounded",
+      "branch_role": "primary",
+      "branch_rank": 2,
+      "knowledge_card_ids": [
+        "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+        "imports-kaggle-agent-experiment-conclusions-md-run-0002-0001-perch-probe-full-class-coverage-expansion",
+        "research-run-0001-perch-baseline-md-root-cause-diagnosis",
+        "imports-kaggle-agent-research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed"
+      ],
+      "policy_trace": [
+        "role:primary:8.0"
+      ],
+      "branch_memory_ids": [],
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 17.08,
+        "expected_information_gain": 0.68,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      },
+      "policy_score": 17.08,
+      "expected_information_gain": 0.68,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "grounding_mode": "grounded",
+      "cost_tier": "low",
+      "typing_signature": "grounded|unknown|77db76954fb5",
+      "axis_tags": [
+        "grounded"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "falsification_criterion": "Reject if Class coverage fix — resolve 23 unfitted classes does not improve holdout validation.",
+      "kill_criterion": "Kill the branch if it only changes low-information post-processing.",
+      "avoided_vetoes": [],
+      "pattern_tags": [],
+      "config_overrides": [],
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "grounded|unknown|77db76954fb5",
+        "typing_signature_json": "{\"axis_tags\": [\"grounded\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "grounded|unknown|77db76954fb5",
+          "signature_payload": {
+            "axis_tags": [
+              "grounded"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "grounded"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "idea_class": "grounded",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.68,
+        "cost_tier": "low",
+        "rationale": [
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "primary"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "grounded|unknown|77db76954fb5",
+        "typing_signature_json": "{\"axis_tags\": [\"grounded\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "grounded|unknown|77db76954fb5",
+          "signature_payload": {
+            "axis_tags": [
+              "grounded"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "grounded"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      }
+    }
+  ],
+  "pruned_branches": [
+    {
+      "title": "Class coverage fix — resolve 23 unfitted classes",
+      "branch_role": "primary",
+      "target_component": "class_coverage",
+      "idea_class": "grounded",
+      "status": "kept",
+      "rationale": "Required pattern, strongest policy support, 31% coverage deficit is structural blocker. Prior evidence: 52→67 classes gave +0.013 AUC.",
+      "expected_information_gain": 0.68,
+      "policy_score": 17.08,
+      "pattern_tags": [],
+      "falsification_criterion": "Reject if Class coverage fix — resolve 23 unfitted classes does not improve holdout validation.",
+      "kill_criterion": "Kill the branch if it only changes low-information post-processing.",
+      "avoided_vetoes": [],
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "policy_trace": [
+        "role:primary:8.0"
+      ],
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "grounded|unknown|77db76954fb5",
+        "typing_signature_json": "{\"axis_tags\": [\"grounded\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "grounded|unknown|77db76954fb5",
+          "signature_payload": {
+            "axis_tags": [
+              "grounded"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "grounded"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "grounded|unknown|77db76954fb5",
+        "typing_signature_json": "{\"axis_tags\": [\"grounded\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "grounded|unknown|77db76954fb5",
+          "signature_payload": {
+            "axis_tags": [
+              "grounded"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "grounded",
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "grounded"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Class coverage fix — resolve 23 unfitted classes",
+        "family": "perch_cached_probe",
+        "idea_class": "grounded",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.68,
+        "cost_tier": "low",
+        "rationale": [
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "primary"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 17.08,
+        "expected_information_gain": 0.68,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      },
+      "pruned_reason": "grounded_budget"
+    },
+    {
+      "title": "Label smoothing regularization on probe logits",
+      "branch_role": "hedge",
+      "target_component": "prior_calibration",
+      "idea_class": "conditional",
+      "status": "kept",
+      "rationale": "Lighter regularization than dropout (exp-0011 failure). Targets loss function not architecture. Conditional on coverage fix.",
+      "expected_information_gain": 0.68,
+      "policy_score": 14.08,
+      "pattern_tags": [],
+      "falsification_criterion": "Reject if Label smoothing regularization on probe logits does not improve holdout validation.",
+      "kill_criterion": "Kill the branch if it only changes low-information post-processing.",
+      "avoided_vetoes": [],
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "policy_trace": [
+        "role:hedge:5.0"
+      ],
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "conditional|unknown|64d5edcaba7b",
+        "typing_signature_json": "{\"axis_tags\": [\"conditional\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "conditional|unknown|64d5edcaba7b",
+          "signature_payload": {
+            "axis_tags": [
+              "conditional"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "conditional",
+          "axis_tags": [
+            "conditional"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "conditional"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "conditional",
+        "axis_tags": [
+          "conditional"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "conditional|unknown|64d5edcaba7b",
+        "typing_signature_json": "{\"axis_tags\": [\"conditional\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "conditional|unknown|64d5edcaba7b",
+          "signature_payload": {
+            "axis_tags": [
+              "conditional"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "conditional",
+          "axis_tags": [
+            "conditional"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "conditional"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "conditional",
+        "axis_tags": [
+          "conditional"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "idea_class": "conditional",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.68,
+        "cost_tier": "low",
+        "rationale": [
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "hedge"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-conditiona",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 14.08,
+        "expected_information_gain": 0.68,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      },
+      "pruned_reason": "grounded_budget"
+    },
+    {
+      "title": "Label smoothing regularization on probe logits",
+      "family": "perch_cached_probe",
+      "hypothesis": "Label smoothing (epsilon 0.05-0.1) on probe logits will reduce the 0.327 train/val AUC gap without suppressing gradient signal, unlike heavy dropout which failed in exp-0011.",
+      "reason": "Hedge branch. Conditional prior_calibration policy. Label smoothing targets loss function not architecture, distinct from vetoed probe_head pattern. Must pair with coverage fix to avoid low-information classification. Exp-0011 showed dropout kills gradient signal; label smoothing is a lighter intervention.",
+      "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "source_config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "priority": 20,
+      "depends_on": [],
+      "tags": [
+        "experiment_iteration",
+        "prior_calibration",
+        "hedge_branch",
+        "v2"
+      ],
+      "launch_mode": "background",
+      "dedupe_key": "plan:run-0001:label-smoothing:hedge",
+      "work_type": "ablation_terminal",
+      "branch_role": "hedge",
+      "idea_class": "conditional",
+      "branch_rank": 2,
+      "knowledge_card_ids": [
+        "imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader",
+        "research-run-0001-perch-baseline-md-root-cause-diagnosis"
+      ],
+      "policy_trace": [
+        "role:hedge:5.0"
+      ],
+      "expected_information_gain": 0.84,
+      "falsification_criterion": "Label smoothing does not reduce train/val AUC gap",
+      "kill_criterion": "Train/val gap remains above 0.25 after label smoothing",
+      "grounding_mode": "conditional",
+      "unsupported_claims": [],
+      "required_evidence": [
+        "Train/val AUC gap narrows by at least 0.05",
+        "Val AUC does not regress below 0.665"
+      ],
+      "config_overrides": [
+        {
+          "path": "probe.label_smoothing",
+          "value": 0.1
+        },
+        {
+          "path": "probe.min_samples_per_class",
+          "value": 1
+        },
+        {
+          "path": "probe.rare_class_oversample",
+          "value": true
+        }
+      ],
+      "axis_tags": [
+        "prior_calibration",
+        "class_coverage"
+      ],
+      "change_surface": [
+        "probe.label_smoothing",
+        "probe.min_samples_per_class",
+        "probe.rare_class_oversample"
+      ],
+      "pattern_tags": [
+        "probe_training_change"
+      ],
+      "avoided_vetoes": [],
+      "policy_score": 14.04,
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|1b54839543a7",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"label_smoothing\": 0.1, \"min_samples_per_class\": 1, \"rare_class_oversample\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|1b54839543a7",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "label_smoothing": 0.1,
+                  "min_samples_per_class": 1,
+                  "rare_class_oversample": true
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "conditional",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "conditional",
+          "unsupported_claims": [],
+          "required_evidence": [
+            "Train/val AUC gap narrows by at least 0.05",
+            "Val AUC does not regress below 0.665"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "label_smoothing": 0.1,
+                "min_samples_per_class": 1,
+                "rare_class_oversample": true
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "conditional",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "conditional",
+        "unsupported_claims": [],
+        "required_evidence": [
+          "Train/val AUC gap narrows by at least 0.05",
+          "Val AUC does not regress below 0.665"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+        "typing_signature": "probe_head|model|1b54839543a7",
+        "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"label_smoothing\": 0.1, \"min_samples_per_class\": 1, \"rare_class_oversample\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "probe_head|model|1b54839543a7",
+          "signature_payload": {
+            "axis_tags": [
+              "probe_head"
+            ],
+            "change_surface": [
+              "model"
+            ],
+            "changes": [
+              {
+                "path": "probe",
+                "after": {
+                  "label_smoothing": 0.1,
+                  "min_samples_per_class": 1,
+                  "rare_class_oversample": true
+                }
+              }
+            ],
+            "work_type": "ablation_terminal"
+          },
+          "idea_class": "conditional",
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "pattern_tags": [
+            "probe_training_change"
+          ],
+          "changed_paths": [
+            "probe"
+          ],
+          "change_count": 1,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "conditional",
+          "unsupported_claims": [],
+          "required_evidence": [
+            "Train/val AUC gap narrows by at least 0.05",
+            "Val AUC does not regress below 0.665"
+          ],
+          "cost_tier": "low",
+          "work_type": "ablation_terminal",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "label_smoothing": 0.1,
+                "min_samples_per_class": 1,
+                "rare_class_oversample": true
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "conditional",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "conditional",
+        "unsupported_claims": [],
+        "required_evidence": [
+          "Train/val AUC gap narrows by at least 0.05",
+          "Val AUC does not regress below 0.665"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Label smoothing regularization on probe logits",
+        "family": "perch_cached_probe",
+        "idea_class": "conditional",
+        "grounding_mode": "conditional",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.84,
+        "cost_tier": "low",
+        "rationale": [
+          "structural axis change",
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "hedge"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-label-smoothing-regularization-on-probe-logits-probe-head",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 14.04,
+        "expected_information_gain": 0.84,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "conditional",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      },
+      "pruned_reason": "grounded_budget"
+    },
+    {
+      "title": "Pseudo-label unfitted classes from Bayesian prior",
+      "branch_role": "novel",
+      "target_component": "pseudo_label",
+      "idea_class": "novel",
+      "status": "kept",
+      "rationale": "Novel hypothesis generator recommendation. Bayesian prior val AUC 0.662 provides usable signal. Addresses coverage from data perspective.",
+      "expected_information_gain": 0.68,
+      "policy_score": 9.08,
+      "pattern_tags": [],
+      "falsification_criterion": "Reject if Pseudo-label unfitted classes from Bayesian prior does not improve holdout validation.",
+      "kill_criterion": "Kill the branch if it only changes low-information post-processing.",
+      "avoided_vetoes": [],
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "policy_trace": [
+        "role:novel:0.0"
+      ],
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "novel|unknown|f7d552c24817",
+        "typing_signature_json": "{\"axis_tags\": [\"novel\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "novel|unknown|f7d552c24817",
+          "signature_payload": {
+            "axis_tags": [
+              "novel"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "novel",
+          "axis_tags": [
+            "novel"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "novel"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "novel",
+        "axis_tags": [
+          "novel"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "novel|unknown|f7d552c24817",
+        "typing_signature_json": "{\"axis_tags\": [\"novel\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "novel|unknown|f7d552c24817",
+          "signature_payload": {
+            "axis_tags": [
+              "novel"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "novel",
+          "axis_tags": [
+            "novel"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": false,
+          "requires_override": false,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": true
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "novel"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "novel",
+        "axis_tags": [
+          "novel"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "Pseudo-label unfitted classes from Bayesian prior",
+        "family": "perch_cached_probe",
+        "idea_class": "novel",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.68,
+        "cost_tier": "low",
+        "rationale": [
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": false,
+        "required_patterns_matched": [],
+        "branch_role": "novel"
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-novel-unkn",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 9.08,
+        "expected_information_gain": 0.68,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      },
+      "pruned_reason": "grounded_budget"
+    },
+    {
+      "hypothesis": "Fixing the 23 unfitted classes will raise val AUC above 0.68 by closing the class coverage gap.",
+      "component": "class_coverage",
+      "priority": 1,
+      "status": "testing",
+      "pattern_tags": [],
+      "expected_information_gain": 0.41,
+      "falsification_criterion": "Reject if this branch does not improve holdout validation.",
+      "kill_criterion": "Kill the branch if it only changes low-information post-processing.",
+      "avoided_vetoes": [],
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "idea_class": "general",
+      "branch_role": "explore",
+      "policy_score": 10.46,
+      "policy_trace": [
+        "role:explore:3.0"
+      ],
+      "branch_memory_ids": [],
+      "override_reason": "",
+      "veto_reasons": [
+        "low-information-typing"
+      ],
+      "proposal_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "perch_cached_probe-branch",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "general|unknown|2cc0e35d8a6d",
+        "typing_signature_json": "{\"axis_tags\": [\"general\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "general|unknown|2cc0e35d8a6d",
+          "signature_payload": {
+            "axis_tags": [
+              "general"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "general",
+          "axis_tags": [
+            "general"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": true,
+          "requires_override": true,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "general"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "general",
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": true,
+        "requires_override": true,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "branch_typing": {
+        "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "perch_cached_probe-branch",
+        "family": "perch_cached_probe",
+        "config_path": "",
+        "typing_signature": "general|unknown|2cc0e35d8a6d",
+        "typing_signature_json": "{\"axis_tags\": [\"general\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+        "typing_payload": {
+          "typing_kind": "proposal",
+          "typing_signature": "general|unknown|2cc0e35d8a6d",
+          "signature_payload": {
+            "axis_tags": [
+              "general"
+            ],
+            "change_surface": [
+              "unknown"
+            ],
+            "changes": [],
+            "work_type": "experiment_iteration"
+          },
+          "idea_class": "general",
+          "axis_tags": [
+            "general"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "pattern_tags": [],
+          "changed_paths": [],
+          "change_count": 0,
+          "novelty_score": 1.0,
+          "low_information_flag": true,
+          "requires_override": true,
+          "grounding_mode": "grounded",
+          "unsupported_claims": [],
+          "required_evidence": [],
+          "cost_tier": "low",
+          "work_type": "experiment_iteration",
+          "structural_hint_only": false
+        },
+        "typing_kind": "proposal",
+        "signature_payload": {
+          "axis_tags": [
+            "general"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "general",
+        "axis_tags": [
+          "general"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": true,
+        "requires_override": true,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": false,
+        "created_at": "2026-04-02T22:15:44+00:00"
+      },
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+      "info_gain_estimate": {
+        "estimate_id": "gain-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+        "run_id": "run-0001-perch-baseline",
+        "stage_run_id": "stage-0005-plan",
+        "title": "perch_cached_probe-branch",
+        "family": "perch_cached_probe",
+        "idea_class": "general",
+        "grounding_mode": "grounded",
+        "novelty_score": 1.0,
+        "estimated_gain": 0.41,
+        "cost_tier": "low",
+        "rationale": [
+          "low-information branch surface",
+          "cheap branch"
+        ],
+        "created_at": "2026-04-02T22:15:44+00:00",
+        "low_information_flag": true,
+        "required_patterns_matched": [],
+        "branch_role": ""
+      },
+      "info_gain_estimate_id": "gain-run-0001-perch-baseline-perch-cached-probe-branch-general-un",
+      "cost_tier": "low",
+      "scheduler_hints": {
+        "portfolio_cap": 1,
+        "idea_class_cap": 1,
+        "dispatch_priority": 10.46,
+        "expected_information_gain": 0.41,
+        "novelty_score": 1.0,
+        "low_information_flag": true,
+        "grounding_mode": "grounded",
+        "cost_tier": "low",
+        "cost_units": 1.0,
+        "cost_budget": 0.0,
+        "max_budget_share": 0.0,
+        "cost_caps": {},
+        "smoke_only_first": false,
+        "canary_eval_required": false,
+        "auto_kill_threshold": 0.0
+      },
+      "pruned_reason": "policy_veto"
+    }
+  ],
+  "overridden_branches": [],
+  "policy_trace": [
+    "rule:policy-class-coverage:conditional",
+    "rule:policy-prior-calibration:conditional",
+    "rule:policy-probe-head:conditional",
+    "role:primary:8.0",
+    "role:novel:0.0"
+  ],
+  "branch_typings": [
+    {
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+      "run_id": "run-0001-perch-baseline",
+      "stage_run_id": "stage-0005-plan",
+      "title": "Class coverage fix — resolve 23 unfitted classes",
+      "family": "perch_cached_probe",
+      "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "typing_signature": "probe_head|model|051b8a4d0e47",
+      "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"early_stopping_patience_rare\": 50, \"min_samples_per_class\": 1, \"rare_class_oversample\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+      "typing_payload": {
+        "typing_kind": "proposal",
+        "typing_signature": "probe_head|model|051b8a4d0e47",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "min_samples_per_class": 1,
+                "rare_class_oversample": true,
+                "early_stopping_patience_rare": 50
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [
+          "fitted_class_count reaches 75/75",
+          "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false
+      },
+      "typing_kind": "proposal",
+      "signature_payload": {
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "changes": [
+          {
+            "path": "probe",
+            "after": {
+              "min_samples_per_class": 1,
+              "rare_class_oversample": true,
+              "early_stopping_patience_rare": 50
+            }
+          }
+        ],
+        "work_type": "ablation_terminal"
+      },
+      "idea_class": "grounded",
+      "axis_tags": [
+        "probe_head"
+      ],
+      "change_surface": [
+        "model"
+      ],
+      "pattern_tags": [
+        "probe_training_change"
+      ],
+      "changed_paths": [
+        "probe"
+      ],
+      "change_count": 1,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "requires_override": false,
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [
+        "fitted_class_count reaches 75/75",
+        "val_soundscape_macro_roc_auc improves above 0.665 baseline"
+      ],
+      "cost_tier": "low",
+      "work_type": "ablation_terminal",
+      "structural_hint_only": false,
+      "created_at": "2026-04-02T22:15:44+00:00"
+    },
+    {
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+      "run_id": "run-0001-perch-baseline",
+      "stage_run_id": "stage-0005-plan",
+      "title": "Pseudo-label unfitted classes from Bayesian prior",
+      "family": "perch_cached_probe",
+      "config_path": "BirdCLEF-2026-Codebase/configs/default.yaml",
+      "typing_signature": "probe_head|model|bc08494baf1a",
+      "typing_signature_json": "{\"axis_tags\": [\"probe_head\"], \"change_surface\": [\"model\"], \"changes\": [{\"after\": {\"pseudo_label_confidence_threshold\": 0.7, \"pseudo_label_from_prior\": true, \"pseudo_label_unfitted_only\": true}, \"path\": \"probe\"}], \"work_type\": \"ablation_terminal\"}",
+      "typing_payload": {
+        "typing_kind": "proposal",
+        "typing_signature": "probe_head|model|bc08494baf1a",
+        "signature_payload": {
+          "axis_tags": [
+            "probe_head"
+          ],
+          "change_surface": [
+            "model"
+          ],
+          "changes": [
+            {
+              "path": "probe",
+              "after": {
+                "pseudo_label_from_prior": true,
+                "pseudo_label_confidence_threshold": 0.7,
+                "pseudo_label_unfitted_only": true
+              }
+            }
+          ],
+          "work_type": "ablation_terminal"
+        },
+        "idea_class": "novel",
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "pattern_tags": [
+          "probe_training_change"
+        ],
+        "changed_paths": [
+          "probe"
+        ],
+        "change_count": 1,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "novel",
+        "unsupported_claims": [
+          "pseudo_label may unlock holdout improvements despite limited direct support"
+        ],
+        "required_evidence": [
+          "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+          "Overall val AUC improves vs baseline 0.665"
+        ],
+        "cost_tier": "low",
+        "work_type": "ablation_terminal",
+        "structural_hint_only": false
+      },
+      "typing_kind": "proposal",
+      "signature_payload": {
+        "axis_tags": [
+          "probe_head"
+        ],
+        "change_surface": [
+          "model"
+        ],
+        "changes": [
+          {
+            "path": "probe",
+            "after": {
+              "pseudo_label_from_prior": true,
+              "pseudo_label_confidence_threshold": 0.7,
+              "pseudo_label_unfitted_only": true
+            }
+          }
+        ],
+        "work_type": "ablation_terminal"
+      },
+      "idea_class": "novel",
+      "axis_tags": [
+        "probe_head"
+      ],
+      "change_surface": [
+        "model"
+      ],
+      "pattern_tags": [
+        "probe_training_change"
+      ],
+      "changed_paths": [
+        "probe"
+      ],
+      "change_count": 1,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "requires_override": false,
+      "grounding_mode": "novel",
+      "unsupported_claims": [
+        "pseudo_label may unlock holdout improvements despite limited direct support"
+      ],
+      "required_evidence": [
+        "Pseudo-labeled classes achieve non-random predictions (AUC > 0.5)",
+        "Overall val AUC improves vs baseline 0.665"
+      ],
+      "cost_tier": "low",
+      "work_type": "ablation_terminal",
+      "structural_hint_only": false,
+      "created_at": "2026-04-02T22:15:44+00:00"
+    },
+    {
+      "proposal_typing_id": "proposal-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+      "run_id": "run-0001-perch-baseline",
+      "stage_run_id": "stage-0005-plan",
+      "title": "Class coverage fix — resolve 23 unfitted classes",
+      "family": "perch_cached_probe",
+      "config_path": "",
+      "typing_signature": "grounded|unknown|77db76954fb5",
+      "typing_signature_json": "{\"axis_tags\": [\"grounded\"], \"change_surface\": [\"unknown\"], \"changes\": [], \"work_type\": \"experiment_iteration\"}",
+      "typing_payload": {
+        "typing_kind": "proposal",
+        "typing_signature": "grounded|unknown|77db76954fb5",
+        "signature_payload": {
+          "axis_tags": [
+            "grounded"
+          ],
+          "change_surface": [
+            "unknown"
+          ],
+          "changes": [],
+          "work_type": "experiment_iteration"
+        },
+        "idea_class": "grounded",
+        "axis_tags": [
+          "grounded"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "pattern_tags": [],
+        "changed_paths": [],
+        "change_count": 0,
+        "novelty_score": 1.0,
+        "low_information_flag": false,
+        "requires_override": false,
+        "grounding_mode": "grounded",
+        "unsupported_claims": [],
+        "required_evidence": [],
+        "cost_tier": "low",
+        "work_type": "experiment_iteration",
+        "structural_hint_only": true
+      },
+      "typing_kind": "proposal",
+      "signature_payload": {
+        "axis_tags": [
+          "grounded"
+        ],
+        "change_surface": [
+          "unknown"
+        ],
+        "changes": [],
+        "work_type": "experiment_iteration"
+      },
+      "idea_class": "grounded",
+      "axis_tags": [
+        "grounded"
+      ],
+      "change_surface": [
+        "unknown"
+      ],
+      "pattern_tags": [],
+      "changed_paths": [],
+      "change_count": 0,
+      "novelty_score": 1.0,
+      "low_information_flag": false,
+      "requires_override": false,
+      "grounding_mode": "grounded",
+      "unsupported_claims": [],
+      "required_evidence": [],
+      "cost_tier": "low",
+      "work_type": "experiment_iteration",
+      "structural_hint_only": true,
+      "created_at": "2026-04-02T22:15:44+00:00"
+    }
+  ],
+  "info_gain_estimates": [
+    {
+      "estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-probe-head",
+      "run_id": "run-0001-perch-baseline",
+      "stage_run_id": "stage-0005-plan",
+      "title": "Class coverage fix — resolve 23 unfitted classes",
+      "family": "perch_cached_probe",
+      "idea_class": "grounded",
+      "grounding_mode": "grounded",
+      "novelty_score": 1.0,
+      "estimated_gain": 0.84,
+      "cost_tier": "low",
+      "rationale": [
+        "structural axis change",
+        "cheap branch"
+      ],
+      "created_at": "2026-04-02T22:15:44+00:00",
+      "low_information_flag": false,
+      "required_patterns_matched": [],
+      "branch_role": "primary"
+    },
+    {
+      "estimate_id": "gain-run-0001-perch-baseline-pseudo-label-unfitted-classes-from-bayesian-prior-probe-head",
+      "run_id": "run-0001-perch-baseline",
+      "stage_run_id": "stage-0005-plan",
+      "title": "Pseudo-label unfitted classes from Bayesian prior",
+      "family": "perch_cached_probe",
+      "idea_class": "novel",
+      "grounding_mode": "novel",
+      "novelty_score": 1.0,
+      "estimated_gain": 0.88,
+      "cost_tier": "low",
+      "rationale": [
+        "structural axis change",
+        "novel lane bonus",
+        "cheap branch"
+      ],
+      "created_at": "2026-04-02T22:15:44+00:00",
+      "low_information_flag": false,
+      "required_patterns_matched": [],
+      "branch_role": "novel"
+    },
+    {
+      "estimate_id": "gain-run-0001-perch-baseline-class-coverage-fix-resolve-23-unfitted-classes-grounded-u",
+      "run_id": "run-0001-perch-baseline",
+      "stage_run_id": "stage-0005-plan",
+      "title": "Class coverage fix — resolve 23 unfitted classes",
+      "family": "perch_cached_probe",
+      "idea_class": "grounded",
+      "grounding_mode": "grounded",
+      "novelty_score": 1.0,
+      "estimated_gain": 0.68,
+      "cost_tier": "low",
+      "rationale": [
+        "cheap branch"
+      ],
+      "created_at": "2026-04-02T22:15:44+00:00",
+      "low_information_flag": false,
+      "required_patterns_matched": [],
+      "branch_role": "primary"
+    }
+  ],
+  "scheduler_hints": {
+    "per_portfolio_cap": 1,
+    "per_idea_class_cap": 1,
+    "target_branch_count": 3,
+    "dispatch_strategy": "prefer-diverse-frontier-before-follow-on-support"
+  },
+  "search_envelope": {
+    "family": "perch_cached_probe",
+    "objective_metric": "val_soundscape_macro_roc_auc",
+    "current_best": 0.6649,
+    "target": 0.7,
+    "forbidden_components": [
+      "probe_head"
+    ],
+    "low_information_patterns": [
+      "calibration_only",
+      "blend_only",
+      "temperature",
+      "threshold"
+    ],
+    "turn_id": "stage-0004-decision"
+  },
+  "selected_memory_files": [],
+  "selected_capability_packs": [
+    "veto_checker",
+    "branch_diversifier",
+    "branch_typing_compiler",
+    "novel_hypothesis_generator"
+  ],
+  "open_questions": [
+    "Will fixing the 23 unfitted classes alone close the train/val AUC gap, or does the probe architecture itself need fundamental change?",
+    "Can pseudo-labeling from the Bayesian prior produce reliable labels for the 23 unfitted classes?",
+    "Is label smoothing sufficient to reduce overfitting given the small ~700-window training set?"
+  ],
+  "session_memory": {
+    "current_objective": "Launch multi-branch portfolio for class coverage fix, label smoothing regularization, and pseudo-labeling",
+    "current_leader_run_id": "run-0001-perch-baseline",
+    "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+    "current_leader_metric_value": 0.6649218274358575,
+    "active_portfolios": [
+      "class_coverage_primary",
+      "prior_calibration_hedge",
+      "pseudo_label_novel"
+    ],
+    "top_positive_priors": [
+      "class_coverage: prefer policy, strongest evidence",
+      "prior_calibration: conditional, label smoothing hedge"
+    ],
+    "top_negative_vetoes": [
+      "probe_head: avoid policy, forbidden by veto checker",
+      "calibration_only/blend_only/blend/temperature/threshold: low-information patterns"
+    ],
+    "pending_decisions": [],
+    "updated_at": "2026-04-03T00:00:00Z"
+  },
+  "forbidden_plan_patterns": [],
+  "required_plan_patterns": [],
+  "minimum_information_gain_bar": 0.0,
+  "memory_ops": [
+    {
+      "op": "compile_branch_portfolio",
+      "target": "portfolio-run-0001-perch-baseline-perch-cached-probe",
+      "summary": "Primary branch. Required pattern class_coverage. Strongest policy support (conditional with positive empirical evidence: 52→67 gave +0.013). 31% coverage deficit is the structural blocker blocking all downstream improvements.",
+      "memory_kind": "playbooks",
+      "details": "Compiled 3 branch plans while preserving portfolio constraints.",
+      "reason": "Plan converted decision constraints into executable sibling branches.",
+      "source_stage": "plan",
+      "run_id": "run-0001-perch-baseline",
+      "evidence_ids": [
+        "run-0001-perch-baseline",
+        "imports-kaggle-agent-experiment-conclusions-md-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration",
+        "imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-actionable-guidance"
+      ],
+      "metadata": {
+        "planner_effect": "Use this compiled branch portfolio as the next execution frontier."
+      }
+    }
+  ],
+  "created_at": "2026-04-02T22:15:44+00:00"
+}

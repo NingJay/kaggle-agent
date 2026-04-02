@@ -1,0 +1,14 @@
+{
+  "probe_pca_dim": 32,
+  "probe_min_pos": 8,
+  "probe_c": 0.25,
+  "probe_group_folds": 5,
+  "use_raw_scores": true,
+  "reference_bayesian_pipeline": true,
+  "probe_alpha": 0.4,
+  "fitted_classes": 52,
+  "active_classes": 75,
+  "cache_rows": 708,
+  "full_soundscape_windows": 708,
+  "prior_fusion_macro_roc_auc": 0.4872921815675346
+}

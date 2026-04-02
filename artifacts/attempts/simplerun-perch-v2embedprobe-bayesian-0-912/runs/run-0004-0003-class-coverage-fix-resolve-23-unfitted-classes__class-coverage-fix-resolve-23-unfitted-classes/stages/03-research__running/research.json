@@ -1,0 +1,343 @@
+{
+  "stage": "research",
+  "root_cause": "The class coverage fix resolved 23 unfitted classes (52→71 of 75), yielding a +0.0078 improvement in val_soundscape_macro_roc_auc (0.6649→0.6727). However, 4 classes remain unfitted, and the probe shows a severe train/val gap (train soundscape AUC 0.997 vs val 0.673), indicating overfitting or distribution shift remains the structural bottleneck. The next frontier must address: (1) closing the remaining 4-class coverage gap, (2) regularizing the probe head to reduce the 0.324 train/val AUC gap, and (3) achieving submission bundle parity so the best model can be scored on the leaderboard.",
+  "queries": [
+    "perch probe regularization overfitting train val gap",
+    "submission bundle parity CPU notebook internet off",
+    "close remaining 4 unfitted classes coverage expansion",
+    "probe head architecture regularization dropout weight decay",
+    "embedding level augmentation mixup probe generalization"
+  ],
+  "adopt_now": [
+    "[ADOPT] Submit the current leader run-0004-0003 for scoring. Verdict is submission-required, metric is 0.6727, and bundle parity is the stated objective. Build submission bundle from this code state immediately. (card: experiment-conclusions-md-run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes)",
+    "[ADOPT] Close remaining 4-class coverage gap before any tuning. Coverage expansion is the highest-priority structural improvement per the priority order (card: imports-kaggle-agent-03-next-experiment-priors-md-priority-order). Fitted classes at 71/75 leaves 5% of target unrepresented; every uncovered class drags macro AUC.",
+    "[ADOPT] Prefer grounded idea-class branches. Ledger miner confirms grounded net=+1 (only positive branch), novel net=0, general net=-1 (card: capability_ledger_miner). All future branches should be grounded in the current leader code state. (policy: policy-perch-cached-probe-grounded)"
+  ],
+  "consider": [
+    "[CONSIDER] Probe head regularization to address the 0.324 train/val gap. Options: dropout, weight decay, early stopping, or embedding-level mixup augmentation. The probe_head axis is conditionally supported (policy: policy-probe-head, conf=0.28, override_required). Only pursue as a second branch after submission bundle is built and 4-class gap is closed. (contradiction: exp-0008 mixup augmentation evidence)",
+    "[CONSIDER] Prior fusion calibration as a parallel branch. The prior_fusion_macro_roc_auc is 0.487 on train vs 0.662 on val, confirming the Bayesian prior generalizes well. Blending calibration could squeeze marginal gains, but the prior_calibration axis is conditional (policy: policy-prior-calibration, conf=0.28, override_required). Avoid coupling with coverage changes — round 3 showed that coupling coverage + calibration destabilized fitting (card: imports-kaggle-agent-experiment-conclusions-md-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration).",
+    "[CONSIDER] Domain robustness improvements (axis: preprocessing_aug). If the train/val gap is partially distribution shift rather than pure overfitting, augmenting training audio or adding domain-mixing could help. This is priority 3 in the experiment priority order. Low priority until submission and coverage are resolved."
+  ],
+  "reject": [
+    "[REJECT] Pseudo-labeling unfitted classes from Bayesian prior as a primary strategy. Already tested (run-0003-0002) and produced only +0.00013 delta — effectively flat. (card: experiment-conclusions-md-run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior, memory: memory-0003, outcome=flat)",
+    "[REJECT] Cosmetic post-process sweeps (threshold tuning, temperature scaling alone). These are explicitly deprioritized (priority 6) per experiment rules and the branch typing compiler flags calibration_only, blend_only, temperature, threshold as low-information patterns. (card: imports-kaggle-agent-00-experiment-rules-md-decision-rules, capability: branch_typing_compiler)",
+    "[REJECT] Coupling multiple structural changes in a single code state. Round 3 demonstrated that combining coverage expansion + calibration in one change destabilized probe fitting and collapsed prior fusion. Each structural change must be isolated. (card: imports-kaggle-agent-experiment-conclusions-md-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration)",
+    "[REJECT] Novel idea-class branches as primary. The novel branch (pseudo-label) produced flat results and the policy confidence is only 0.32. Focus portfolio on grounded branches from the leader code state. (policy: policy-perch-cached-probe-novel)"
+  ],
+  "knowledge_files_seen": 8,
+  "positive_priors": [
+    "[PRIOR] grounded branches are net positive (+1) in this family. Always derive from the current leader code state. (policy: policy-perch-cached-probe-grounded, conf=0.50)",
+    "[PRIOR] Class coverage expansion is the highest-yield structural lever. Expanding from 52→71 classes produced +0.0078. Remaining 4 classes should yield additional gains. (card: experiment-conclusions-md-run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes)",
+    "[PRIOR] The Bayesian prior generalizes well (val 0.662 > train 0.487), confirming the probe head is the bottleneck, not the prior. (memory: memory-0001)",
+    "[PRIOR] Prefer structural improvements over cosmetic tuning: class coverage, domain robustness, loss semantics, augmentation design, submission calibration. (card: imports-kaggle-agent-00-experiment-rules-md-decision-rules)",
+    "[PRIOR] Experiment priority order: (1) clean holdout signal, (2) class coverage, (3) domain robustness, (4) ensemble complementarity, (5) submission calibration, (6) cosmetic sweeps. (card: imports-kaggle-agent-03-next-experiment-priors-md-priority-order)"
+  ],
+  "negative_vetoes": [
+    "[VETO] Do not couple multiple structural changes in a single code state. Round 3 showed coverage + calibration coupling collapsed prior fusion from 0.662 to 0.475. (card: imports-kaggle-agent-experiment-conclusions-md-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration)",
+    "[VETO] Do not pursue calibration_only, blend_only, temperature, or threshold-only branches. Branch typing compiler flags these as low-information patterns. (capability: branch_typing_compiler)",
+    "[VETO] Do not use pseudo-labeling as a primary coverage strategy. Tested in run-0003-0002, result was flat (+0.00013). (memory: memory-0003, card: experiment-conclusions-md-run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior)"
+  ],
+  "conditional_leads": [
+    "[CONDITIONAL] Probe head regularization may address the 0.324 train/val gap if pursued as an isolated grounded branch on the leader code state. Policy override required (policy-probe-head, conf=0.28). Test dropout or weight decay without touching coverage or calibration. (contradiction: exp-0008 mixup evidence)",
+    "[CONDITIONAL] Standalone prior fusion calibration could improve ensemble blend if tested in isolation from coverage changes. The prior already generalizes well (val > train). Policy override required (policy-prior-calibration, conf=0.28).",
+    "[CONDITIONAL] If fitted classes still lag after closing the 4-class gap, consider filtering the active class set to match fitted coverage rather than expanding further. (card: imports-kaggle-agent-research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration)"
+  ],
+  "policy_rules": [
+    {
+      "rule_id": "policy-perch-cached-probe-grounded",
+      "component": "grounded",
+      "policy_type": "prefer",
+      "confidence": 0.5,
+      "override_required": false
+    },
+    {
+      "rule_id": "policy-perch-cached-probe-novel",
+      "component": "novel",
+      "policy_type": "conditional",
+      "confidence": 0.32,
+      "override_required": false
+    },
+    {
+      "rule_id": "policy-class-coverage",
+      "component": "class_coverage",
+      "policy_type": "conditional",
+      "confidence": 0.28,
+      "override_required": true
+    },
+    {
+      "rule_id": "policy-prior-calibration",
+      "component": "prior_calibration",
+      "policy_type": "conditional",
+      "confidence": 0.28,
+      "override_required": true
+    },
+    {
+      "rule_id": "policy-probe-head",
+      "component": "probe_head",
+      "policy_type": "conditional",
+      "confidence": 0.28,
+      "override_required": true
+    }
+  ],
+  "policy_cards": [
+    {
+      "rule_id": "policy-perch-cached-probe-grounded",
+      "title": "Grounded",
+      "summary": "grounded has stronger supporting evidence than contradictory evidence.",
+      "confidence": 0.5,
+      "policy_type": "prefer"
+    },
+    {
+      "rule_id": "policy-perch-cached-probe-novel",
+      "title": "Novel",
+      "summary": "novel remains conditional because the evidence is mixed or incomplete.",
+      "confidence": 0.32,
+      "policy_type": "conditional"
+    },
+    {
+      "rule_id": "policy-class-coverage",
+      "title": "Class Coverage",
+      "summary": "class_coverage remains conditional because the evidence is mixed or incomplete.",
+      "confidence": 0.28,
+      "policy_type": "conditional"
+    },
+    {
+      "rule_id": "policy-prior-calibration",
+      "title": "Prior Calibration",
+      "summary": "prior_calibration remains conditional because the evidence is mixed or incomplete.",
+      "confidence": 0.28,
+      "policy_type": "conditional"
+    },
+    {
+      "rule_id": "policy-probe-head",
+      "title": "Probe Head",
+      "summary": "probe_head remains conditional because the evidence is mixed or incomplete.",
+      "confidence": 0.28,
+      "policy_type": "conditional"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim-branch-memory-0002",
+      "component": "grounded",
+      "stance": "positive",
+      "summary": "primary grounded -> improved; val_soundscape_macro_roc_auc=0.672667; delta=+0.007745",
+      "confidence": 0.75
+    },
+    {
+      "claim_id": "claim-branch-memory-0003",
+      "component": "novel",
+      "stance": "conditional",
+      "summary": "novel novel -> flat; val_soundscape_macro_roc_auc=0.665053; delta=+0.000131",
+      "confidence": 0.525
+    },
+    {
+      "claim_id": "claim-seed-imports-kaggle-agent-03-next-experiment-priors-md-perch-probe-lane",
+      "component": "class_coverage",
+      "stance": "conditional",
+      "summary": "If fitted classes lag active classes, expand coverage before micro-tuning.",
+      "confidence": 0.45
+    },
+    {
+      "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration",
+      "component": "prior_calibration",
+      "stance": "positive",
+      "summary": "Round 3 coupled coverage+calibration, destabilized probe fitting, prior fusion collapsed 0.662->0.475.",
+      "confidence": 0.45
+    }
+  ],
+  "branch_memories": [
+    {
+      "memory_id": "memory-0002",
+      "run_id": "run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+      "outcome": "improved",
+      "idea_class": "grounded",
+      "metric_value": 0.672667,
+      "metric_delta": 0.007745,
+      "signal_score": 2
+    },
+    {
+      "memory_id": "memory-0001",
+      "run_id": "run-0001-perch-baseline",
+      "outcome": "regressed",
+      "idea_class": "",
+      "metric_value": 0.664922,
+      "metric_delta": -0.007778,
+      "signal_score": -1.8
+    },
+    {
+      "memory_id": "memory-0003",
+      "run_id": "run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+      "outcome": "flat",
+      "idea_class": "novel",
+      "metric_value": 0.665053,
+      "metric_delta": 0.000131,
+      "signal_score": 0.5
+    }
+  ],
+  "branch_memory_ids": [
+    "memory-0002",
+    "memory-0001",
+    "memory-0003"
+  ],
+  "contradictions": [
+    {
+      "rule_id": "policy-class-coverage",
+      "component": "class_coverage",
+      "type": "conditional_rule_has_counterevidence",
+      "summary": "class_coverage remains conditional. Counterevidence: exp-0001-perch-probe-full-class-coverage-expansion."
+    },
+    {
+      "rule_id": "policy-prior-calibration",
+      "component": "prior_calibration",
+      "type": "conditional_rule_has_counterevidence",
+      "summary": "prior_calibration remains conditional. Counterevidence: exp-0002 round 3 coupling caused regression."
+    },
+    {
+      "rule_id": "policy-probe-head",
+      "component": "probe_head",
+      "type": "conditional_rule_has_counterevidence",
+      "summary": "probe_head remains conditional. Counterevidence: exp-0008 mixup augmentation."
+    }
+  ],
+  "constraints": [],
+  "selected_memory_files": [],
+  "selected_capability_packs": [
+    "veto_checker",
+    "ledger_miner",
+    "branch_typing_compiler"
+  ],
+  "capability_results": {
+    "veto_checker": {
+      "forbidden_patterns": [],
+      "override_required_components": [],
+      "active_veto_rules": []
+    },
+    "ledger_miner": {
+      "top_components": [
+        {
+          "component": "grounded",
+          "positive": 1,
+          "negative": 0,
+          "net": 1
+        },
+        {
+          "component": "novel",
+          "positive": 0,
+          "negative": 0,
+          "net": 0
+        },
+        {
+          "component": "general",
+          "positive": 0,
+          "negative": 1,
+          "net": -1
+        }
+      ],
+      "repeated_failures": [],
+      "strong_components": [
+        "grounded"
+      ]
+    },
+    "branch_typing_compiler": {
+      "supported_axis_tags": [
+        "backbone",
+        "class_coverage",
+        "data_filtering",
+        "optimization",
+        "preprocessing_aug",
+        "prior_calibration",
+        "probe_head",
+        "pseudo_label"
+      ],
+      "low_information_patterns": [
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "calibration",
+        "prior",
+        "temperature",
+        "threshold"
+      ],
+      "forbidden_patterns": [],
+      "required_patterns": [],
+      "minimum_information_gain_bar": 0
+    }
+  },
+  "session_memory": {
+    "current_objective": "Submission bundle parity and probe overfitting mitigation",
+    "current_leader_run_id": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+    "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+    "current_leader_metric_value": 0.6726994510451058,
+    "top_positive_priors": [
+      "grounded: grounded has stronger supporting evidence than contradictory evidence.",
+      "class_coverage expansion: +0.0078 from 52→71 fitted classes.",
+      "Bayesian prior generalizes well: val 0.662 > train 0.487."
+    ],
+    "top_negative_vetoes": [
+      "Do not couple structural changes.",
+      "Do not pursue low-information cosmetic sweeps.",
+      "Do not use pseudo-labeling as primary strategy."
+    ],
+    "unresolved_questions": [
+      "What is the best probe regularization strategy to close the 0.324 train/val gap?",
+      "Can the remaining 4 unfitted classes be covered without pseudo-labeling?"
+    ],
+    "current_bottlenecks": [
+      "Severe train/val gap (0.997 vs 0.673) in probe head.",
+      "4 classes remain unfitted out of 75 active.",
+      "Submission bundle not yet built."
+    ],
+    "pending_decisions": [
+      "Choose next perch_cached_probe branch portfolio composition."
+    ],
+    "updated_at": "2026-04-02T22:23:33+00:00"
+  },
+  "open_questions": [
+    "What regularization approach best addresses the 0.324 train/val probe gap without destabilizing fitted classes?",
+    "Can the 4 remaining unfitted classes be covered through data expansion, or do they require class filtering?",
+    "Does the leaderboard score confirm the 0.6727 validation signal, or is there a submission-time distribution shift?"
+  ],
+  "retrieval_queries_next_turn": [
+    "submission bundle build CPU notebook",
+    "probe regularization dropout early stopping birdclef",
+    "remaining unfitted classes data expansion strategy"
+  ],
+  "hypothesis_backlog": [
+    {
+      "hypothesis_id": "h-close-4-class-gap",
+      "axis": "class_coverage",
+      "description": "Close remaining 4-class coverage gap through targeted data expansion for the unfitted species.",
+      "expected_delta": "+0.002 to +0.005",
+      "priority": 1,
+      "idea_class": "grounded"
+    },
+    {
+      "hypothesis_id": "h-probe-regularization",
+      "axis": "probe_head",
+      "description": "Add dropout or weight decay to probe head to reduce train/val gap from 0.324.",
+      "expected_delta": "+0.005 to +0.015 if gap is overfitting",
+      "priority": 2,
+      "idea_class": "grounded"
+    },
+    {
+      "hypothesis_id": "h-prior-fusion-calibration",
+      "axis": "prior_calibration",
+      "description": "Optimize blend ratio between learned probe and Bayesian prior in isolation.",
+      "expected_delta": "+0.001 to +0.003",
+      "priority": 3,
+      "idea_class": "grounded"
+    }
+  ],
+  "memory_ops": [],
+  "knowledge_card_ids": [
+    "experiment-conclusions-md-run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+    "imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-actionable-guidance",
+    "imports-kaggle-agent-03-next-experiment-priors-md-perch-probe-lane",
+    "experiment-conclusions-md-run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "imports-kaggle-agent-03-next-experiment-priors-md-priority-order",
+    "imports-kaggle-agent-experiment-conclusions-md-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration",
+    "imports-kaggle-agent-00-experiment-rules-md-decision-rules",
+    "imports-kaggle-agent-research-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration-md-run-0002-0001-perch-probe-iteration-class-coverage-verification-and-calibration"
+  ]
+}

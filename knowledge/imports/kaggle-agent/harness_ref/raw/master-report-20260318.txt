@@ -1,0 +1,529 @@
+BirdCLEF 2026 — Master Experiment Report
+BirdCLEF 2026 — Master Experiment Report
+Generated 2026-03-18 | Macro ROC-AUC · 234 species · Pantanal soundscapes
+| Live Update
+Best LB: 0.893
+2 Experiments Running
+Table of Contents
+1. Competition Overview & Dataset
+2. Current Best Results
+3. Experiment History (All Phases)
+4. BirdCLEF 2025 Top Solutions Analysis
+5. Technique Adoption: 2025 vs Our Pipeline
+6. Running & Queued Experiments
+7. Recommendations & Roadmap
+8. Known Issues & Key Decisions
+1 Competition Overview & Dataset
+234
+Target Species
+35,549
+Train Audio Files
+66
+Train Soundscapes
+0.893
+Current Best LB
+0.9467
+Best Holdout AUC
+5s
+Clip Duration
+Dataset Summary
+Competition BirdCLEF 2026 — Kaggle
+Task Multi-label species detection from soundscapes
+Test domain Pantanal (Brazil) soundscape recordings
+Metric Macro-averaged ROC-AUC over 234 species
+Inference constraint Kaggle Notebook (~9h GPU)
+Train audio 35,549 files — 206 / 234 species covered
+Train soundscapes 66 recordings · 1,478 labeled 5s clips
+After nohuman filter 739 / 1,478 clips retained (50%)
+Val split strategy 20% soundscapes held out (≥2026-03-16, leak-free)
+Taxonomy Breakdown (234 species)
+Aves 162 (69%)
+Amphibia 35 (15%)
+Insecta 28 (12%)
+Mammalia 8 (3%)
+Reptilia 1 (<1%)
+Species with train audio 206 / 234 (88%)
+Species in soundscapes 75 / 234 (32%)
+Non-bird species 72 / 234 (31%) — underrepresented in clips
+Avg labels per soundscape clip 4.22 species
+Perch pseudo labels (r5) 1,176 soundscape clips × 234 soft probs
+Key challenge: test set is Pantanal soundscapes (multi-label, multi-taxa) while most training data are individual-species curated recordings.
+Pipeline Architecture
+Raw Audio (32kHz)
+→
+GPU Mel Transform
+n_fft=2048, hop=512, 224 mels
+→
+EfficientNet-B0
+tf_efficientnet_b0.ns_jft_in1k
+→
+GEMFreqPool + AttentionSEDHead
+→
+clip_logits + frame_logits
+Dual loss supervision
+Perch TFLite (3×)
++
+SED Model (soup)
++
+Tricks T1/T2/T3
+→
+Final Ensemble (LB 0.893)
+2 Current Best Results
+Current best submission: ensemble-v5-public-trick → LB 0.893
+Perch TFLite × 3 modes (pseudo + soundscape + embedding) + SED-v5 (BCE dual loss) + competitor + Tricks T1/T2/T3.
+Replacing v5 with the stronger v9-asl-soup (holdout 0.9467) decreased LB to 0.892. Holdout AUC ≠ LB proxy.
+Leaderboard Scoreboard
+★
+ensemble-v5-public-trick (current best)
+Perch×3 + SED-v5 (BCE dual) + competitor + Tricks T1/T2/T3
+0.893
+LB
+2
+ensemble-v9-asl-soup
+Perch×3 + SED-v9 (ASL soup) + competitor + Tricks T1/T2/T3
+0.892
+LB
+3
+sed-b0-v9-asl-soup (single SED)
+ASL (γ⁻=4, γ⁺=0) + dual loss + pseudo r5 + soundscapes. Model soup top-3.
+0.9467
+Holdout
+—
+sed-b0-v5 (BCE baseline)
+B0 ns_jft, GEMFreqPool, AttentionSED, BCE dual loss, soundscape val
+0.9192
+Holdout
+—
+nohuman-label-pseudo (Perch head)
+Perch label_head + pseudo labels round5. Best teacher model.
+0.9748
+Val AUC
+Submission threshold: Only submit a new SED ensemble if individual SED holdout AUC > 0.9193 (v5 benchmark).
+v9-asl-soup currently holds the record at 0.9467 but didn't improve LB when substituted.
+The gap suggests Perch already covers the species the SED model improves on.
+3 Experiment History (All Phases)
+Phase 0 — Perch Teacher Models (TF/Keras)
+Experiment Val AUC Key Technique Status Notes
+nohuman-embedding-soundscape
+0.9537
+Perch embedding + MLP head, embedding_head mode
+Done
+Perch embedding baseline
+nohuman-label-soundscape-train
+0.9535
+Perch label_head, trained on labeled soundscapes, holdout 0.9550
+Done
+Teacher for distillation
+nohuman-label-pseudo
+0.9748
+Perch label_head + pseudo labels round5
+Done
+Best Perch head — primary teacher model
+Phase 0 — Ensemble Submissions
+Experiment LB Score Components Notes
+ensemble-v5-public-trick
+0.893
+Perch TFLite×3 + SED-v5 + competitor + Tricks T1/T2/T3
+CURRENT BEST — do not replace unless holdout > 0.9193
+ensemble-v9-asl-soup
+0.892
+Perch TFLite×3 + SED-v9-soup + competitor + Tricks T1/T2/T3
+Submitted 2026-03-17. v9 holdout=0.9532 but LB ↓0.001. Holdout ≠ LB proxy.
+Phase 1 — SED Baseline (EfficientNet-B0)
+Experiment Val AUC Holdout AUC Key Diff Status
+sed-b0-v3
+0.6234 —
+B0 + focal loss, early prototype
+Abandoned
+sed-b0-v5
+0.7527
+0.9192
+ns_jft_in1k, GEMFreqPool, AttentionSED, BCE dual loss, soundscape val
+Done
+sed-b0-v6-soup
+0.7163
+0.7725
+v5 + pseudo labels round1; soup top-3
+Done
+sed-v2s-v1-soup
+0.7012
+0.7980
+EfficientNet-V2S backbone (larger)
+Done
+Phase 2 — Ablations (Loss / Augmentation)
+Experiment Val AUC Holdout AUC vs v5 Holdout Key Diff
+sed-b0-v9-asl
+0.7755
+0.9467
++0.027
+ASL loss (γ⁻=4, γ⁺=0, clip=0.05) + pseudo r5
+sed-b0-v10-cutmix
+0.7060
+0.9391
++0.020
+CutMix augmentation, mixup=0 (likely overfitting: best@ep2)
+sed-b0-v11-soft-sec
+0.7097
+0.9359
++0.017
+Secondary labels as soft weight 0.5, masked gradient
+sed-b0-v12-bce
+0.7263
+0.9079
+−0.011
+Plain BCE (no dual loss) — shows dual loss helps
+sed-b0-v13-asl-cutmix
+0.7467
+0.8972
+−0.022
+ASL + CutMix combined — worse than ASL alone
+sed-b0-v15-no-sec
+0.6842
+0.9176
+−0.002
+No secondary labels, in_chans=1, distill backbone warmstart
+Phase 3 — SED-P (PCEN Variant)
+Experiment Val AUC Holdout AUC Notes
+sedp-b0-v2-fusion
+0.7453
+0.6737
+PCEN caused catastrophic holdout collapse. PCEN + trainable PCEN + ASL + dual loss. Val looked OK but holdout crashed from 0.92 → 0.67. PCEN confirmed harmful.
+Phase 8 — Embedding Distillation (Perch → EfficientNet)
+Experiment Best Cosine in_chans Loss Notes
+embed-distill-b0-v1 0.6202 1 Cosine
+Baseline distill; early stop ep22
+embed-distill-b0-v2 0.6283 3 Cosine
+Best: in_chans=3 (ImageNet convention) slightly better
+embed-distill-b0-v3 0.5293 1 InfoNCE
+Contrastive loss underperformed
+embed-distill-b0-v4 0.5460 1 Cosine + heavy aug
+Double masks + mixup + noise = overaugmented
+embed-distill-b2-v1 0.5868 (ep3) 1 Cosine
+Running Chain4 backbone comparison
+4 BirdCLEF 2025 Top Solutions Analysis
+Context: BirdCLEF 2025 covered 206 species from Colombia. Strict 90-minute CPU inference constraint.
+Top private LB scores estimated in the 0.89–0.92 range. The techniques below were used across multiple medal-winning solutions.
+4.1 Model Architectures Used
+Primary Backbones (by frequency)
+1st choice EfficientNetV2-B2 / B3 — dominant; 3-channel ImageNet input
+2nd choice ECA-NFNet-L0 — strong ensemble component, often teacher
+3rd choice SE-ResNeXt26t_32x4d — competitive SED backbone
+4th choice ConvNeXtV2 — used in blended ensembles
+Baseline EfficientNet-B0 — still competitive with GeM pooling
+Transformer MLDecoder head (8th place) — multi-label transformer decoder
+SED Architecture (Universal Pattern)
+Output heads clipwise_output + framewise_output (dual)
+Inference prediction (clip + max_frame) / 2
+Pooling GeM (Generalized Mean) > Global Average
+Feature extraction Multi-scale: layers 3 + 4
+Model soup Average last N epoch checkpoints (e.g., ep 10–14)
+EMA Exponential Moving Average of weights during training
+4.2 Audio Processing Parameters
+Standard Config
+Sample rate 32,000 Hz
+Mel bins 128 (most common) / 192 (8th place)
+FFT size 2,048
+Hop length 512
+Freq range 40–14,000 Hz (or 20–16,000 Hz)
+Clip Config
+Train duration 5s (standard) / 10s (some)
+Normalization Log-amplitude + Z-score
+Short audio Cyclic / constant padding
+Segment selection RMS-based (highest energy window)
+Input channels 3 (ImageNet normalization convention)
+Inference
+Window stride 5s (non-overlapping)
+Temporal smooth 20% prev / 60% cur / 20% next
+TTA Circular shift (some)
+Post-process Power transform for tail species
+Nohuman Silero VAD (threshold 0.3)
+4.3 Loss Functions
+What Worked
+FocalBCE hybrid
+BCE (w=0.61) + Focal (w=1.39, α=0.25, γ=2.0) — widely used
+BCEWithLogitsLoss
+Outperformed FocalLoss alone in some ablations
+ASL Loss
+Asymmetric (γ⁻=4, γ⁺=0, clip=0.05) — our best at +0.027 holdout
+Dual output loss
+clip_loss + frame_loss equally weighted (0.5/0.5) — universal
+Label smoothing
+0.005 (very light); secondary labels weighted at 0.5
+KD (MLDLoss)
+KL-divergence distill: 0.1×BCE + 0.9×MLD — 8th place
+What Didn't Work
+FocalLoss alone
+BCE hybrid consistently outperformed pure focal
+OneCycleLR
+Performed poorly — CosineAnnealingLR preferred
+High mixup alpha
+Limited impact beyond α=0.5 in most ablations
+PCEN (our finding)
+Catastrophic holdout collapse (0.9271 → 0.6737) in our sedp-b0-v2. Not reported as harmful in 2025 solutions — may depend on implementation.
+4.4 Data Augmentation Stack
+Universal (all top solutions)
+✅ SpecAugment — time + freq masking (15% ratio, 2 masks)
+✅ Mixup — α=0.3–0.5 at 50% probability
+✅ Gaussian noise — std 0.005–0.025
+✅ Gain randomization — ±12 dB range
+✅ Cyclic shift — temporal invariance
+Commonly Adopted
+🔄 Background noise mixing — SNR 5–20 dB field recordings
+🔄 SuMix / CutMix — additive blend at 50% prob
+🔄 Pink noise — realistic ambient noise injection
+🔄 RandomErasing — p=0.4, scale 0.02–0.33
+🔄 RandAugment — 2 ops, magnitude 9
+Advanced (8th place+)
+🔷 Filter augmentation — random freq-domain band factors
+🔷 Pitch shifting — waveform-level augmentation
+🔷 Time stretching — slow/speed up audio
+🔷 RMS-based selection — pick highest-energy segment
+🔷 SWA / EMA — stochastic weight averaging
+4.5 Pseudo Labels & Knowledge Distillation
+Pseudo Label Strategy (Universal)
+Teacher generates predictions On unlabeled soundscapes (20s windows)
+Inference formula (clip_out + max_frame_out) / 2
+Threshold 0.4 (hard binary labels)
+Rounds 3–5 rounds (iterative self-training)
+Integration Concatenate with ground-truth data
+Our status 5 rounds complete (round5_pseudo.csv: 1,176 clips)
+Knowledge Distillation (8th Place — MLDLoss)
+Teacher ECA-NFNet-L0 (w=0.3) + EfficientNetV2-B3 (w=0.7)
+Student EfficientNet-B0
+Distill loss MLDLoss (KL divergence) — clip AND frame level
+Combined loss 0.1 × BCE_label + 0.9 × MLD_distill
+Frame-level KD Teacher frame outputs at threshold 0.4 → hard frame targets
+Our v24 Queued — Perch soft probs as BCE targets (true soft KD)
+4.6 Multi-Year External Pretraining
+Key finding from 8th place: Pretraining the SED model on BirdCLEF 2021–2024 combined datasets
+before fine-tuning on 2025 data gave a significant boost, especially for rare/endangered species.
+This is currently NOT in our pipeline — represents one of the largest untapped improvements.
+Multi-Year Data Strategy
+BirdCLEF 2021–2024 combined
+→
+SED Pretrain
+→
+BirdCLEF 2026 fine-tune
+→
+KD + pseudo labels
+→
+Final Model
+Benefit: dramatically increases coverage for the ~28 species with fewer than 10 training recordings.
+BirdCLEF 2024 and 2025 datasets overlap significantly with 2026 species.
+5 Technique Adoption: 2025 vs Our Pipeline
+● Fully adopted
+● Partially / in progress
+● Not yet adopted
+● Tried — harmful/failed
+● SED Dual Loss Architecture
+AttentionSEDHead with clip + frame dual outputs. Loss = 0.5×clip + 0.5×frame. Universal in 2025 top solutions.
+v5 baseline uses this. Proven +holdout vs clip-only (v12: −0.011 without).
+● GeM Frequency Pooling
+Generalized Mean pooling (p=3.0 trainable) over frequency axis. Better than GlobalAveragePool for spectrograms.
+Enabled since v5. use_gem=True in all configs.
+● ASL Loss
+Asymmetric Loss (γ⁻=4, γ⁺=0, clip=0.05). Focuses gradient on hard negatives — ideal for severe class imbalance in multi-label bird detection.
+v9: +0.027 holdout AUC vs v5 BCE. Best single technique found.
+● Model Soup (Checkpoint Avg)
+Average top-k checkpoint weights. Smooths loss landscape, reduces overfitting. Consistent +0.01–0.02 holdout improvement.
+save_topk_checkpoints=3 in all configs. soup scripts in scripts/model_soup.py.
+● Pseudo Labels (Multi-Round)
+Perch teacher generates predictions on unlabeled soundscapes → filter by threshold → add as extra training data. 5 rounds completed.
+round5_pseudo.csv: 1,176 soundscape clips. Used in v9, v23, v24.
+● Nohuman Filtering (Silero VAD)
+Remove soundscape clips containing human speech. Silero VAD threshold 0.3. Universally beneficial in 2025 solutions.
+Applied to all soundscape validation data. 739/1,478 clips retained.
+● Perch as Teacher/Ensemble
+Google Perch TFLite used in 3 modes: pseudo-label teacher, soundscape embedding, direct classifier head. Boosts coverage for non-bird taxa.
+Core of LB 0.893 ensemble. Best Perch head: val AUC 0.9748 (nohuman-label-pseudo).
+● SpecAugment
+Time masking (15% ratio, 2 masks) + frequency masking (param=30). Prevents overfitting to specific temporal/spectral patterns.
+Enabled in all training configs since v5.
+● Mixup
+Linear interpolation of audio waveforms + labels. Regularizes decision boundaries, helps rare species.
+mixup_alpha=0.5 in most configs. v22 tests alpha=0.0 (ablation).
+● GPU Mel Transform
+torchaudio MelSpectrogram on GPU (60× faster than CPU librosa). Enables real-time augmentation on raw waveforms.
+use_gpu_mel=True. yield_raw_audio mode in MelClipDataset.
+● Cosine LR + Warmup
+CosineAnnealingLR with 3-epoch warmup. 2025 solutions confirmed OneCycleLR performs poorly.
+scheduler=cosine, warmup_epochs=3 in all configs.
+● Soft Pseudo Labels / True KD
+Use teacher's full probability vector (soft targets) instead of hard 0/1 labels. Transfers calibrated uncertainty and species co-occurrence.
+v23 uses hard labels (pseudo augmentation). v24 queued: soft Perch 234-dim probs as direct BCE targets.
+● Circular Shift Augmentation
+Randomly shift audio by a fraction of clip length. Enforces temporal invariance — especially useful for soundscapes.
+circ_shift_prob=0.5 added in v23+. Not yet in v21/v22.
+● Larger Mel Resolution
+2025 top solutions used n_fft=2048, n_mels=128–192. Higher resolution captures fine spectral detail.
+We use n_fft=2048, n_mels=224 (above average). Not ablated independently yet.
+● Quality Filtering (min_rating)
+Filter training data to min_rating ≥ 3.0 for high-quality recordings. Trade-off: data volume vs quality.
+v21 (running): min_rating=3.0. v16 with warm-start: holdout dropped to 0.8227. Mixed results.
+● Temporal Smoothing at Inference
+Weight adjacent 5s windows: 20% prev + 60% current + 20% next. Reduces single-frame noise in soundscape predictions.
+Not explicitly implemented in current SED inference. Perch ensemble uses simple 5s stride.
+● Multi-Year Pretraining
+HIGH PRIORITY
+Pretrain SED on BirdCLEF 2021–2024 combined data before fine-tuning on 2026. Critical for rare species with <10 training recordings.
+Not yet implemented. Requires downloading 2021–2024 datasets and taxonomy mapping. Could be highest-impact remaining improvement.
+● Larger Backbones (V2-B3 / NFNet)
+IN QUEUE
+EfficientNetV2-B3 or ECA-NFNet-L0 as primary backbone. 2025 dominant choice. Larger capacity helps with 234-class problem.
+Chain4: B2 and B4 via embed-distill + head pipeline. B2 currently running (embed-distill-b2-v1, ep3: 0.5868).
+● Background Noise Augmentation
+Mix training clips with background field recordings at SNR 5–30 dB. Simulates soundscape conditions, reduces domain gap.
+noise_dir param exists in MelClipDataset but set to null. Requires a background noise corpus (e.g., ESC-50, field recordings).
+● RMS-Based Segment Selection
+Among multiple crop windows, choose the highest-energy segment. More likely to contain the foreground species.
+Currently random_crop() for training. Would need to add RMS scoring per window. Low implementation cost.
+● SWA / EMA Weights
+Stochastic Weight Averaging or Exponential Moving Average of model weights. Complements model soup — smoother loss basin navigation.
+Model soup is our current approximation. True SWA/EMA would be additive benefit.
+● Frame-Level KD Supervision
+Teacher's frame-level predictions used as hard targets for student frame outputs. 8th place used teacher frame outputs at threshold 0.4.
+Our dual loss supervises frames with clip-level labels. Frame-level KD from Perch would be additive.
+● PCEN (Per-Channel Energy Norm)
+Learnable adaptive gain normalization. Theoretically improves SNR for weak bird calls. Used by some 2025 solutions without issue.
+sedp-b0-v2-fusion: holdout collapsed 0.9271 → 0.6737 (−0.25!). Avoid until root cause understood. v23 tests PCEN again in different context.
+● CutMix
+Paste random patches between two spectrograms. Successful in image classification but mixed results for audio.
+v10: holdout 0.9391 but best at ep2 → overfitting. v13 (ASL+CutMix): holdout 0.8972 (−0.050 vs ASL alone). CutMix not recommended.
+● InfoNCE / Contrastive Loss
+NT-Xent contrastive loss for embedding distillation. Theoretically learns more discriminative representations.
+embed-distill-b0-v3: cosine sim 0.529 vs 0.628 for standard cosine loss. Batch negatives don't generalize well here.
+6 Running & Queued Experiments
+GPU 0 — Currently Running
+v21 (Ep 3/30)
+→ done →
+v22 (queued)
+Name sed-b0-v21-dual-rating3
+Loss BCE dual (clip=0.5 + frame=0.5)
+Rating filter min_rating = 3.0 (quality gate)
+Val AUC (ep3) 0.6823
+Speed ~14 min/epoch → ~6h total
+Question Does quality filtering help dual-loss setup?
+GPU 1 — Currently Running
+v23 (Ep 2/30)
+→ done →
+v24 (queued)
+Name sed-b0-v23-perch-asl-aug
+Loss ASL (γ⁻=4, γ⁺=0) dual loss
+Extra data Perch r5 pseudo (hard labels, 1,168 clips)
+PCEN Enabled (trainable) — first test of this combo
+Val AUC (ep2) 0.7247
+Speed ~21 min/epoch → ~9.5h total
+GPU 0 — Next: v22
+Name sed-b0-v22-dual-noclipmix
+Loss BCE dual loss
+Key diff mixup_alpha = 0.0 (mixup disabled)
+Purpose Ablation: does mixup help dual-loss setup?
+Baseline v5 (same but mixup=0.5)
+Expected start ~6h from now
+GPU 1 — Next: v24
+Name sed-b0-v24-soft-pseudo
+Loss ASL dual loss
+Key diff Soft Perch probabilities as KD targets — 234-dim float32 vectors
+Purpose True knowledge distillation vs v23 hard labels
+Code status SoftPseudoSoundscapeDataset implemented ✓
+Expected start ~9.5h from now
+Full Experiment Queue (All Planned)
+Phase Experiment Priority Key Technique Status
+8-NewExp sed-b0-v21-dual-rating3 Medium Dual BCE + min_rating=3.0 Running GPU0
+8-NewExp sed-b0-v22-dual-noclipmix Medium Dual BCE, no mixup ablation Queued GPU0
+8-NewExp sed-b0-v23-perch-asl-aug High ASL + Perch pseudo + PCEN + circ_shift Running GPU1
+8-NewExp sed-b0-v24-soft-pseudo High ASL + soft Perch KD (234-dim) Queued GPU1
+9-BackboneCmp embed-distill-b2-v1 Medium B2 backbone distill Running
+9-BackboneCmp sed-b2-v1-distill-head Medium Head-only SED with frozen B2 After B2 distill
+9-BackboneCmp embed-distill-b4-v1 Low B4 backbone distill Planned
+9-BackboneCmp embed-distill-convnext-v1 Low ConvNeXt-Tiny backbone Planned
+5-Distill distill-b0-v1 Medium Perch→B0 full distillation (1,176 clips) Planned
+4-GeoFilter geo-ss_soft-sf0.10 Low Soundscape-only geo mask post-proc Planned
+7 Recommendations & Roadmap
+Immediate priority: Let v21–v24 complete and evaluate. The v23/v24 pair directly tests whether Perch pseudo labels + ASL + soft KD can push holdout beyond 0.9467 (current record). If v23 ≥ 0.95 holdout, it warrants a new ensemble submission.
+Ranked Recommendations (from 2025 insights)
+[1] Evaluate v23 + v24 Results — Decide Next Ensemble
+If v23 or v24 holdout AUC > 0.9193: rebuild ensemble substituting it for v5. Use soup of top-3 checkpoints.
+v23 (ASL + Perch hard pseudo + PCEN) early signal: val=0.7247 at ep2 > v9 val=0.7755 at ep1 (v9 ended at 0.7755). Watch if PCEN derails holdout again.
+[2] Add Background Noise Augmentation
+Download a background noise corpus (ESC-50, BirdCLEF 2025 unlabeled soundscapes, or raw field recordings).
+Set noise_dir in config. Expected: reduces soundscape domain gap.
+Implementation already exists — just needs a noise corpus. Low effort, potentially high impact.
+[3] Multi-Year Pretraining (BirdCLEF 2021–2024)
+Download BirdCLEF 2024/2025 train_audio data. Create a unified taxonomy mapping for overlapping species.
+Pretrain B0 SED on 2021–2024 → fine-tune on 2026 data. Critical for rare/endangered species (<10 recordings).
+8th place 2025 solution attributed significant improvement to this step. Highest potential ROI.
+[4] RMS-Based Segment Selection
+Replace random_crop with energy-based crop selection. Score each 5s window by RMS,
+select top-scoring window with probability proportional to energy. Low implementation cost (~10 lines).
+Helps for recordings with long silences between bird calls.
+[5] Temporal Smoothing at Inference
+For soundscape inference, weight each 5s prediction as 20% previous + 60% current + 20% next window.
+Reduces single-frame false positives. Add to SED inference code and submission notebooks.
+[6] Larger Backbone (V2-B3 or NFNet) — After Chain4
+If embed-distill-b2/b4 shows > 0.640 cosine similarity, train full SED with that backbone.
+EfficientNetV2-B3 was the dominant 2025 architecture. Consider training from ImageNet without distill warmup,
+directly fine-tuning on 2026 data with ASL + dual loss.
+[7] Full Perch KD with Frame-Level Supervision
+Extend v24 concept: use Perch's frame-level probability outputs (not just clip-level) as student frame supervision.
+8th place 2025 used teacher frame outputs at threshold 0.4 as hard frame targets.
+Requires extracting Perch frame-level predictions (currently only saving clip-level probs in round5_pseudo.csv).
+[8] Investigate PCEN Root Cause
+PCEN worked in some 2025 solutions but catastrophically failed in our sedp-b0-v2-fusion.
+Hypothesis: our trainable PCEN may have overfitting to soundscape normalization patterns not present in holdout.
+v23 re-tests PCEN — if holdout collapses again, disable permanently. If it holds, the culprit may be
+something else in sedp-v2 (e.g., LLRD, AMP fp16, a different mel config).
+8 Known Issues & Key Decisions
+Confirmed Findings
+ASL Loss is the best single technique
++0.027 holdout AUC vs BCE. No other single change matched this. ASL should be in all serious experiments.
+Dual loss helps (+0.011 holdout vs clip-only)
+v5 (dual BCE) vs v12 (single BCE): 0.9192 vs 0.9079. Frame-level supervision is clearly beneficial.
+Holdout AUC does NOT proxy LB score
+v9-asl-soup: holdout=0.9467 but LB=0.892 (worse than v5 holdout=0.9192, LB=0.893). Perch dominates the ensemble contribution.
+PCEN caused catastrophic failure
+sedp-b0-v2: holdout 0.9271 → 0.6737 after adding PCEN. Root cause unknown. Under investigation in v23.
+CutMix degrades ASL performance
+v13 (ASL+CutMix): holdout 0.8972 vs v9 (ASL alone): 0.9467. CutMix not compatible with ASL loss.
+Open Questions & Hypotheses
+Will soft KD (v24) beat hard pseudo labels (v23)?
+Theory: soft Perch probabilities contain species co-occurrence and uncertainty info lost when thresholding. Hypothesis: soft > hard for rare species.
+Why does stronger SED not improve LB?
+Perch ensemble already covers most of the species detection. SED mainly fills gaps for non-Perch-covered species. The ensemble may be saturated at the Perch ceiling (~0.893).
+Does min_rating filtering help with dual loss?
+v21 tests this. v16 (rating=3 + warm-start) showed holdout drop to 0.8227, but that used distill backbone. v21 tests without distill warmup.
+Is embedding distillation worth pursuing?
+embed-distill-b0-v2 (best: 0.6283 cosine) → warmstarted SED v15 holdout: 0.9176 vs v5 baseline: 0.9192. Marginal. Chain4 tests larger backbones (B2/B4/ConvNeXt).
+Submission policy: Only submit new SED ensemble when individual SED holdout AUC > 0.9193 (v5 benchmark).
+Current record: v9-asl-soup holdout 0.9467. Monitor v23/v24 holdout carefully —
+if v23 PCEN collapses again, the experiment is still useful as a confirmed negative finding.
+Best Results per Technique Category
+Category Best Experiment Val AUC Holdout AUC LB Score
+Perch Teacher (TF)
+nohuman-label-pseudo
+0.9748 — —
+Ensemble (Public Trick)
+ensemble-v5-public-trick
+— — 0.893
+SED (ASL Loss)
+sed-b0-v9-asl-soup
+0.7755 0.9467 0.892 (↓ LB)
+SED (BCE Baseline)
+sed-b0-v5
+0.7527 0.9192 0.893 (ensemble)
+Embedding Distillation
+embed-distill-b0-v2
+0.6283 cos — —
+ASL + Perch Pseudo (running)
+sed-b0-v23-perch-asl-aug
+0.7247 (ep2) TBD —
+Soft KD (queued)
+sed-b0-v24-soft-pseudo
+— — —
+PCEN (harmful)
+sedp-b0-v2-fusion
+0.7453 0.6737 —
+BirdCLEF 2026 — Master Report | Generated 2026-03-18
+Best LB 0.893
+Best Holdout 0.9467
+2 GPU jobs running

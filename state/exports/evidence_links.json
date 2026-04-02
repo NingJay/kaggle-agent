@@ -1,0 +1,98 @@
+[
+  {
+    "link_id": "evidence-claim-seed-imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation-knowledge-seed-curated-seed-imports-kaggle-agent-00-",
+    "claim_id": "claim-seed-imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+    "polarity": "conditional",
+    "summary": "For the current cached-probe runtime, treat holdout-aware soundscape validation as the intended local primary signal whenever it is produced.",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T22:10:24+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation-knowledge-seed-curated-seed-imports-kaggle-agent-res",
+    "claim_id": "claim-seed-imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "imports-kaggle-agent-research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed",
+    "polarity": "conditional",
+    "summary": "The coverage expansion from 52 to 67 fitted classes (out of 75 active) produced a +0.013 gain in val ROC-AUC (0.665 → 0.678). The remaining 8-class gap is still a structural blocker. The learned probe continues to out...",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T22:13:38+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline-knowledge-seed-curated-seed-imports-kaggle-agent-exp",
+    "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+    "polarity": "positive",
+    "summary": "Experiment: `exp-perch-baseline`",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T22:10:24+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state-knowledge-seed-curated-seed-imports-kaggle-agent-exp",
+    "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "imports-kaggle-agent-experiment-conclusions-md-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state",
+    "polarity": "positive",
+    "summary": "Experiment: `exp-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state`",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T22:10:24+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state-knowledge-seed-curated-seed-imports-kaggle-agent-exp",
+    "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+    "polarity": "negative",
+    "summary": "Experiment: `exp-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state`",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T22:10:24+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader-knowledge-seed-curated-seed-imports-kaggle-agent-exp",
+    "claim_id": "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "imports-kaggle-agent-experiment-conclusions-md-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration",
+    "polarity": "positive",
+    "summary": "Experiment: `exp-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration`",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T22:10:24+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-imports-kaggle-agent-research-run-0003-0002-debug-md-run-0003-0002-debug-knowledge-seed-curated-seed-imports-kaggle-agent-res",
+    "claim_id": "claim-seed-imports-kaggle-agent-research-run-0003-0002-debug-md-run-0003-0002-debug",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "imports-kaggle-agent-research-run-0001-perch-debug-smoke-md-run-0001-perch-debug-smoke",
+    "polarity": "negative",
+    "summary": "Perch-head debug smoke completed with 0.5 macro ROC-AUC and 0.0085 padded cMAP. Both metrics indicate the model is producing random-guess predictions with no discriminative power.",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T22:10:24+00:00"
+  },
+  {
+    "link_id": "evidence-claim-seed-imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-actionable-guidance-knowledge-seed-curated-seed-imports-kaggle-agent-res",
+    "claim_id": "claim-seed-imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-actionable-guidance",
+    "run_id": "",
+    "stage_name": "knowledge_seed",
+    "source_type": "curated_seed",
+    "source_ref": "imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-actionable-guidance",
+    "polarity": "negative",
+    "summary": "Immediate**: Revert to the run-0002 code state as the base for round 4. Diagnose the round 3 regression by diffing configs and code before making any new changes. Close the 8-class gap with a single minimal change, th...",
+    "source_tier": "manual",
+    "created_at": "2026-04-02T22:13:38+00:00"
+  }
+]

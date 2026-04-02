@@ -1,0 +1,12 @@
+{
+  "primary": "val_soundscape_macro_roc_auc",
+  "primary_value": 0.6650530943368517,
+  "metrics": {
+    "soundscape_macro_roc_auc": 0.9917852694622145,
+    "padded_cmap": 0.06248650735575377,
+    "prior_fusion_macro_roc_auc": 0.4872921815675346,
+    "oof_probe_macro_roc_auc": 0.519679434814831,
+    "val_soundscape_macro_roc_auc": 0.6650530943368517,
+    "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+  }
+}

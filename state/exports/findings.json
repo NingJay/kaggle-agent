@@ -1,0 +1,32 @@
+[
+  {
+    "finding_id": "finding-0001",
+    "run_id": "run-0001-perch-baseline",
+    "title": "Perch cached-probe baseline completed",
+    "summary": "val_soundscape_macro_roc_auc=0.6649218274358575 and verdict submission-required.",
+    "severity": "medium",
+    "status": "open",
+    "dedupe_key": "run:run-0001-perch-baseline:completed",
+    "created_at": "2026-04-02T22:09:50+00:00"
+  },
+  {
+    "finding_id": "finding-0002",
+    "run_id": "run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+    "title": "Class coverage fix — resolve 23 unfitted classes completed",
+    "summary": "val_soundscape_macro_roc_auc=0.6726671893669534 and verdict submission-required.",
+    "severity": "medium",
+    "status": "open",
+    "dedupe_key": "run:run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes:completed",
+    "created_at": "2026-04-02T22:22:05+00:00"
+  },
+  {
+    "finding_id": "finding-0003",
+    "run_id": "run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "title": "Pseudo-label unfitted classes from Bayesian prior completed",
+    "summary": "val_soundscape_macro_roc_auc=0.6650530943368517 and verdict submission-required.",
+    "severity": "medium",
+    "status": "open",
+    "dedupe_key": "run:run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior:completed",
+    "created_at": "2026-04-02T22:22:34+00:00"
+  }
+]

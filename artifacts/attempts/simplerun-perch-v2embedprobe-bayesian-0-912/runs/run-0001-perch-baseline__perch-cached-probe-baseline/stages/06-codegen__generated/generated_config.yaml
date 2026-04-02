@@ -1,0 +1,53 @@
+experiment:
+  name: class-coverage-fix-resolve-23-unfitted-classes
+  seed: 42
+paths:
+  data_root: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/dataset
+  output_root: ./outputs
+data:
+  train_csv: train.csv
+  taxonomy_csv: taxonomy.csv
+  sample_submission_csv: sample_submission.csv
+  train_audio_dir: train_audio
+  train_soundscapes_dir: train_soundscapes
+  train_soundscapes_labels_csv: train_soundscapes_labels.csv
+  test_soundscapes_dir: test_soundscapes
+  perch_cache_dir: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/input/perch-meta
+model:
+  backbone_provider: perch_saved_model
+  perch_model_dir: ''
+  embedding_dim: 1536
+  mode: cached_probe
+training:
+  backend: sklearn_cached_probe
+  reference_bayesian_pipeline: true
+  probe_pca_dim: 32
+  probe_min_pos: 1
+  probe_c: 0.25
+  probe_alpha: 0.4
+  probe_group_folds: 5
+  probe_use_raw_scores: true
+  probe_use_sequential_features: true
+  probe_use_prototype_similarity: true
+  probe_use_family_mean: true
+  prior_lambda_event: 0.4
+  prior_lambda_texture: 1.0
+  prior_lambda_proxy_texture: 0.8
+  smooth_texture_alpha: 0.35
+  final_gaussian_smoothing: true
+  gaussian_weights:
+  - 0.1
+  - 0.2
+  - 0.4
+  - 0.2
+  - 0.1
+  windows_per_file: 12
+  max_iter: 400
+metrics:
+  primary: val_soundscape_macro_roc_auc
+  secondary:
+  - soundscape_macro_roc_auc
+  - padded_cmap
+  - prior_fusion_macro_roc_auc
+  - val_prior_fusion_macro_roc_auc
+  submission_candidate_threshold: 0.85

@@ -1,0 +1,153 @@
+BirdCLEF 2026 — 分數進展報告
+🐦 BirdCLEF 2026 — 分數進展報告
+更新時間：2026-03-16 | 所有分數均使用 7,037-file holdout set（無 data leak）
+當前最佳 Holdout AUC
+0.9780
+ensemble(label×2 + embedding) — 今日達成
+競爭者目標 (LB 0.862)
+0.9883
+差距 −0.0103 | 期待 SED 加入後縮小
+起點 → 現在
++0.0327
+0.9453 → 0.9780 | embedding-head 是關鍵
+Kaggle LB（最新提交）
+0.839
+label-soundscape-train TFLite，無 PP | 明日更新
+📊 Holdout AUC 進展（由低到高）
+模型 / Ensemble
+Holdout AUC
+進度條
+vs 基準
+PP
+label-pseudo（基準）
+0.9453
+0.9453
+—
+raw
+embedding-soundscape
+0.9537
+0.9537
++0.0084
+raw
+label-soundscape-train
+0.9550
+0.9550
++0.0097
+raw
+ensemble(label×2)
+0.9595
+0.9595
++0.0142
+raw
+★ ensemble(label×2 + emb)
+0.9780
+0.9780
++0.0327
+raw
+ensemble(label×2 + emb + SED)
+TBD
+TBD
+—
+sed-b0-v5 進行中
+競爭者 SED（目標）
+0.9883
+0.9883
+LB 0.862
+—
+🧪 實驗狀態
+實驗名稱
+架構
+狀態
+Best Val (train)
+Best Ep
+Holdout AUC
+SS Val AUC
+nohuman-label-pseudo
+Perch 234-dim
+完成
+0.9748
+ep15 / 80
+0.9453
+0.6815 ⚠
+nohuman-label-soundscape-train
+Perch 234-dim SS訓練
+完成
+0.9535
+ep21 / 27
+0.9550
+0.9587
+nohuman-embedding-soundscape
+Perch 1536-dim SS訓練
+完成
+0.9537
+ep66 / 80
+0.9537
+0.9810
+sed-b0-v5
+EfficientNet-B0 SED
+ep2 / 20
+0.6722 (ep1)
+—
+TBD
+0.6775 (ep1)
+⚠ label-pseudo 的 SS Val 低是正常的 — 它沒有在 soundscape 格式上訓練，SS Val 對它不公平。請以 Holdout AUC 為準。
+🔬 SS Val AUC vs Holdout AUC（Domain Gap 分析）
+模型
+SS Val AUC（13 files）
+Holdout AUC（7037 files）
+差距
+說明
+label-pseudo
+0.6815
+0.9453
+−0.2638
+未在 soundscape 訓練，SS Val 無法反映真實實力
+label-soundscape-train
+0.9587
+0.9550
++0.0037
+兩者吻合，最可靠
+embedding-soundscape
+0.9810
+0.9537
++0.0273
+SS Val 可能輕微過擬合（SS 資料在訓練集）
+競爭者 SED (best_fold0.pt)
+0.9919
+0.9883
++0.0036
+兩者非常吻合，是最強基準
+💡 關鍵洞察
+embedding-head 是今日最大突破。
+加入 1536-dim Perch embedding head 後，3-model ensemble holdout AUC 從 0.9595 跳升至 0.9780 （+0.0185）。
+embedding-head 單獨分數（0.9537）看起來不如 label-soundscape-train（0.9550），
+但它捕捉了 互補特徵 ，加入 ensemble 後貢獻極大。
+SS Val AUC 不是可靠的統一評估指標。
+label-pseudo 的 SS Val 只有 0.6815（因為它沒有在 soundscape 上訓練），
+但 Holdout AUC 達 0.9453。用 SS Val 比較不同訓練策略的模型會嚴重誤導。
+Holdout AUC（7,037 個別錄音）才是最接近 LB 的指標。
+Post-processing（threshold=0.02）在 Perch ensemble 上效果有限。
+ensemble(label×2+emb) raw=0.9780 vs +PP=0.9778，幾乎沒有差異。
+PP 在個別錄音 holdout 上效果不如在 soundscape 評估集上明顯。
+下一步：sed-b0-v5 完成後的 4-model ensemble。
+目前差距 −0.0103。SED watcher 會自動跑 evaluate_ensemble_v3_holdout.py ，
+計算 ensemble(label×2 + emb + SED) 的完整 holdout AUC。
+預期：若 SED holdout ≈ 0.95+，4-model ensemble 有機會突破 0.980–0.985 ，接近或超越競爭者。
+🚀 Submission 計畫
+版本 內容 預期 Holdout 預期 LB 狀態
+v1（已提交）
+label-soundscape-train TFLite，無 PP
+0.9550
+0.839 ✓
+已提交
+v2（下次）
+3-model Perch ensemble（label×2 + emb）+ PP
+0.9780
+≈ 0.87–0.88？
+Weights 就緒
+v3（SED 完成後）
+4-model ensemble（Perch×3 + sed-b0-v5）
+TBD
+≈ 0.88+？
+sed-b0-v5 ep2/20
+BirdCLEF 2026 | Generated 2026-03-16 | Holdout: 7,037 files / 206 species / 21,111 clips

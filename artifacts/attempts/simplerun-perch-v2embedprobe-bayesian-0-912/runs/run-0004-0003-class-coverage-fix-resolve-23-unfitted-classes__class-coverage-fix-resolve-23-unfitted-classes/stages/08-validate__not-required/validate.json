@@ -1,0 +1,11 @@
+{
+  "stage": "validate",
+  "status": "not_required",
+  "summary": "No follow-up experiment required.",
+  "plan_status": "hold",
+  "spec_id": "",
+  "queued_work_item_id": "",
+  "branch_count": 0,
+  "portfolio_id": "",
+  "dispatch_summary": []
+}

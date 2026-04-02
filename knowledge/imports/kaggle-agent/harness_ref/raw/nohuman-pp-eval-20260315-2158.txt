@@ -1,0 +1,139 @@
+BirdCLEF 2026 — Nohuman + PP Eval 2026-03-15 21:58
+🐦 BirdCLEF 2026 — Nohuman Models: Local Eval + PP
+Generated: 2026-03-15 21:58 | Validation: 739 windows, 75 scored species, 66 train soundscapes
+Post-processing: threshold=0.02 (noise floor) + sliding-max blend (w=0.5, window=9)
+Calibration formula (8 LB anchors, R²=0.808): LB ≈ -0.617 × local_raw + 1.245 |
+PP boost on LB: +0.012 (confirmed: nohuman-label-pseudo 0.837→0.849)
+📊 All Nohuman Models — Raw vs +PP
+# Model
+Local Raw Local +PP PP Gain
+Pred LB (raw) Pred LB (+PP)
+Actual LB Actual LB+PP 明天提交
+1
+nohuman-label-pseudo anchor
+0.6984
+0.7391
++0.0407
+0.814
+0.826
+0.837 ✓
+0.849 ✓
+—
+2
+nohuman-os3
+0.6909
+0.7182
++0.0273
+0.819
+0.831
+—
+—
+YES
+3
+nohuman-label-pseudo-r3
+0.6807
+0.7170
++0.0363
+0.825
+0.837
+—
+—
+—
+4
+nohuman-label-pseudo-r4
+0.6864
+0.7079
++0.0215
+0.822
+0.834
+—
+—
+—
+5
+os3-soundscape-combined
+0.6768
+0.7066
++0.0299
+0.827
+0.839
+—
+—
+YES
+6
+nohuman-os3-pseudo-r5
+0.6533
+0.6793
++0.0261
+0.842
+0.854
+—
+—
+YES
+7
+nohuman-label-head-r3
+0.6478
+0.6789
++0.0311
+0.845
+0.857
+—
+—
+—
+8
+nohuman-label-head-r4
+0.6461
+0.6706
++0.0244
+0.846
+0.858
+—
+—
+—
+9
+nohuman-label-head anchor
+0.6428
+0.6657
++0.0229
+0.848
+0.860
+0.834 ✓
+—
+—
+10
+nohuman-label-pseudo-r2
+0.6197
+0.6346
++0.0148
+0.863
+0.875
+—
+—
+—
+11
+soundscape-os10
+0.5955
+0.6138
++0.0184
+0.878
+0.890
+—
+—
+YES
+🟩 anchor = confirmed LB known | 🟦 tomorrow = planned Kaggle submission
+🎯 明天 Submission 候選 (with PP)
+優先 Model Local +PP Pred LB+PP 備注
+🔴 1 nohuman-os3 0.7182 ~0.831 直接從 os3 base，驗證 os3 效果
+🔴 2 os3-soundscape-combined 0.7066 ~0.839 soundscape oversample×6 + nohuman
+🟡 3 nohuman-os3-pseudo-r5 0.6793 ~0.854 R5 pseudo，最高 pred LB
+🟡 4 soundscape-os10 0.6138 ~0.890 極端 oversample，pred 極高但不確定
+📐 校正參考
+Model Local Raw Local +PP PP local gain Actual LB Actual LB+PP LB PP gain
+nohuman-label-pseudo 0.6984 0.7391 +0.0407 0.837 0.849 +0.012
+nohuman-label-head 0.6428 0.6657 +0.0229 0.834 — —
+PP local gain vs LB gain ratio: +0.041 local → +0.012 LB (nohuman-label-pseudo anchor)
+🔬 分析摘要
+PP 效果非常顯著： 所有模型 +PP local gain 為 +0.015 ~ +0.041，平均 +0.028
+Local 排名（+PP）： nohuman-label-pseudo (0.739) > nohuman-os3 (0.718) > nohuman-label-pseudo-r3 (0.717) > os3-soundscape-combined (0.707)
+明天最高期望： nohuman-os3-pseudo-r5 pred LB+PP ≈ 0.854，但 local+PP 只有 0.679 — local 指標仍有反直覺現象
+soundscape-os10 ：local+PP 僅 0.614（最低），但回歸預測 LB 最高 (~0.890)，需要實際提交驗證
+重要： 從今起所有 eval 只考慮 nohuman 模型，non-nohuman 結果作廢

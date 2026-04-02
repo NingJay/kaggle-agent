@@ -1,0 +1,133 @@
+{
+  "stage": "evidence",
+  "run_id": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+  "experiment_id": "exp-0003-class-coverage-fix-resolve-23-unfitted-classes",
+  "work_item_id": "workitem-0003-class-coverage-fix-resolve-23-unfitted-classes",
+  "status": "succeeded",
+  "primary_metric_name": "val_soundscape_macro_roc_auc",
+  "primary_metric_value": 0.6726994510451058,
+  "secondary_metrics": {
+    "soundscape_macro_roc_auc": 0.9972178710015799,
+    "padded_cmap": 0.05705322232471252,
+    "prior_fusion_macro_roc_auc": 0.4872921815675346,
+    "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+  },
+  "all_metrics": {
+    "soundscape_macro_roc_auc": 0.9972178710015799,
+    "padded_cmap": 0.05705322232471252,
+    "prior_fusion_macro_roc_auc": 0.4872921815675346,
+    "oof_probe_macro_roc_auc": 0.5202754418427781,
+    "val_soundscape_macro_roc_auc": 0.6726994510451058,
+    "val_prior_fusion_macro_roc_auc": 0.6622119211132254
+  },
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+  "verdict": "submission-required",
+  "dataset_summary": {
+    "cache_row_count": 708,
+    "fully_labeled_windows": 708,
+    "fully_labeled_files": 59,
+    "active_class_count": 75,
+    "fitted_class_count": 71
+  },
+  "artifacts": {
+    "result": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes__class-coverage-fix-resolve-23-unfitted-classes/runtime/result.json",
+    "metrics": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes__class-coverage-fix-resolve-23-unfitted-classes/runtime/metrics.json",
+    "artifacts": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes__class-coverage-fix-resolve-23-unfitted-classes/runtime/artifacts.json"
+  },
+  "metric_deltas": {
+    "vs_leader": 0.0,
+    "vs_parent": 0.007777623609248274
+  },
+  "anomalies": [],
+  "promotion_candidates": [
+    "Promote run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes if validation remains trustworthy against the current leader."
+  ],
+  "demotion_candidates": [],
+  "open_questions": [
+    "What exact change caused the current root cause: The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.?"
+  ],
+  "observation_atoms": [
+    {
+      "observation_id": "observation-run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes-evidence-primary-metric-grounded",
+      "run_id": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+      "stage_name": "evidence",
+      "family": "perch_cached_probe",
+      "component": "grounded",
+      "metric_name": "val_soundscape_macro_roc_auc",
+      "comparator": "leader",
+      "value": 0.6726994510451058,
+      "direction": "flat",
+      "axis_tags": [
+        "grounded"
+      ],
+      "summary": "val_soundscape_macro_roc_auc recorded for run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+      "source_type": "primary_metric",
+      "source_ref": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+      "created_at": "2026-04-02T22:23:06+00:00"
+    },
+    {
+      "observation_id": "observation-run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes-evidence-root-cause-grounded",
+      "run_id": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+      "stage_name": "evidence",
+      "family": "perch_cached_probe",
+      "component": "grounded",
+      "metric_name": "",
+      "comparator": "",
+      "value": null,
+      "direction": "",
+      "axis_tags": [
+        "grounded"
+      ],
+      "summary": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+      "source_type": "root_cause",
+      "source_ref": "run-0004-0003-class-coverage-fix-resolve-23-unfitted-classes",
+      "created_at": "2026-04-02T22:23:06+00:00"
+    }
+  ],
+  "session_memory": {
+    "current_objective": "The class coverage deficit (23/75 unfitted classes) is the single highest-priority structural blocker with positive policy support (prefer). The veto checker forbids probe_head, the branch_typing_compiler flags calibration_only/blend_only as low-information, and exp-0010 definitively killed naive blend-ratio tuning. The branch diversifier recommends class_coverage (primary) + prior_calibration (hedge). The novel hypothesis generator suggests pseudo_label as an unexplored axis. Collapsing to a single calibration tweak would violate the decision rules requiring multi-branch search when below target.",
+    "current_leader_run_id": "run-0001-perch-baseline",
+    "current_leader_metric_name": "val_soundscape_macro_roc_auc",
+    "current_leader_metric_value": 0.6649218274358575,
+    "active_portfolios": [],
+    "top_positive_priors": [
+      "prior_calibration: Experiment: `exp-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration`",
+      "class_coverage: Experiment: `exp-0001-perch-probe-full-class-coverage-expansion`",
+      "class_coverage: Experiment: `exp-perch-baseline`"
+    ],
+    "top_negative_vetoes": [],
+    "unresolved_questions": [
+      "Resolve contradiction on class_coverage: class_coverage remains conditional because the evidence is mixed or incomplete. Counterevidence: Experiment: `exp-0001-perch-probe-full-class-coverage-expansion`",
+      "Resolve contradiction on prior_calibration: prior_calibration remains conditional because the evidence is mixed or incomplete. Counterevidence: Experiment: `exp-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration`",
+      "Resolve contradiction on probe_head: probe_head remains conditional because the evidence is mixed or incomplete. Counterevidence: Experiment: `exp-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state`",
+      "What removes the current bottleneck: The probe model is the bottleneck: train soundscape ROC-AUC (0.992) vs val (0.665) reveals severe overfitting or train/val distribution gap. The Bayesian prior is paradoxically stronger on validation (0.662) than train (0.487), confirming the probe itself is the weak link. Additionally, only 52/75 classes are fitted (31% coverage deficit), which blocks submission bar criteria per 04_submission_bar.md. The immediate task is submission bundle parity and calibration, but the structural class coverage gap and probe overfitting must be addressed to improve the score meaningfully.?"
+    ],
+    "current_bottlenecks": [
+      "The probe model is the bottleneck: train soundscape ROC-AUC (0.992) vs val (0.665) reveals severe overfitting or train/val distribution gap. The Bayesian prior is paradoxically stronger on validation (0.662) than train (0.487), confirming the probe itself is the weak link. Additionally, only 52/75 classes are fitted (31% coverage deficit), which blocks submission bar criteria per 04_submission_bar.md. The immediate task is submission bundle parity and calibration, but the structural class coverage gap and probe overfitting must be addressed to improve the score meaningfully."
+    ],
+    "pending_decisions": [
+      "Choose the next perch_cached_probe branch portfolio.",
+      "Compile grounded and novel branch slots without violating veto rules."
+    ],
+    "selected_memory_files": [],
+    "selected_capability_packs": [
+      "veto_checker",
+      "branch_diversifier",
+      "branch_typing_compiler",
+      "novel_hypothesis_generator"
+    ],
+    "knowledge_card_ids": [
+      "imports-kaggle-agent-experiment-conclusions-md-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration",
+      "imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-actionable-guidance",
+      "imports-kaggle-agent-research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-root-cause-coverage-gap-narrowed-but-not-closed",
+      "research-run-0001-perch-baseline-md-root-cause-diagnosis",
+      "research-run-0001-perch-baseline-md-unresolved-questions",
+      "imports-kaggle-agent-experiment-conclusions-md-run-0002-0001-perch-probe-full-class-coverage-expansion",
+      "imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+      "imports-kaggle-agent-research-run-0002-0001-perch-probe-full-class-coverage-expansion-md-progress-tracker"
+    ],
+    "source_stage": "plan",
+    "run_id": "run-0001-perch-baseline",
+    "updated_at": "2026-04-02T22:13:38+00:00"
+  }
+}

@@ -1,0 +1,75 @@
+[
+  {
+    "rule_id": "policy-class-coverage",
+    "family": "",
+    "component": "class_coverage",
+    "policy_type": "conditional",
+    "summary": "class_coverage remains conditional because the evidence is mixed or incomplete.",
+    "rationale": "mixed evidence: empirical(+0/-0), seeded(+1/-1)",
+    "confidence": 0.28,
+    "status": "active",
+    "override_required": true,
+    "claim_ids": [
+      "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline",
+      "claim-seed-imports-kaggle-agent-research-run-0003-0002-perch-probe-round-3-close-8-class-coverage-gap-to-75-75-and-apply-calibration-md-actionable-guidance"
+    ],
+    "contradiction_ids": [
+      "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0001-perch-baseline"
+    ],
+    "scope_tags": [
+      "class_coverage",
+      "global"
+    ],
+    "created_at": "2026-04-02T22:10:24+00:00",
+    "updated_at": "2026-04-02T22:13:38+00:00"
+  },
+  {
+    "rule_id": "policy-prior-calibration",
+    "family": "",
+    "component": "prior_calibration",
+    "policy_type": "conditional",
+    "summary": "prior_calibration remains conditional because the evidence is mixed or incomplete.",
+    "rationale": "mixed evidence: empirical(+0/-0), seeded(+1/-1)",
+    "confidence": 0.28,
+    "status": "active",
+    "override_required": true,
+    "claim_ids": [
+      "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0010-0008-perch-probe-round-10-prior-fusion-blend-ratio-grid-search-on-run-0008-mlp-code-state",
+      "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader"
+    ],
+    "contradiction_ids": [
+      "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0011-0009-perch-probe-round-11-mlp-dropout-regularization-on-run-0008-leader"
+    ],
+    "scope_tags": [
+      "prior_calibration",
+      "global"
+    ],
+    "created_at": "2026-04-02T22:10:24+00:00",
+    "updated_at": "2026-04-02T22:13:38+00:00"
+  },
+  {
+    "rule_id": "policy-probe-head",
+    "family": "",
+    "component": "probe_head",
+    "policy_type": "conditional",
+    "summary": "probe_head remains conditional because the evidence is mixed or incomplete.",
+    "rationale": "mixed evidence: empirical(+0/-0), seeded(+1/-1)",
+    "confidence": 0.28,
+    "status": "active",
+    "override_required": true,
+    "claim_ids": [
+      "claim-seed-imports-kaggle-agent-00-experiment-rules-md-current-runtime-interpretation",
+      "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state",
+      "claim-seed-imports-kaggle-agent-research-run-0003-0002-debug-md-run-0003-0002-debug"
+    ],
+    "contradiction_ids": [
+      "claim-seed-imports-kaggle-agent-experiment-conclusions-md-run-0009-0008-perch-probe-round-9-embedding-level-mixup-augmentation-on-run-0008-mlp-head-code-state"
+    ],
+    "scope_tags": [
+      "probe_head",
+      "global"
+    ],
+    "created_at": "2026-04-02T22:10:24+00:00",
+    "updated_at": "2026-04-02T22:13:38+00:00"
+  }
+]

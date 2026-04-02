@@ -1,0 +1,18 @@
+{
+  "provider": "claude",
+  "model": "",
+  "schema_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/schemas/critic.schema.json",
+  "raw_stdout_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/07-critic__approved/raw_stdout.txt",
+  "raw_stderr_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/07-critic__approved/raw_stderr.txt",
+  "raw_event_log_path": "",
+  "session_id": "2e3e48ea-899c-4455-b94e-5dc02ecc1b33",
+  "thread_id": "",
+  "exit_code": 0,
+  "started_at": "2026-04-02T22:20:12+00:00",
+  "completed_at": "2026-04-02T22:21:57+00:00",
+  "materialization_mode": "structured",
+  "provider_runtime": "",
+  "amp_probe_path": "/home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0001-perch-baseline__perch-cached-probe-baseline/stages/07-critic__approved/amp_probe.jsonl",
+  "amp_probe_summary": "",
+  "amp_thread_id": ""
+}

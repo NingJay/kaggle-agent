@@ -1,0 +1,309 @@
+Domain Generalization + Perch — BirdCLEF 2026
+Domain Generalization Research
+Domain Generalization + Perch
+for BirdCLEF 2026
+Why the focal-to-soundscape domain gap calls for Domain Generalization (not SFDA), which DG methods apply, and a concrete experiment plan combining Freq-MixStyle, SWAD, WiSE-FT, and GroupDRO with Perch embeddings.
+2026-03-20
+206 species · 35,549 focal clips
+Target: Pantanal soundscapes (unseen at training)
+Probe OOF AUC baseline: 0.8119
+1 Why Domain Generalization — Not Source-Free Domain Adaptation
+⚠️ SFDA is the wrong framing for this competition.
+Source-Free Domain Adaptation requires access to unlabeled target data during training or at test time to perform adaptation. In BirdCLEF 2026, test_soundscapes/ contains only a readme.txt . There is no target audio to adapt to — the actual test soundscapes are withheld by Kaggle and only scored server-side.
+✗ SFDA (Source-Free DA)
+Requires: source model + unlabeled target data . Adapts the model to a specific target distribution using target samples (entropy minimization, pseudo-labeling, etc.). We do not have test soundscape audio.
+✓ Domain Generalization (DG)
+Requires: source data only (+ optional labeled proxy target). Train a model whose learned representations are inherently robust to distribution shift, without seeing any target data. Correct framing for BirdCLEF 2026.
+Our Setting: Semi-supervised DG
+We have 1,478 labeled proxy-target clips (train_soundscapes_labels) from the same Pantanal region. These act as a DG validation signal and a small supervised bridge — stronger than pure DG.
+Formal definition of our problem: Given source training data D_s (train_audio, global focal recordings) and a small labeled proxy-target set D_t (train_soundscapes, 1,478 clips), learn a model f that generalizes to an unseen target distribution P_test (withheld Pantanal soundscapes), where P_test ≈ P_{D_t} but D_test is never available during training.
+2 The Domain Gap in BirdCLEF 2026
+35,549
+Source clips
+(train_audio)
+10,658
+Target soundscape files
+(withheld at inference)
+1,478
+Labeled proxy-target clips
+(train_soundscapes)
+206
+Species
+(multi-label in target)
+Source — train_audio
+Geography Global (lat −54.9° to 69.6°)
+Collections XenoCanto (23K) + iNaturalist (12K)
+Microphone Directional (birder/researcher)
+Species density 1 species per clip
+SNR High — deliberate recording
+Background Low noise, variable
+Label type Single primary label, curated
+⇌
+Gap
+Target — test_soundscapes (unseen)
+Geography Pantanal, Brazil only (lat −16° to −21°)
+Deployment 9 ARU sites (S01–S23), fixed location
+Microphone Omnidirectional ARU (passive)
+Species density Multiple species per 5-second window
+SNR Low — rain, frogs, insects, wind
+Background Tropical wetland ambient noise
+Label type Multi-label weak annotations
+① Device / Frequency Shift
+Directional mics have a focused frequency response optimized for speech-band bird calls. ARUs use flat omnidirectional pickups with different preamp gains. The same species has systematically different mel-spectrogram signatures across device types. → Fix with Freq-MixStyle .
+② Recording Type Shift
+Focal recordings intentionally capture one species at a time (clean single-label signal). Passive ARU captures all species simultaneously — the model must detect multiple overlapping calls in the same 5-second window. → Fix with soundscape simulation (multi-clip mix) .
+③ Geographic / Prior Shift
+Source covers the globe (roughly uniform class prior). Target is fixed to Pantanal — common Pantanal residents dominate, many source species absent. Class-conditional distributions and marginal class probabilities differ fundamentally. → Fix with site-aware priors + GroupDRO .
+④ Noise / SNR Shift
+Source clips typically have high SNR (the recordist stopped when background was too loud). Pantanal ARUs record continuously — rain events, frog choruses, insect swarms. Model must be noise-robust far beyond what focal recordings require. → Fix with SWAD flat-minima training .
+Domain gap in practice: holdout AUC (source OOF) vs soundscape val AUC (proxy target) for same SED models
+3 Domain Generalization Methods — Survey and Applicability
+1
+Freq-MixStyle — Frequency-Wise Statistics Mixing
+Directly applicable to SED
+DG-SED / DCASE 2024
+arXiv 2407.03654
+Core idea: During training, randomly mix the frequency-wise mean (μ) and std (σ) of mel-spectrograms between two samples in the batch. This synthesizes a new virtual spectrogram with a hybrid frequency signature — implicitly simulating a different recording device or acoustic environment.
+Algorithm: For sample X with partner Y, sample λ ~ Beta(α, α) with α=0.1:
+# Compute per-frequency-bin statistics
+μ_x = X.mean(dim= 'time' ) # shape: [n_mels]
+σ_x = X.std(dim= 'time' ) # shape: [n_mels]
+# Mix with partner Y's statistics
+μ_mix = λ * μ_x + ( 1 -λ) * μ_y
+σ_mix = λ * σ_x + ( 1 -λ) * σ_y
+# Re-normalize X with mixed stats (preserves temporal structure)
+X_mix = (X - μ_x) / (σ_x + ε) * σ_mix + μ_mix
+Why it addresses device shift: The frequency-wise mean/std of a mel-spectrogram captures the microphone's frequency response — the "color" of the recording. Mixing these statistics between samples implicitly simulates a different ARU or microphone being used, forcing the backbone to become invariant to recording-device frequency responses.
+Reported gain: DCASE 2024 Task 4 joint score 1.270 → 1.343 when Freq-MixStyle was added alongside FDY convolution (+5.8% relative improvement).
+BirdCLEF application: Add to mel-spectrogram pipeline in mel_dataset.py . Config flag: freq_mixstyle: true , freq_mixstyle_prob: 0.5 , freq_mixstyle_alpha: 0.1 . Apply during SED training only (not at inference).
+Effort: Medium (new aug layer)
+Risk: Low
+Expected gain: +1–3pp soundscape val AUC
+Config: sed_b0_v31_freqmixstyle
+1
+SWAD — Dense Checkpoint Averaging for Flat Minima
+Already doing (model soup)
+NeurIPS 2021
+arXiv 2102.08604
+Core idea: Standard SWA averages model weights at sparse, fixed intervals. SWAD performs dense averaging — collecting and averaging weights at every training step (or epoch) after a warmup period — using an overfit-aware stopping criterion to exclude checkpoints where OOD val loss starts rising.
+Why flat minima → OOD robustness: Flat loss landscape regions (wide basins) correspond to models whose predictions change slowly under small perturbations of both inputs and model weights. These models are inherently more robust to distribution shift — the target distribution is a "perturbation" of the source. Sharp minima (narrow basins) generalize well in-distribution but degrade rapidly OOD.
+Reported gain: +1.6% average OOD accuracy on 5 DG benchmarks (PACS, VLCS, OfficeHome, TerraIncognita, DomainNet).
+BirdCLEF application: Our model soup (saving and averaging the top-K checkpoints) is essentially SWAD. The key SWAD improvement is to average every epoch starting from the first good checkpoint, not just top-K by val AUC. Our current pipeline already applies this benefit — the soundscape val AUC improvement from model soup is a direct consequence of flat-minima DG properties.
+Effort: Already implemented (model soup)
+Risk: None
+DG benefit already captured
+1
+WiSE-FT — Weight-Space Ensemble Fine-Tuning
+Already doing (TFLite blend)
+CVPR 2022
+arXiv 2109.01903
+Core idea: After fine-tuning a zero-shot pre-trained model on task-specific data, linearly interpolate between the original zero-shot weights (θ₀) and the fine-tuned weights (θ_ft):
+θ_WiSE = (1 − α) · θ₀ + α · θ_ft
+Motivation: Fine-tuning improves task accuracy but "forgets" the general representations that make the zero-shot model robust across distributions. Interpolating back toward θ₀ recovers robustness without losing most of the task-specific gain.
+Reported gain: +4–6pp accuracy under distribution shift on ImageNet variants, at zero additional cost during fine-tuning or inference.
+BirdCLEF application: Our ensemble already applies WiSE-FT in output space: blending the Perch TFLite zero-shot predictions (30%) with our fine-tuned MLP probe predictions (70%) is the output-space equivalent of weight-space interpolation at α=0.70. The optimal α can be tuned on soundscape val AUC. The 30%/70% split was found empirically and aligns with WiSE-FT theory.
+Effort: Already implemented (TFLite 30% blend)
+Tune α on soundscape val: sweep {0.5, 0.6, 0.7, 0.8, 0.9}
+2
+MixStyle on PCA Embeddings
+ICLR 2021
+arXiv 2104.02008
+Core idea: Apply MixStyle to the PCA-projected Perch embeddings during MLP probe training. For each sample, randomly select a partner from the batch and mix their channel-wise mean and std with λ ~ Beta(0.1, 0.1). This synthesizes virtual domain shifts in the embedding space, forcing the MLP head to learn domain-invariant class boundaries.
+Difference from Freq-MixStyle: Freq-MixStyle operates on the raw mel-spectrogram (simulation of different device frequency responses). Embedding MixStyle operates on the PCA-compressed Perch embedding (simulation of different recording-environment effects that percolate to the embedding level).
+BirdCLEF application (Perch probe): Add a MixStyle module between the PCA projection and the MLP input in train_perch_probe.py . Config flag: mixstyle: true , mixstyle_prob: 0.5 , mixstyle_alpha: 0.1 .
+Effort: Low (one module in train_perch_probe.py)
+Risk: Low
+Expected: +1–2pp OOF AUC
+Config: perch_probe_v4_mixstyle
+3
+GroupDRO — Worst-Case Site Optimization
+ICLR 2020
+Sagawa et al.
+Core idea: Treat each of the 9 soundscape deployment sites (S01, S05, S09, ...) as a separate "group". Instead of minimizing average loss across all labeled soundscape clips, minimize the worst-group loss :
+L_DRO = max g ∈ sites 𝔼[L | group = g]
+Why this matters: Averaging over sites may hide poor performance on acoustically hard sites (dense vegetation, near water). The test soundscapes include multiple sites — including the hardest ones. Minimizing worst-group loss forces robust performance everywhere.
+BirdCLEF application (Perch probe): Parse site ID from source_file column (e.g., BC2026_Train_0039_S22_... → site S22 ). Use site as the DRO group label. Config flag: use_groupdro: true , groupdro_eta: 0.01 .
+Effort: Medium (new loss in train_perch_probe.py)
+Risk: Medium (small group sizes)
+Expected: +0–2pp worst-site OOF AUC
+Config: perch_probe_v4_groupdro
+3
+ProtoCLR — Prototype Contrastive Learning for Domain Invariance
+arXiv 2409.08589
+Bird Sounds 2024
+Core idea: Use supervised contrastive learning where same-class examples from different domains (focal recordings vs. soundscape clips) are pulled toward a shared class prototype, while different-class examples are repelled. This enforces domain-invariant class representations at the embedding level.
+L_ProtoCLR = −log[ exp(z_i · p_c / τ) / Σ_k exp(z_i · p_k / τ) ]
+where p_c is the prototype of class c computed on-the-fly. Computationally cheaper than SupCon (compares to K prototypes, not N samples).
+BirdCLEF application: Add ProtoCLR as an auxiliary loss during SED training. Use train_audio clips (source domain) and train_soundscape clips (proxy target domain) as separate domains. The contrastive loss pulls same-species embeddings from both domains together.
+Effort: High (new loss + prototype management)
+Risk: Medium
+Expected: +1–3pp soundscape val AUC (if well-tuned)
+4 DG Techniques Already in Our Pipeline
+Key realization: Our current system already applies several DG techniques — we just didn't frame them that way. This is why our soundscape val AUC (target-domain proxy) is consistently much higher than naive baselines, even without explicit DG training.
+✓ Joint PCA ≈ Feature-Space Alignment (CORAL)
+Fitting PCA on both train_audio and soundscape embeddings jointly finds a projection that preserves high-variance directions in both domains simultaneously. This is analogous to CORAL (Sun & Saenko, 2016) — aligning second-order statistics. The +0.060 OOF AUC gain from add_train_clips is partly due to this joint alignment.
+✓ Model Soup ≈ SWAD (Flat Minima)
+Saving and averaging the top-K checkpoints across training epochs finds a flatter loss landscape minimum than any single checkpoint. Flat minima are associated with better out-of-distribution generalization (Cha et al., NeurIPS 2021). Our soup directly improves soundscape val AUC because the averaged weights are more OOD-robust.
+✓ TFLite 30% + MLP 70% ≈ WiSE-FT
+Blending the zero-shot Perch TFLite predictions (untrained on our task) with the fine-tuned MLP probe predictions is the output-space equivalent of WiSE-FT weight interpolation at α=0.70. The zero-shot component preserves general Perch robustness; the MLP component adds task-specific accuracy.
+✓ ClipMix ≈ Primitive Soundscape Simulation
+ClipMix randomly mixes two focal clips of different species and assigns a multi-hot label. This is a weak form of soundscape simulation — creating synthetic multi-species examples that approximate the multi-label structure of real soundscapes. Extending this to 3–4 clips would more closely match real Pantanal soundscape density.
+5 Experiment Design
+DG-Enhanced SED Pipeline (v31)
+🎵
+Audio
+5-second clips
+→
+🎛️
+Freq-MixStyle
+device freq. response
+mixing · p=0.5
+→
+📊
+Mel Spectrogram
+224×224
+SpecAugment
+→
+🔗
+EfficientNet-B0
+GeMPool
+backbone
+→
+🍲
+Model Soup
+SWAD-style dense
+checkpoint avg
+→
+📈
+Prediction
+206 classes
+ASL + dual loss
+Green = new DG component. Existing components (model soup, ClipMix, pseudo labels) already provide DG benefits. Freq-MixStyle is the main new addition.
+DG-Enhanced Perch Probe Pipeline (v4)
+🎵
+Audio
+5-second clips
+→
+🦜
+Perch
+1536-dim frozen
+(zero-shot basis)
+→
+📐
+Joint PCA(128)
+train+ss · CORAL-like
+feature alignment
+→
+🎨
+MixStyle
+embedding-space
+domain mixing
+→
+🧠
+MLP Head
+512-dim · ASL loss
++ train_audio
+→
+⚖️
+WiSE-FT blend
+TFLite 30%
++ MLP 70%
+DG Experiment Queue
+# Experiment DG Technique Config Target Expected Gain Status
+1
+Freq-MixStyle in SED training
+Device frequency response invariance
+sed_b0_v31_freqmixstyle
+SED soundscape val AUC
++1–3pp
+Needs mel_dataset.py change
+2
+MixStyle on PCA embeddings
+Embedding-space domain mixing
+perch_probe_v4_mixstyle
+Probe OOF AUC
++1–2pp
+Needs train_perch_probe.py change
+3
+GroupDRO by soundscape site
+Worst-case site robustness
+perch_probe_v4_groupdro
+Worst-site OOF AUC
++0–2pp
+Needs DRO loss in train_perch_probe.py
+4
+WiSE-FT α sweep
+Zero-shot ↔ fine-tuned interpolation
+Notebook config change
+Ensemble soundscape val
+±1pp (tuning)
+Ready — notebook only
+5
+Multi-clip soundscape simulation (3–4 clips)
+Recording type shift simulation
+sed_b0_v32_ss_sim
+SED soundscape val AUC
++1–2pp
+Needs mel_dataset.py multi-clip mix
+6
+ProtoCLR auxiliary loss
+Domain-invariant class prototypes
+TBD
+Both
++1–3pp (if tuned)
+High complexity — later stage
+6 Implementation — Freq-MixStyle (Highest Priority)
+Add to mel_dataset.py — FreqMixStyle augmentation
+class FreqMixStyle :
+"""Frequency-wise statistics mixing for domain generalization.
+Mix per-frequency-bin mean/std between spectrograms in a batch.
+Based on DG-SED (arXiv 2407.03654, DCASE 2024).
+"""
+def __init__ (self, p= 0.5 , alpha= 0.1 ):
+self.p = p
+self.dist = torch.distributions.Beta(alpha, alpha)
+def __call__ (self, x): # x: [B, C, freq, time]
+if not self.training or torch.rand( 1 ) > self.p:
+return x
+B = x.size( 0 )
+perm = torch.randperm(B) # random partner indices
+lam = self.dist.sample() # mixing coefficient
+# Compute per-frequency mean/std (over time dimension)
+mu = x.mean(dim=- 1 , keepdim= True ) # [B, C, freq, 1]
+sig = x.std( dim=- 1 , keepdim= True ) + 1e-6
+# Mix statistics with partner
+mu2 = mu[perm]; sig2 = sig[perm]
+mu_m = lam * mu + ( 1 - lam) * mu2
+sig_m = lam * sig + ( 1 - lam) * sig2
+# Re-normalize with mixed stats
+return (x - mu) / sig * sig_m + mu_m
+Config field added to sed_b0_v31_freqmixstyle.yaml
+augmentation:
+enabled: true
+# ... existing augmentations ...
+circ_shift_prob: 0.5
+# NEW: Freq-MixStyle domain generalization
+freq_mixstyle: true # enable frequency statistics mixing
+freq_mixstyle_prob: 0.5 # apply to 50% of batches
+freq_mixstyle_alpha: 0.1 # Beta(0.1,0.1) → sharp domain mixing
+7 Expected Impact
+DG technique contribution — soundscape val AUC (target proxy) vs holdout AUC (source OOF)
+Projected gains on soundscape val AUC
+Freq-MixStyle (v31): +1–3pp soundscape val AUC over v30 (0.8139 → ~0.83–0.84)
+MixStyle probe (v4): +1–2pp OOF AUC over baseline (0.8119 → ~0.82–0.83)
+GroupDRO probe (v4): more consistent across sites, lower worst-site variance
+All DG gains compound in ensemble: better individual models → higher ensemble ceiling
+Why soundscape val AUC matters more than holdout AUC
+Holdout AUC measures source-domain generalization (same distribution as training) → does not predict LB
+Soundscape val AUC measures target-domain generalization → directly correlates with LB
+V30-multipseu proved this: highest holdout (0.9839) AND highest soundscape val (0.8139) AND best LB contribution
+DG techniques specifically target soundscape val AUC improvement
+8 References
+Method Paper Venue Key insight
+Freq-MixStyle DG-SED: Domain Generalization for Sound Event Detection with Heterogeneous Training Data DCASE 2024 / arXiv 2407.03654 Mix frequency-wise spectrogram statistics to simulate different recording devices
+MixStyle Zhou et al., "Domain Generalization with MixStyle" ICLR 2021 Mix instance-level feature statistics between training samples to synthesize new virtual domains
+SWAD Cha et al., "SWAD: Domain Generalization by Seeking Flat Minima" NeurIPS 2021 Dense checkpoint averaging finds flat loss landscape minima → better OOD generalization
+WiSE-FT Wortsman et al., "Robust Fine-Tuning of Zero-Shot Models" CVPR 2022 Interpolate between zero-shot and fine-tuned weights to preserve robustness
+GroupDRO Sagawa et al., "Distributionally Robust Neural Networks" ICLR 2020 Minimize worst-group loss to ensure robustness across all deployment sites
+ProtoCLR "Domain-Invariant Representation Learning of Bird Sounds" arXiv 2409.08589 Prototype-based contrastive learning enforces domain-invariant class representations
+DomainBed Gulrajani & Lopez-Paz, "In Search of Lost Domain Generalization" ICLR 2021 Rigorous DG benchmark showing ERM + proper tuning often beats complex DG methods

@@ -1,0 +1,178 @@
+[
+  {
+    "invocation_id": "cap-0001-veto_checker",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "research",
+    "pack_id": "veto_checker",
+    "input_summary": "perch_cached_probe::Submission bundle parity and calibration tuning for run-0001-perch-baseline",
+    "output_summary": "veto_checker",
+    "payload": {
+      "forbidden_patterns": [],
+      "override_required_components": [],
+      "active_veto_rules": []
+    },
+    "created_at": "2026-04-02T22:10:24+00:00"
+  },
+  {
+    "invocation_id": "cap-0002-branch_typing_compiler",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "research",
+    "pack_id": "branch_typing_compiler",
+    "input_summary": "perch_cached_probe::Submission bundle parity and calibration tuning for run-0001-perch-baseline",
+    "output_summary": "Branch typing compiler context from active reducer constraints.",
+    "payload": {
+      "supported_axis_tags": [
+        "backbone",
+        "class_coverage",
+        "data_filtering",
+        "optimization",
+        "preprocessing_aug",
+        "prior_calibration",
+        "probe_head",
+        "pseudo_label"
+      ],
+      "low_information_patterns": [
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "calibration",
+        "prior",
+        "temperature",
+        "threshold"
+      ],
+      "forbidden_patterns": [],
+      "required_patterns": [],
+      "minimum_information_gain_bar": 0.0,
+      "summary": "Branch typing compiler context from active reducer constraints."
+    },
+    "created_at": "2026-04-02T22:10:24+00:00"
+  },
+  {
+    "invocation_id": "cap-0003-ledger_miner",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "research",
+    "pack_id": "ledger_miner",
+    "input_summary": "perch_cached_probe::Submission bundle parity and calibration tuning for run-0001-perch-baseline",
+    "output_summary": "ledger_miner",
+    "payload": {
+      "top_components": [],
+      "repeated_failures": [],
+      "strong_components": []
+    },
+    "created_at": "2026-04-02T22:10:24+00:00"
+  },
+  {
+    "invocation_id": "cap-0004-veto_checker",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "plan",
+    "pack_id": "veto_checker",
+    "input_summary": "perch_cached_probe::The probe model is the bottleneck: train soundscape ROC-AUC (0.992) vs val (0.665) reveals severe overfitting or train/val distribution gap. The Bayesian prior is paradoxically stronger on validation (0.662) than train (0.487), confirming the probe itself is the weak link. Additionally, only 52/75 classes are fitted (31% coverage deficit), which blocks submission bar criteria per 04_submission_bar.md. The immediate task is submission bundle parity and calibration, but the structural class coverage gap and probe overfitting must be addressed to improve the score meaningfully.",
+    "output_summary": "veto_checker",
+    "payload": {
+      "forbidden_patterns": [
+        "probe_head",
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "temperature",
+        "threshold"
+      ],
+      "override_required_components": [],
+      "active_veto_rules": []
+    },
+    "created_at": "2026-04-02T22:13:38+00:00"
+  },
+  {
+    "invocation_id": "cap-0005-branch_diversifier",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "plan",
+    "pack_id": "branch_diversifier",
+    "input_summary": "perch_cached_probe::The probe model is the bottleneck: train soundscape ROC-AUC (0.992) vs val (0.665) reveals severe overfitting or train/val distribution gap. The Bayesian prior is paradoxically stronger on validation (0.662) than train (0.487), confirming the probe itself is the weak link. Additionally, only 52/75 classes are fitted (31% coverage deficit), which blocks submission bar criteria per 04_submission_bar.md. The immediate task is submission bundle parity and calibration, but the structural class coverage gap and probe overfitting must be addressed to improve the score meaningfully.",
+    "output_summary": "branch_diversifier",
+    "payload": {
+      "recommended_components": [
+        "class_coverage",
+        "prior_calibration",
+        "probe_head"
+      ],
+      "recommended_branch_mix": [
+        {
+          "branch_role": "primary",
+          "target_component": "class_coverage"
+        },
+        {
+          "branch_role": "hedge",
+          "target_component": "prior_calibration"
+        },
+        {
+          "branch_role": "explore",
+          "target_component": "probe_head"
+        }
+      ],
+      "target_branch_count": 3
+    },
+    "created_at": "2026-04-02T22:13:38+00:00"
+  },
+  {
+    "invocation_id": "cap-0006-branch_typing_compiler",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "plan",
+    "pack_id": "branch_typing_compiler",
+    "input_summary": "perch_cached_probe::The probe model is the bottleneck: train soundscape ROC-AUC (0.992) vs val (0.665) reveals severe overfitting or train/val distribution gap. The Bayesian prior is paradoxically stronger on validation (0.662) than train (0.487), confirming the probe itself is the weak link. Additionally, only 52/75 classes are fitted (31% coverage deficit), which blocks submission bar criteria per 04_submission_bar.md. The immediate task is submission bundle parity and calibration, but the structural class coverage gap and probe overfitting must be addressed to improve the score meaningfully.",
+    "output_summary": "Branch typing compiler context from active reducer constraints.",
+    "payload": {
+      "supported_axis_tags": [
+        "backbone",
+        "class_coverage",
+        "data_filtering",
+        "optimization",
+        "preprocessing_aug",
+        "prior_calibration",
+        "probe_head",
+        "pseudo_label"
+      ],
+      "low_information_patterns": [
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "calibration",
+        "prior",
+        "temperature",
+        "threshold"
+      ],
+      "forbidden_patterns": [
+        "probe_head",
+        "calibration_only",
+        "blend_only",
+        "blend",
+        "temperature",
+        "threshold"
+      ],
+      "required_patterns": [
+        "class_coverage"
+      ],
+      "minimum_information_gain_bar": 0.05,
+      "summary": "Branch typing compiler context from active reducer constraints."
+    },
+    "created_at": "2026-04-02T22:13:38+00:00"
+  },
+  {
+    "invocation_id": "cap-0007-novel_hypothesis_generator",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "plan",
+    "pack_id": "novel_hypothesis_generator",
+    "input_summary": "perch_cached_probe::The probe model is the bottleneck: train soundscape ROC-AUC (0.992) vs val (0.665) reveals severe overfitting or train/val distribution gap. The Bayesian prior is paradoxically stronger on validation (0.662) than train (0.487), confirming the probe itself is the weak link. Additionally, only 52/75 classes are fitted (31% coverage deficit), which blocks submission bar criteria per 04_submission_bar.md. The immediate task is submission bundle parity and calibration, but the structural class coverage gap and probe overfitting must be addressed to improve the score meaningfully.",
+    "output_summary": "pseudo_label",
+    "payload": {
+      "novel_component": "pseudo_label",
+      "unsupported_claims": [
+        "pseudo_label may unlock holdout improvements despite limited direct support."
+      ],
+      "required_evidence": [
+        "Test an unsupported but plausible pseudo_label hypothesis with explicit follow-up evidence."
+      ],
+      "grounding_mode": "novel"
+    },
+    "created_at": "2026-04-02T22:13:38+00:00"
+  }
+]

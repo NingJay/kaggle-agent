@@ -1,0 +1,110 @@
+[
+  {
+    "observation_id": "observation-run-0001-perch-baseline-evidence-primary-metric-primary-metric",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "evidence",
+    "family": "perch_cached_probe",
+    "component": "primary_metric",
+    "metric_name": "val_soundscape_macro_roc_auc",
+    "comparator": "leader",
+    "value": 0.6649218274358575,
+    "direction": "flat",
+    "axis_tags": [
+      "general"
+    ],
+    "summary": "val_soundscape_macro_roc_auc recorded for run-0001-perch-baseline",
+    "source_type": "primary_metric",
+    "source_ref": "run-0001-perch-baseline",
+    "created_at": "2026-04-02T22:09:50+00:00"
+  },
+  {
+    "observation_id": "observation-run-0001-perch-baseline-evidence-root-cause-runtime",
+    "run_id": "run-0001-perch-baseline",
+    "stage_name": "evidence",
+    "family": "perch_cached_probe",
+    "component": "runtime",
+    "metric_name": "",
+    "comparator": "",
+    "value": null,
+    "direction": "",
+    "axis_tags": [
+      "general"
+    ],
+    "summary": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "source_type": "root_cause",
+    "source_ref": "run-0001-perch-baseline",
+    "created_at": "2026-04-02T22:09:50+00:00"
+  },
+  {
+    "observation_id": "observation-run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes-evidence-primary-metric-grounded",
+    "run_id": "run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+    "stage_name": "evidence",
+    "family": "perch_cached_probe",
+    "component": "grounded",
+    "metric_name": "val_soundscape_macro_roc_auc",
+    "comparator": "leader",
+    "value": 0.6726671893669534,
+    "direction": "flat",
+    "axis_tags": [
+      "grounded"
+    ],
+    "summary": "val_soundscape_macro_roc_auc recorded for run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+    "source_type": "primary_metric",
+    "source_ref": "run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+    "created_at": "2026-04-02T22:22:05+00:00"
+  },
+  {
+    "observation_id": "observation-run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes-evidence-root-cause-grounded",
+    "run_id": "run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+    "stage_name": "evidence",
+    "family": "perch_cached_probe",
+    "component": "grounded",
+    "metric_name": "",
+    "comparator": "",
+    "value": null,
+    "direction": "",
+    "axis_tags": [
+      "grounded"
+    ],
+    "summary": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "source_type": "root_cause",
+    "source_ref": "run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+    "created_at": "2026-04-02T22:22:05+00:00"
+  },
+  {
+    "observation_id": "observation-run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior-evidence-primary-metric-novel",
+    "run_id": "run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "stage_name": "evidence",
+    "family": "perch_cached_probe",
+    "component": "novel",
+    "metric_name": "val_soundscape_macro_roc_auc",
+    "comparator": "leader",
+    "value": 0.6650530943368517,
+    "direction": "down",
+    "axis_tags": [
+      "novel"
+    ],
+    "summary": "val_soundscape_macro_roc_auc recorded for run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "source_type": "primary_metric",
+    "source_ref": "run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "created_at": "2026-04-02T22:22:33+00:00"
+  },
+  {
+    "observation_id": "observation-run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior-evidence-root-cause-novel",
+    "run_id": "run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "stage_name": "evidence",
+    "family": "perch_cached_probe",
+    "component": "novel",
+    "metric_name": "",
+    "comparator": "",
+    "value": null,
+    "direction": "",
+    "axis_tags": [
+      "novel"
+    ],
+    "summary": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+    "source_type": "root_cause",
+    "source_ref": "run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior",
+    "created_at": "2026-04-02T22:22:33+00:00"
+  }
+]

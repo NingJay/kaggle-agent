@@ -1,0 +1,14 @@
+{
+  "stage": "report",
+  "headline": "Class coverage fix run becomes new leader at 0.6727 val AUC, up +0.0077 from baseline.",
+  "focus": "Submission bundle packaging and calibration for the new leader run.",
+  "best_run_id": "run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes",
+  "best_run_metric": 0.6726671893669534,
+  "primary_metric_value": 0.6726671893669534,
+  "root_cause": "The notebook-derived Bayesian prior + embedding probe pipeline is live; next steps are submission bundle parity and calibration.",
+  "verdict": "submission-required",
+  "finding_titles": [
+    "Class coverage fix — resolve 23 unfitted classes completed"
+  ],
+  "issue_titles": []
+}

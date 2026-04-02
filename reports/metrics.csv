@@ -1,0 +1,16 @@
+metric_id,run_id,metric_name,value,split,trust_level,is_primary
+metric-0001,run-0001-perch-baseline,val_soundscape_macro_roc_auc,0.664922,local_proxy,clean,True
+metric-0002,run-0001-perch-baseline,padded_cmap,0.062460,local_proxy,clean,False
+metric-0003,run-0001-perch-baseline,prior_fusion_macro_roc_auc,0.487292,local_proxy,clean,False
+metric-0004,run-0001-perch-baseline,soundscape_macro_roc_auc,0.991796,local_proxy,clean,False
+metric-0005,run-0001-perch-baseline,val_prior_fusion_macro_roc_auc,0.662212,local_proxy,clean,False
+metric-0006,run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes,val_soundscape_macro_roc_auc,0.672667,local_proxy,clean,True
+metric-0007,run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes,padded_cmap,0.057084,local_proxy,clean,False
+metric-0008,run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes,prior_fusion_macro_roc_auc,0.487292,local_proxy,clean,False
+metric-0009,run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes,soundscape_macro_roc_auc,0.997217,local_proxy,clean,False
+metric-0010,run-0002-0001-class-coverage-fix-resolve-23-unfitted-classes,val_prior_fusion_macro_roc_auc,0.662212,local_proxy,clean,False
+metric-0011,run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior,val_soundscape_macro_roc_auc,0.665053,local_proxy,clean,True
+metric-0012,run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior,padded_cmap,0.062487,local_proxy,clean,False
+metric-0013,run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior,prior_fusion_macro_roc_auc,0.487292,local_proxy,clean,False
+metric-0014,run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior,soundscape_macro_roc_auc,0.991785,local_proxy,clean,False
+metric-0015,run-0003-0002-pseudo-label-unfitted-classes-from-bayesian-prior,val_prior_fusion_macro_roc_auc,0.662212,local_proxy,clean,False
