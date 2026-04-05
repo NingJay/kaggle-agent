@@ -1071,6 +1071,39 @@ class WorkspaceTests(unittest.TestCase):
             self.assertIn("val_soundscape_macro_roc_auc", result["all_metrics"])
             self.assertTrue((run_dir / "best_sed_v5.weights.h5").exists())
 
+    def test_sed_v5_backbone_weights_hint_is_forwarded_to_keras(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            runtime_root = root / "BirdCLEF-2026-Codebase"
+            src_root = runtime_root / "src"
+            sys.path.insert(0, str(src_root))
+            try:
+                from birdclef_runtime.sed_v5 import SEDSettings, _build_backbone
+
+                class DummyBackbone:
+                    trainable = False
+
+                with patch("tensorflow.keras.applications.EfficientNetB0", return_value=DummyBackbone()) as factory:
+                    backbone = _build_backbone(
+                        SEDSettings(
+                            image_size=64,
+                            backbone_name="tf_efficientnet_b0.ns_jft_in1k",
+                            backbone_weights="imagenet",
+                            backbone_trainable=False,
+                        )
+                    )
+
+                self.assertIsInstance(backbone, DummyBackbone)
+                self.assertEqual(factory.call_args.kwargs["weights"], "imagenet")
+            finally:
+                for module_name in list(sys.modules):
+                    if module_name == "birdclef_runtime" or module_name.startswith("birdclef_runtime."):
+                        sys.modules.pop(module_name, None)
+                if str(src_root) in sys.path:
+                    sys.path.remove(str(src_root))
+
     def test_run_training_supports_tensorflow_sed_v5_asl_and_soft_pseudo(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp) / "workspace"
@@ -2943,6 +2976,63 @@ class WorkspaceTests(unittest.TestCase):
             process_completed_runs(config, state)
 
             self.assertEqual(state.runtime.active_run_ids, [])
+
+    def test_process_completed_runs_finalizes_stage_error_runs(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+
+            work_item = WorkItem(
+                id="workitem-stage-error",
+                title="Stage error terminal run",
+                work_type="ablation_terminal",
+                family="perch_cached_probe",
+                priority=40,
+                config_path="BirdCLEF-2026-Codebase/configs/default.yaml",
+                lifecycle_template="terminal_experiment",
+                pipeline=["execute", "evidence", "report", "validate"],
+                status="reviewing",
+            )
+            run = RunRecord(
+                run_id="run-stage-error",
+                experiment_id="exp-stage-error",
+                work_item_id=work_item.id,
+                spec_id="spec-stage-error",
+                status="succeeded",
+                command="python train_sed.py",
+                cwd=str(root),
+                run_dir=str(root / "artifacts" / "runs" / "run-stage-error"),
+                log_path=str(root / "artifacts" / "runs" / "run-stage-error" / "train.log"),
+                stage_cursor="report",
+                stage_error="report adapter failed: no output",
+                lifecycle_template="terminal_experiment",
+                stage_plan=["execute", "evidence", "report", "validate"],
+            )
+            state = WorkspaceState(
+                work_items=[work_item],
+                experiments=[],
+                runs=[run],
+                stage_runs=[],
+                agent_runs=[],
+                specs=[],
+                validations=[],
+                metrics=[],
+                findings=[],
+                issues=[],
+                research_notes=[],
+                submissions=[],
+                submission_results=[],
+                runtime=RuntimeState(initialized_at="2026-03-31T00:00:00Z", next_validation_number=1),
+            )
+
+            process_completed_runs(config, state)
+
+            self.assertEqual(work_item.status, "failed")
+            self.assertEqual(run.stage_cursor, "complete")
+            self.assertEqual(run.stage_error, "report adapter failed: no output")
 
     def test_process_run_stage_chain_returns_to_codegen_after_critic_reject(self) -> None:
         with TemporaryDirectory() as tmp:

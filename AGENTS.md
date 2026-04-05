@@ -10,6 +10,11 @@ Operate this repository as an agent-primary, artifact-driven, spec-enforced Kagg
 - Keep `train_sed.py` as the stable runtime bridge.
 - Preserve the strict stage graph: `execute -> evidence -> report -> research -> decision -> plan -> codegen -> critic -> validate -> submission`.
 - Keep scored submission defaults CPU-only and internet-off.
+- When starting any experiment, stage adapter, monitor loop, or long-running CLI command, stay attached and keep monitoring until it reaches a terminal state or a deliberate human handoff is recorded.
+- Do not fire-and-forget background work. While waiting, keep checking process status, stage directories, and ledger-visible progress so stalls or provider hangs are caught and handled immediately.
+- If a turn is interrupted while work is still running, re-establish monitoring first on the next turn before doing anything else.
+- Never downgrade, weaken, reinterpret away, or silently narrow explicit human instructions or quality requirements. When in doubt, preserve the stricter requirement and carry it forward into implementation, monitoring, and reporting.
+- Never download model weights or runtime model assets from the internet for SED or related experiment backbones. SED paths must use local model files only, and any missing local-model requirement must be treated as a blocker to fix rather than a reason to fall back to online fetches.
 
 ## Environment Bootstrap
 

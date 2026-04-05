@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kaggle_agent.control.lifecycle import infer_lifecycle_template, resolve_stage_plan
+from kaggle_agent.control.lifecycle import infer_lifecycle_template, resolve_lifecycle_template, resolve_stage_plan
 from kaggle_agent.control.store import find_work_item
 from kaggle_agent.schema import ExperimentSpec, SpecRecord, WorkItem, WorkspaceConfig, WorkspaceState
 from kaggle_agent.utils import now_utc_iso, slugify
@@ -443,21 +443,35 @@ def queue_config_experiment(
     title: str | None = None,
     family: str = "ad_hoc",
     priority: int = 50,
+    work_type: str = "experiment_iteration",
+    lifecycle_template: str = "",
+    notes: list[str] | None = None,
+    depends_on: list[str] | None = None,
 ) -> WorkItem:
     resolved = Path(config_path).expanduser().resolve()
     if not resolved.exists():
         raise ValueError(f"Config not found: {resolved}")
     relative_path = str(resolved.relative_to(config.root)) if resolved.is_relative_to(config.root) else str(resolved)
+    resolved_template = resolve_lifecycle_template(
+        {
+            "work_type": work_type,
+            "lifecycle_template": lifecycle_template,
+        }
+    )
+    stage_plan = resolve_stage_plan(resolved_template, strict=config.automation.strict_stage_graph)
+    work_item_notes = [str(item) for item in (notes or []) if str(item).strip()]
+    work_item_notes.append("Queued from direct config request.")
     return register_work_item(
         state,
         title=title or resolved.stem.replace("_", " "),
-        work_type="experiment_iteration",
+        work_type=work_type,
         family=family,
         config_path=relative_path,
         priority=priority,
-        lifecycle_template="recursive_experiment",
-        pipeline=resolve_stage_plan("recursive_experiment"),
-        notes=["Queued from direct config request."],
+        lifecycle_template=resolved_template,
+        pipeline=stage_plan,
+        notes=work_item_notes,
+        depends_on=depends_on or [],
     )
 
 

@@ -114,10 +114,25 @@ def enqueue_config(
     title: str | None = None,
     family: str = "ad_hoc",
     priority: int = 50,
+    work_type: str = "experiment_iteration",
+    lifecycle_template: str = "",
+    notes: list[str] | None = None,
+    depends_on: list[str] | None = None,
 ) -> WorkspaceState:
     with workspace_lock(config.lock_path()):
         state = load_state(config)
-        queue_config_experiment(config, state, config_path, title=title, family=family, priority=priority)
+        queue_config_experiment(
+            config,
+            state,
+            config_path,
+            title=title,
+            family=family,
+            priority=priority,
+            work_type=work_type,
+            lifecycle_template=lifecycle_template,
+            notes=notes,
+            depends_on=depends_on,
+        )
         write_reports(config, state)
         save_state(config, state)
         return state

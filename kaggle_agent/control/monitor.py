@@ -767,6 +767,10 @@ def process_completed_runs(config: WorkspaceConfig, state: WorkspaceState) -> No
             continue
         if run.stage_cursor != "complete":
             _process_run_stage_chain(config, state, run.run_id, execute_in_background=True)
+        if run.stage_error and run.stage_cursor != "complete":
+            _finalize_work_item_status(state, run.run_id)
+            run.stage_cursor = "complete"
+            run.stage_updated_at = now_utc_iso()
         if run.stage_cursor == "complete" or run.stage_error:
             synchronize_branch_memory(state, run.run_id)
 

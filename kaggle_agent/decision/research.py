@@ -155,6 +155,7 @@ def _build_research_payload(root_cause: str, family: str, knowledge_bundle: dict
 def build_research(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     run = next(item for item in state.runs if item.run_id == run_id)
     experiment = next(item for item in state.experiments if item.id == run.experiment_id)
+    work_item = next(item for item in state.work_items if item.id == run.work_item_id)
     report_payload = latest_stage_payload(state, run_id, "report")
     ensure_knowledge_layout(config)
     knowledge_bundle = retrieve_knowledge_bundle(
@@ -162,6 +163,7 @@ def build_research(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         {
             "run": run.to_dict(),
             "experiment": experiment.to_dict(),
+            "work_item": work_item.to_dict(),
             "report": report_payload,
         },
         stage="research",
@@ -179,6 +181,7 @@ def build_research(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         {
             "run": run.to_dict(),
             "experiment": experiment.to_dict(),
+            "work_item": work_item.to_dict(),
             "report": report_payload,
             "retrieved_knowledge": compact_knowledge_bundle(knowledge_bundle),
         },

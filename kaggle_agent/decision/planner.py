@@ -1315,6 +1315,7 @@ def _canonicalize_plan_payload(
 def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
     run = next(item for item in state.runs if item.run_id == run_id)
     experiment = next(item for item in state.experiments if item.id == run.experiment_id)
+    work_item = next(item for item in state.work_items if item.id == run.work_item_id)
     decision = latest_stage_payload(state, run_id, "decision")
     research = latest_stage_payload(state, run_id, "research")
     stage_run, input_manifest_path = begin_stage_run(
@@ -1329,6 +1330,7 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         {
             "run": run.to_dict(),
             "experiment": experiment.to_dict(),
+            "work_item": work_item.to_dict(),
             "decision": decision,
             "research": research,
         },
@@ -1340,6 +1342,7 @@ def build_plan(config: WorkspaceConfig, state: WorkspaceState, run_id: str):
         {
             "run": run.to_dict(),
             "experiment": experiment.to_dict(),
+            "work_item": work_item.to_dict(),
             "decision": decision,
             "research": research,
             "retrieved_knowledge": compact_knowledge_bundle(knowledge_bundle),

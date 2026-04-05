@@ -38,6 +38,7 @@ class SEDSettings:
     image_size: int = 256
     num_classes: int = 234
     backbone_name: str = "tf_efficientnet_b0.ns_jft_in1k"
+    backbone_weights: str = "none"
     backbone_trainable: bool = True
     dropout: float = 0.1
     gem_p_init: float = 3.0
@@ -580,9 +581,21 @@ def _build_backbone(settings: SEDSettings) -> Any:
     input_shape = (settings.image_size, settings.image_size, 3)
     backbone_name = settings.backbone_name.lower()
     if backbone_name in {"tf_efficientnet_b0.ns_jft_in1k", "efficientnet_b0", "tf_efficientnet_b0"}:
+        weights_name: str | None
+        raw_weights = str(settings.backbone_weights or "").strip()
+        lowered_weights = raw_weights.lower()
+        if lowered_weights in {"", "none", "random", "scratch"}:
+            weights_name = None
+        elif lowered_weights == "imagenet":
+            weights_name = "imagenet"
+        else:
+            weights_path = Path(raw_weights).expanduser()
+            if not weights_path.exists():
+                raise FileNotFoundError(f"SED backbone weights not found: {raw_weights}")
+            weights_name = str(weights_path)
         backbone = tf.keras.applications.EfficientNetB0(
             include_top=False,
-            weights=None,
+            weights=weights_name,
             input_shape=input_shape,
         )
         backbone.trainable = settings.backbone_trainable
@@ -610,10 +623,16 @@ def build_sed_model(settings: SEDSettings) -> Any:
     return model
 
 
-def _build_settings(config: dict[str, Any], labels: list[str]) -> SEDSettings:
+def _build_settings(config: dict[str, Any], labels: list[str], runtime_root: Path) -> SEDSettings:
     model_cfg = config.get("model", {})
     training_cfg = config.get("training", {})
     data_cfg = config.get("data", {})
+    raw_backbone_weights = str(model_cfg.get("backbone_weights", "none") or "none")
+    lowered_backbone_weights = raw_backbone_weights.lower()
+    if lowered_backbone_weights in {"", "none", "random", "scratch", "imagenet"}:
+        backbone_weights = lowered_backbone_weights or "none"
+    else:
+        backbone_weights = str(_resolve_root(runtime_root, raw_backbone_weights))
     return SEDSettings(
         sample_rate=int(training_cfg.get("sample_rate", 32000)),
         chunk_duration=float(training_cfg.get("chunk_duration", 5.0)),
@@ -625,6 +644,7 @@ def _build_settings(config: dict[str, Any], labels: list[str]) -> SEDSettings:
         image_size=int(model_cfg.get("image_size", 256)),
         num_classes=len(labels),
         backbone_name=str(model_cfg.get("backbone_name", "tf_efficientnet_b0.ns_jft_in1k")),
+        backbone_weights=backbone_weights,
         backbone_trainable=bool(model_cfg.get("backbone_trainable", True)),
         dropout=float(model_cfg.get("dropout", 0.1)),
         gem_p_init=float(model_cfg.get("gem_p_init", 3.0)),
@@ -666,7 +686,7 @@ def _build_dataset_bundle(config: dict[str, Any], runtime_root: Path) -> tuple[l
     paths_cfg = config.get("paths", {})
     data_root = _resolve_root(runtime_root, str(paths_cfg.get("data_root", "./birdclef-2026")))
     labels = _load_label_order(data_root, data_cfg)
-    settings = _build_settings(config, labels)
+    settings = _build_settings(config, labels, runtime_root)
     train_examples = _build_train_examples(data_root, data_cfg, labels, settings)
     val_examples = _build_soundscape_validation_examples(data_root, data_cfg, labels, settings)
     val_filenames = {str(example.metadata.get("filename", example.audio_path.name)) for example in val_examples}
@@ -819,7 +839,7 @@ def run_sed_v5_training(config: dict[str, Any], runtime_root: Path, run_dir: Pat
     import tensorflow as tf
 
     labels, train_examples, val_examples, dataset_summary = _build_dataset_bundle(config, runtime_root)
-    settings = _build_settings(config, labels)
+    settings = _build_settings(config, labels, runtime_root)
     tf.keras.utils.set_random_seed(settings.seed)
     rng = np.random.RandomState(settings.seed)
     model = build_sed_model(settings)
@@ -901,6 +921,7 @@ def run_sed_v5_training(config: dict[str, Any], runtime_root: Path, run_dir: Pat
         [
             "## SED v5-like Summary",
             f"- backbone: `{settings.backbone_name}`",
+            f"- backbone_weights: `{settings.backbone_weights}`",
             f"- clip_loss: `{settings.clip_loss_name}`",
             f"- frame_loss: `{settings.frame_loss_name}`",
             f"- epochs: {settings.epochs}",
@@ -941,7 +962,7 @@ def run_sed_soundscape_inference(config: dict[str, Any], runtime_root: Path, out
     model_cfg = config.get("model", {})
     data_root = _resolve_root(runtime_root, str(paths_cfg.get("data_root", "./birdclef-2026")))
     labels = _load_label_order(data_root, data_cfg)
-    settings = _build_settings(config, labels)
+    settings = _build_settings(config, labels, runtime_root)
     checkpoint_path = _resolve_root(runtime_root, str(model_cfg.get("checkpoint_path", "")))
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"SED checkpoint not found: {checkpoint_path}")

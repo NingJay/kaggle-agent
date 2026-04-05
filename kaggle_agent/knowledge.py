@@ -86,12 +86,60 @@ SOURCE_PRIORITY_HINTS = {
     "03_next_experiment_priors.md": 4.0,
     "04_submission_bar.md": 2.0,
     "experiment_conclusions.md": 3.0,
+    "00_CURRENT.md": 4.8,
+    "01_SCOREBOARD.md": 4.2,
+    "02_TOP_QUESTIONS.md": 3.8,
+    "confirmed_findings.md": 5.0,
+    "current_best_system.md": 4.6,
+    "technique_matrix.md": 4.4,
+    "rejected_or_risky_patterns.md": 4.7,
+    "priority_queue.md": 4.0,
+    "open_hypotheses.md": 3.5,
+    "decision_log.md": 3.2,
+    "training_playbook.md": 3.0,
+    "submission_playbook.md": 2.6,
+    "codebase_map.md": 2.4,
+    "eval_protocol.md": 2.8,
+    "metric_interpretation.md": 3.1,
+}
+SOURCE_PATH_PRIORITY_HINTS = {
+    "00_command_center/": 4.6,
+    "01_facts/": 2.8,
+    "02_canonical_knowledge/": 4.9,
+    "03_decisions/": 3.8,
+    "04_evidence/": 1.8,
+    "05_playbooks/": 2.9,
+    "memory/policies/": 4.2,
+    "memory/playbooks/": 3.4,
+    "memory/issues/": 2.6,
+    "memory/families/": 2.4,
+}
+PATH_STANCE_HINTS = {
+    "00_current.md": "conditional",
+    "01_scoreboard.md": "positive",
+    "02_top_questions.md": "conditional",
+    "confirmed_findings.md": "positive",
+    "current_best_system.md": "positive",
+    "technique_matrix.md": "positive",
+    "rejected_or_risky_patterns.md": "negative",
+    "priority_queue.md": "conditional",
+    "open_hypotheses.md": "conditional",
+    "decision_log.md": "conditional",
 }
 SEMANTIC_MEMORY_SUBDIRS = ("policies", "families", "issues", "playbooks")
 KNOWLEDGE_IMPORTS_DIR = "imports"
 KNOWLEDGE_INDEX_SKIP_FILES = {"cards.json", "source_imports.json"}
 KNOWLEDGE_SEED_ENV = "KAGGLE_AGENT_KNOWLEDGE_SEED_ROOTS"
 KNOWLEDGE_SEED_ALLOWED_SUFFIXES = {".md", ".txt", ".json", ".csv"}
+GENERATED_RESEARCH_NOTE_RE = re.compile(r"^run-[a-z0-9][a-z0-9-]*\.md$", re.IGNORECASE)
+SKIPPED_KNOWLEDGE_FILENAMES = {"README.md"}
+SKIPPED_KNOWLEDGE_TOPLEVEL_DIRS = {"90_archive"}
+LOCAL_SEED_MEMORY_SOURCES = (
+    (
+        "back_knowledge/BirdCLEF2026_从零启动知识种子.md",
+        "memory/playbooks/birdclef_from_zero_start_seed.md",
+    ),
+)
 DEFAULT_CAPABILITY_PACKS = (
     CapabilityPack(
         pack_id="ledger_miner",
@@ -201,6 +249,7 @@ def ensure_knowledge_layout(config: WorkspaceConfig) -> None:
     for subdir in SEMANTIC_MEMORY_SUBDIRS:
         ensure_directory(config.knowledge_memory_root() / subdir)
     _seed_workspace_knowledge_from_sources(config.root)
+    _sync_local_seed_memory(config.root)
 
 
 def _knowledge_root_from_workspace(workspace_root: Path) -> Path:
@@ -254,7 +303,10 @@ def _source_descriptor_for_path(source_path: str) -> dict[str, str]:
 
 
 def _seed_import_label(source_root: Path) -> str:
-    anchor = slugify(source_root.parent.name or source_root.name or "knowledge_source")
+    if source_root.name.lower() in {"knowledge", "kb"}:
+        anchor = slugify(source_root.parent.name or source_root.name or "knowledge_source")
+    else:
+        anchor = slugify(source_root.name or source_root.parent.name or "knowledge_source")
     return anchor or "knowledge_source"
 
 
@@ -270,9 +322,13 @@ def _candidate_seed_knowledge_roots(workspace_root: Path) -> list[Path]:
             path = Path(text).expanduser()
             if path.exists():
                 candidates.append(path.resolve())
-    default_legacy_root = workspace_root.parent.parent / "kaggle_agent" / "knowledge"
-    if default_legacy_root.exists():
-        candidates.append(default_legacy_root.resolve())
+    default_structured_root = workspace_root.parent.parent / "knowledge_seek"
+    if default_structured_root.exists():
+        candidates.append(default_structured_root.resolve())
+    else:
+        default_legacy_root = workspace_root.parent.parent / "kaggle_agent" / "knowledge"
+        if default_legacy_root.exists():
+            candidates.append(default_legacy_root.resolve())
     deduped: list[Path] = []
     seen: set[Path] = set()
     for candidate in candidates:
@@ -404,6 +460,28 @@ def _seed_workspace_knowledge_from_sources(workspace_root: Path) -> list[dict[st
     return manifest
 
 
+def _sync_local_seed_memory(workspace_root: Path) -> None:
+    repo_root = workspace_root.parent.parent
+    knowledge_root = _knowledge_root_from_workspace(workspace_root)
+    ensure_directory(knowledge_root / "memory" / "playbooks")
+    for source_relpath, destination_relpath in LOCAL_SEED_MEMORY_SOURCES:
+        source_path = repo_root / source_relpath
+        destination_path = knowledge_root / destination_relpath
+        if not source_path.exists():
+            if destination_path.exists():
+                destination_path.unlink()
+            continue
+        content = source_path.read_text(encoding="utf-8")
+        if destination_path.exists():
+            try:
+                if destination_path.read_text(encoding="utf-8") == content:
+                    continue
+            except OSError:
+                pass
+        ensure_directory(destination_path.parent)
+        atomic_write_text(destination_path, content)
+
+
 def _dedupe_strings(values: list[str], *, limit: int = 6) -> list[str]:
     ordered: list[str] = []
     seen: set[str] = set()
@@ -443,8 +521,25 @@ def _keywords_for_card(source_path: str, title: str, text: str) -> list[str]:
     return ordered
 
 
+def _relative_source_path(source_path: str) -> str:
+    return "/".join(_compile_relative_parts(source_path)).lower()
+
+
+def _source_priority_bonus(source_path: str) -> float:
+    relative_path = _relative_source_path(source_path)
+    score = float(SOURCE_PRIORITY_HINTS.get(Path(source_path).name, 0.0))
+    for prefix, bonus in SOURCE_PATH_PRIORITY_HINTS.items():
+        if relative_path.startswith(prefix.lower()):
+            score += bonus
+    return score
+
+
 def _infer_stance(source_path: str, title: str, text: str) -> str:
     corpus = f"{source_path}\n{title}\n{text}".lower()
+    relative_path = _relative_source_path(source_path)
+    for marker, stance in PATH_STANCE_HINTS.items():
+        if relative_path.endswith(marker):
+            return stance
     positive_hits = sum(1 for hint in POSITIVE_HINTS if hint in corpus)
     negative_hits = sum(1 for hint in NEGATIVE_HINTS if hint in corpus)
     conditional_hits = sum(1 for hint in CONDITIONAL_HINTS if hint in corpus)
@@ -474,7 +569,7 @@ def _infer_component(source_path: str, title: str, text: str) -> str:
 def _confidence_for_card(source_path: str, title: str, text: str, stance: str) -> float:
     corpus = f"{source_path}\n{title}\n{text}".lower()
     score = 0.42
-    score += min(0.24, SOURCE_PRIORITY_HINTS.get(Path(source_path).name, 0.0) * 0.04)
+    score += min(0.28, _source_priority_bonus(source_path) * 0.03)
     if stance in {"positive", "negative"}:
         score += 0.16
     elif stance == "conditional":
@@ -523,6 +618,35 @@ def _iter_sections(path: Path) -> list[tuple[str, str]]:
     return sections or [(path.stem.replace("_", " "), text)]
 
 
+def _compile_relative_parts(source_path: str) -> list[str]:
+    parts = [part for part in str(source_path).replace("\\", "/").split("/") if part]
+    if len(parts) >= 3 and parts[0] == KNOWLEDGE_IMPORTS_DIR:
+        return parts[2:]
+    return parts
+
+
+def _should_compile_knowledge_path(source_path: str) -> bool:
+    parts = _compile_relative_parts(source_path)
+    if not parts:
+        return False
+    if parts[0] == "index":
+        return False
+    if parts[0] in SKIPPED_KNOWLEDGE_TOPLEVEL_DIRS:
+        return False
+    if parts[-1] in SKIPPED_KNOWLEDGE_FILENAMES:
+        return False
+    if len(parts) >= 2 and parts[0] == "research" and GENERATED_RESEARCH_NOTE_RE.match(parts[-1]):
+        return False
+    return True
+
+
+def _should_compile_knowledge_section(source_path: str, section_title: str) -> bool:
+    title = str(section_title).strip()
+    if GENERATED_RESEARCH_NOTE_RE.match(f"{title}.md"):
+        return False
+    return True
+
+
 def _compile_knowledge_index(knowledge_root: Path) -> list[KnowledgeCard]:
     cards: list[KnowledgeCard] = []
     if not knowledge_root.exists():
@@ -533,8 +657,12 @@ def _compile_knowledge_index(knowledge_root: Path) -> list[KnowledgeCard]:
         if "index" in path.parts:
             continue
         source_path = path.relative_to(knowledge_root).as_posix()
+        if not _should_compile_knowledge_path(source_path):
+            continue
         descriptor = _source_descriptor_for_path(source_path)
         for section_title, section_text in _iter_sections(path):
+            if not _should_compile_knowledge_section(source_path, section_title):
+                continue
             summary = _section_summary(section_text) or section_title
             card_id = slugify(f"{source_path}-{section_title}")
             cards.append(
@@ -603,13 +731,14 @@ def compile_knowledge_index_from_root(workspace_root: Path) -> list[dict[str, An
 def build_problem_frame(manifest: dict[str, Any], *, stage: str = "") -> dict[str, Any]:
     run = manifest.get("run", {}) if isinstance(manifest.get("run"), dict) else {}
     experiment = manifest.get("experiment", {}) if isinstance(manifest.get("experiment"), dict) else {}
+    work_item = manifest.get("work_item", {}) if isinstance(manifest.get("work_item"), dict) else {}
     report = manifest.get("report", {}) if isinstance(manifest.get("report"), dict) else {}
     research = manifest.get("research", {}) if isinstance(manifest.get("research"), dict) else {}
     decision = manifest.get("decision", {}) if isinstance(manifest.get("decision"), dict) else {}
     plan = manifest.get("plan", {}) if isinstance(manifest.get("plan"), dict) else {}
 
-    family = str(plan.get("family") or decision.get("next_family") or experiment.get("family") or "")
-    title = str(plan.get("title") or decision.get("next_title") or experiment.get("title") or "")
+    family = str(plan.get("family") or decision.get("next_family") or experiment.get("family") or work_item.get("family") or "")
+    title = str(plan.get("title") or decision.get("next_title") or experiment.get("title") or work_item.get("title") or "")
     root_cause = str(
         report.get("root_cause")
         or research.get("root_cause")
@@ -621,11 +750,12 @@ def build_problem_frame(manifest: dict[str, Any], *, stage: str = "") -> dict[st
     hypothesis = str(plan.get("hypothesis") or decision.get("why") or "")
     metric_name = str(run.get("primary_metric_name") or "val_soundscape_macro_roc_auc")
     metric_value = run.get("primary_metric_value")
-    focus = str(report.get("focus") or research.get("focus") or "")
+    work_item_notes = [str(item) for item in work_item.get("notes", []) if str(item).strip()]
+    focus = str(report.get("focus") or research.get("focus") or (work_item_notes[0] if work_item_notes else ""))
     recent_rejects = [str(item) for item in research.get("reject", []) if str(item).strip()]
     adopt_now = [str(item) for item in research.get("adopt_now", []) if str(item).strip()]
     consider = [str(item) for item in research.get("consider", []) if str(item).strip()]
-    query_terms = [family, title, root_cause, hypothesis, focus, *adopt_now[:3], *recent_rejects[:3], *consider[:2]]
+    query_terms = [family, title, root_cause, hypothesis, focus, *work_item_notes[:4], *adopt_now[:3], *recent_rejects[:3], *consider[:2]]
     tokens = []
     seen: set[str] = set()
     for token in _tokenize(" ".join(query_terms)):
@@ -646,6 +776,9 @@ def build_problem_frame(manifest: dict[str, Any], *, stage: str = "") -> dict[st
         "current_metric_value": metric_value,
         "focus": focus,
         "next_action": str(decision.get("next_action") or ""),
+        "work_type": str(work_item.get("work_type") or ""),
+        "lifecycle_template": str(work_item.get("lifecycle_template") or ""),
+        "notes": work_item_notes[:6],
         "adopt_now": adopt_now[:6],
         "consider": consider[:6],
         "reject": recent_rejects[:6],
@@ -1007,9 +1140,18 @@ def _score_card(card: dict[str, Any], frame: dict[str, Any], *, stage: str) -> f
             score += 3.0
 
     source_path = str(card.get("source_path", ""))
-    for filename, bonus in SOURCE_PRIORITY_HINTS.items():
-        if source_path.endswith(filename):
-            score += bonus
+    relative_path = _relative_source_path(source_path)
+    score += _source_priority_bonus(source_path)
+    if stage in {"research", "decision", "plan"} and relative_path.startswith("02_canonical_knowledge/"):
+        score += 2.4
+    if stage in {"decision", "plan"} and relative_path.startswith("03_decisions/"):
+        score += 2.2
+    if stage in {"codegen", "critic"} and (
+        relative_path.startswith("05_playbooks/") or relative_path.startswith("01_facts/")
+    ):
+        score += 2.1
+    if stage in {"research", "decision", "plan"} and relative_path.startswith("00_command_center/"):
+        score += 2.0
 
     stance = str(card.get("stance", "general"))
     if stage in {"plan", "decision"} and stance in {"positive", "negative", "conditional"}:

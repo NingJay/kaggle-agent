@@ -23,6 +23,7 @@ data:
 
 model:
   backbone_name: tf_efficientnet_b0.ns_jft_in1k
+  backbone_weights: imagenet
   backbone_trainable: true
   n_mels: 256
   n_fft: 2048

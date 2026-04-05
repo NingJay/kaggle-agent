@@ -50,6 +50,10 @@ def build_parser() -> argparse.ArgumentParser:
     enqueue_parser.add_argument("--title")
     enqueue_parser.add_argument("--family", default="ad_hoc")
     enqueue_parser.add_argument("--priority", type=int, default=50)
+    enqueue_parser.add_argument("--work-type", default="experiment_iteration")
+    enqueue_parser.add_argument("--lifecycle-template", default="")
+    enqueue_parser.add_argument("--note", action="append", default=[])
+    enqueue_parser.add_argument("--depends-on", action="append", default=[])
 
     preflight_parser = subparsers.add_parser("enqueue-preflight", help="Queue an explicit debug preflight work item.")
     preflight_parser.add_argument("--priority", type=int, default=5)
@@ -160,7 +164,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "enqueue-config":
         config = load_config(root)
-        state = enqueue_config(config, args.config_path, title=args.title, family=args.family, priority=args.priority)
+        state = enqueue_config(
+            config,
+            args.config_path,
+            title=args.title,
+            family=args.family,
+            priority=args.priority,
+            work_type=args.work_type,
+            lifecycle_template=args.lifecycle_template,
+            notes=args.note,
+            depends_on=args.depends_on,
+        )
         print(f"Queued work item. Total work items: {len(state.work_items)}")
         return 0
 

@@ -22,6 +22,23 @@ FILENAME_RE = re.compile(r"BC2026_(?:Train|Test)_(\d+)_(S\d+)_(\d{8})_(\d{6})\.o
 TEXTURE_TAXA = {"Amphibia", "Insecta"}
 
 
+def _apply_dropout_noise(
+    features: np.ndarray,
+    dropout_rate: float,
+    *,
+    rng: np.random.RandomState | None = None,
+) -> np.ndarray:
+    """Gaussian noise injection as sklearn-equivalent dropout regularisation."""
+    if dropout_rate <= 0.0:
+        return features
+    if rng is None:
+        rng = np.random.RandomState(42)
+    feature_std = np.std(features, axis=0, keepdims=True)
+    feature_std = np.where(feature_std < 1e-8, 1.0, feature_std)
+    noise = rng.randn(*features.shape).astype(np.float32) * (dropout_rate * feature_std)
+    return (features + noise).astype(np.float32)
+
+
 @dataclass
 class MappingContext:
     taxonomy: pd.DataFrame
@@ -756,6 +773,9 @@ def _fit_reference_pipeline(
     use_prototype_similarity: bool,
     use_family_mean: bool,
     use_sequential_features: bool,
+    probe_dropout: float = 0.0,
+    temperature_scaling: bool = False,
+    temperature: float = 1.0,
 ) -> tuple[dict[str, Any], dict[str, LogisticRegression]]:
     oof_base = np.zeros_like(raw_scores, dtype=np.float32)
     oof_prior = np.zeros_like(raw_scores, dtype=np.float32)
@@ -837,8 +857,11 @@ def _fit_reference_pipeline(
                 solver="liblinear",
                 class_weight="balanced",
             )
-            classifier.fit(x_train, train_targets)
+            x_train_noised = _apply_dropout_noise(x_train, probe_dropout)
+            classifier.fit(x_train_noised, train_targets)
             probe_logits = classifier.decision_function(x_val).astype(np.float32)
+            if temperature_scaling:
+                probe_logits = probe_logits / temperature
             oof_predictions[val_idx, class_index] = (1.0 - probe_alpha) * oof_base[val_idx, class_index] + probe_alpha * probe_logits
             fitted_classes += 1
 
@@ -872,7 +895,8 @@ def _fit_reference_pipeline(
             solver="liblinear",
             class_weight="balanced",
         )
-        classifier.fit(features, class_targets)
+        features_noised = _apply_dropout_noise(features, probe_dropout)
+        classifier.fit(features_noised, class_targets)
         full_models[int(class_index)] = classifier
 
     final_tables = _fit_prior_tables(soundscape_df.reset_index(drop=True), soundscape_targets)
@@ -961,6 +985,15 @@ def run_cached_probe_experiment(config: dict[str, Any], runtime_root: Path, run_
     final_gaussian_smoothing = bool(training_cfg.get("final_gaussian_smoothing", True))
     gaussian_weights = np.array(training_cfg.get("gaussian_weights", [0.1, 0.2, 0.4, 0.2, 0.1]), dtype=np.float32)
     windows_per_file = int(training_cfg.get("windows_per_file", 12))
+
+    model_cfg = config.get("model", {})
+    probe_head_cfg = model_cfg.get("probe_head", {})
+    calibration_cfg = model_cfg.get("calibration", {})
+    probe_dropout = float(probe_head_cfg.get("dropout", 0.0))
+    temperature_scaling = bool(calibration_cfg.get("temperature_scaling", False))
+    temperature = float(calibration_cfg.get("temperature", 1.0))
+    if temperature_scaling and temperature <= 0:
+        temperature = 1.0
 
     if reference_pipeline:
         reference_result, models = _fit_reference_pipeline(
