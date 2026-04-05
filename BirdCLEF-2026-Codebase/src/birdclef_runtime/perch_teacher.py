@@ -165,7 +165,8 @@ class PerchSavedModel:
             return self._infer_fn
         import tensorflow as tf
 
-        loaded = tf.saved_model.load(str(self.model_dir))
+        with tf.device("/CPU:0"):
+            loaded = tf.saved_model.load(str(self.model_dir))
         self._infer_fn = loaded.signatures.get("serving_default") or loaded
         return self._infer_fn
 
@@ -173,7 +174,8 @@ class PerchSavedModel:
         import tensorflow as tf
 
         infer_fn = self._load_infer_fn()
-        outputs = infer_fn(inputs=tf.convert_to_tensor(windows, dtype=tf.float32))
+        with tf.device("/CPU:0"):
+            outputs = infer_fn(inputs=tf.convert_to_tensor(windows, dtype=tf.float32))
         if not isinstance(outputs, dict):
             raise RuntimeError("Perch SavedModel did not return a dict payload")
         return outputs["label"].numpy().astype(np.float32), outputs["embedding"].numpy().astype(np.float32)

@@ -325,10 +325,9 @@ def _candidate_seed_knowledge_roots(workspace_root: Path) -> list[Path]:
     default_structured_root = workspace_root.parent.parent / "knowledge_seek"
     if default_structured_root.exists():
         candidates.append(default_structured_root.resolve())
-    else:
-        default_legacy_root = workspace_root.parent.parent / "kaggle_agent" / "knowledge"
-        if default_legacy_root.exists():
-            candidates.append(default_legacy_root.resolve())
+    default_legacy_root = workspace_root.parent.parent / "kaggle_agent" / "knowledge"
+    if default_legacy_root.exists():
+        candidates.append(default_legacy_root.resolve())
     deduped: list[Path] = []
     seen: set[Path] = set()
     for candidate in candidates:

@@ -122,6 +122,18 @@ def _mirror_files(source_dir: Path, mirrored_dir: Path, filenames: list[str]) ->
             shutil.copy2(source, destination)
 
 
+def _mirror_directory(source_dir: Path, mirrored_dir: Path, dirname: str) -> None:
+    if _disable_output_mirror() or source_dir == mirrored_dir:
+        return
+    source = source_dir / dirname
+    if not source.exists() or not source.is_dir():
+        return
+    destination = mirrored_dir / dirname
+    if destination.exists():
+        shutil.rmtree(destination)
+    shutil.copytree(source, destination)
+
+
 def _select_primary_metric(config: dict[str, Any], metrics: dict[str, float]) -> tuple[str, float]:
     configured = str(
         config.get("metrics", {}).get(
@@ -179,6 +191,7 @@ def run_training(config: dict[str, Any], runtime_root: Path) -> dict[str, Any]:
             mirrored_dir,
             ["result.json", "metrics.json", "artifacts.json", "summary.md"],
         )
+        _mirror_directory(run_dir, mirrored_dir, "perch_cache")
         return result
 
     if backend == "sklearn_cached_probe":

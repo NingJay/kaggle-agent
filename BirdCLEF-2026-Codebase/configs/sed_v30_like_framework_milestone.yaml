@@ -21,7 +21,7 @@ data:
   val_file_offset: 43
   max_infer_files: 0
   pseudo_source_paths:
-    - /home/staff/jiayining/kaggle/worktrees/kaggle-agent-branch-search/artifacts/attempts/simplerun-perch-v2embedprobe-bayesian-0-912/runs/run-0005-0009-milestone-1-notebook-faithful-perch-teacher-milestone-rerun__milestone-1-notebook-faithful-54688c8f54/runtime/perch_cache
+    - ./outputs/perch_teacher_cache_milestone/perch_cache
     - ./outputs/sed_v9_like_milestone_infer/inference/sed_soundscape_predictions.csv
     - ./outputs/sed_v24_like_milestone_infer/inference/sed_soundscape_predictions.csv
   exclude_validation_soundscapes_from_pseudo: true

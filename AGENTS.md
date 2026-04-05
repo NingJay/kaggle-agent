@@ -10,6 +10,7 @@ Operate this repository as an agent-primary, artifact-driven, spec-enforced Kagg
 - Keep `train_sed.py` as the stable runtime bridge.
 - Preserve the strict stage graph: `execute -> evidence -> report -> research -> decision -> plan -> codegen -> critic -> validate -> submission`.
 - Keep scored submission defaults CPU-only and internet-off.
+- For this worktree, run experiment orchestration, monitoring, status checks, and training from `ssh hpcgpu13` unless the human explicitly overrides it. Do not treat the local non-HPC shell as the authoritative runtime environment.
 - When starting any experiment, stage adapter, monitor loop, or long-running CLI command, stay attached and keep monitoring until it reaches a terminal state or a deliberate human handoff is recorded.
 - Do not fire-and-forget background work. While waiting, keep checking process status, stage directories, and ledger-visible progress so stalls or provider hangs are caught and handled immediately.
 - If a turn is interrupted while work is still running, re-establish monitoring first on the next turn before doing anything else.

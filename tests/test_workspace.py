@@ -934,7 +934,7 @@ class WorkspaceTests(unittest.TestCase):
             self.assertIn("Structural takeaway", titles)
             self.assertNotIn("run-0008-perch-probe-leader", titles)
 
-    def test_init_workspace_prefers_structured_knowledge_seek_root_over_legacy_default(self) -> None:
+    def test_init_workspace_imports_structured_and_curated_legacy_knowledge(self) -> None:
         with TemporaryDirectory() as tmp:
             project_root = Path(tmp) / "project"
             root = project_root / "worktrees" / "workspace"
@@ -958,7 +958,7 @@ class WorkspaceTests(unittest.TestCase):
             legacy_root = project_root / "kaggle_agent" / "knowledge"
             legacy_root.mkdir(parents=True, exist_ok=True)
             (legacy_root / "01_validated_findings.md").write_text(
-                "# Legacy Findings\n\n## Old note\n\nThis should not be auto-imported when structured knowledge exists.\n",
+                "# Legacy Findings\n\n## Old note\n\nKeep validated legacy findings comparable with the structured knowledge base.\n",
                 encoding="utf-8",
             )
 
@@ -966,12 +966,13 @@ class WorkspaceTests(unittest.TestCase):
             init_workspace(config, archive_legacy=False, force=True)
             manifest = json.loads((root / "knowledge" / "index" / "source_imports.json").read_text(encoding="utf-8"))
 
-            self.assertEqual(len(manifest), 1)
+            self.assertEqual(len(manifest), 2)
             self.assertEqual(Path(manifest[0]["source_root"]).resolve(), structured_root.resolve())
+            self.assertEqual(Path(manifest[1]["source_root"]).resolve(), legacy_root.resolve())
             imported_structured = root / "knowledge" / "imports" / "knowledge-seek"
             self.assertTrue((imported_structured / "00_command_center" / "00_CURRENT.md").exists())
             imported_legacy = root / "knowledge" / "imports" / "kaggle-agent"
-            self.assertFalse(imported_legacy.exists())
+            self.assertTrue((imported_legacy / "01_validated_findings.md").exists())
 
     def test_run_training_supports_tensorflow_sed_v5_backend(self) -> None:
         with TemporaryDirectory() as tmp:
