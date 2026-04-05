@@ -1,0 +1,64 @@
+experiment:
+  name: sed_v9_like_milestone
+  seed: 42
+
+paths:
+  data_root: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/dataset
+  output_root: ./outputs
+
+data:
+  train_csv: train.csv
+  taxonomy_csv: taxonomy.csv
+  sample_submission_csv: sample_submission.csv
+  train_audio_dir: train_audio
+  train_soundscapes_dir: train_soundscapes
+  train_soundscapes_labels_csv: train_soundscapes_labels.csv
+  test_soundscapes_dir: test_soundscapes
+  require_full_soundscapes: true
+  max_train_rows: 4096
+  max_val_rows: 0
+  max_val_files: 16
+  val_file_offset: 43
+  max_infer_files: 0
+
+model:
+  backbone_name: tf_efficientnet_b0.ns_jft_in1k
+  backbone_trainable: true
+  n_mels: 256
+  n_fft: 2048
+  hop_length: 512
+  fmin: 0
+  fmax: 16000
+  image_size: 256
+  dropout: 0.1
+  gem_p_init: 3.0
+  checkpoint_path: ""
+
+training:
+  backend: tensorflow_sed_v5
+  sample_rate: 32000
+  chunk_duration: 5.0
+  epochs: 2
+  steps_per_epoch: 64
+  batch_size: 4
+  eval_batch_size: 4
+  learning_rate: 0.0005
+  clip_loss_weight: 0.5
+  frame_loss_weight: 0.5
+  clip_loss_name: asl
+  frame_loss_name: asl
+  asl_gamma_neg: 4.0
+  asl_gamma_pos: 0.0
+  asl_clip: 0.05
+  mixup_alpha: 0.2
+  specaugment_time_mask_ratio: 0.08
+  specaugment_freq_mask_ratio: 0.08
+  specaugment_num_masks: 2
+  gain_db_range: 6.0
+  gaussian_noise_std: 0.003
+
+metrics:
+  primary: val_soundscape_macro_roc_auc
+  secondary:
+    - soundscape_macro_roc_auc
+    - padded_cmap

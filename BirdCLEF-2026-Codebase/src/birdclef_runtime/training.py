@@ -117,7 +117,9 @@ def _mirror_files(source_dir: Path, mirrored_dir: Path, filenames: list[str]) ->
     for filename in filenames:
         source = source_dir / filename
         if source.exists():
-            shutil.copy2(source, mirrored_dir / filename)
+            destination = mirrored_dir / filename
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
 
 
 def _select_primary_metric(config: dict[str, Any], metrics: dict[str, float]) -> tuple[str, float]:
@@ -142,6 +144,42 @@ def run_training(config: dict[str, Any], runtime_root: Path) -> dict[str, Any]:
     training_cfg = config.get("training", {})
     backend = training_cfg.get("backend", "python_debug")
     run_dir, mirrored_dir = _prepare_output_dirs(config, runtime_root)
+
+    if backend == "perch_teacher_cache":
+        from birdclef_runtime.perch_teacher import run_perch_teacher_cache
+
+        teacher_result = run_perch_teacher_cache(config, runtime_root, run_dir)
+        metrics = teacher_result["metrics"]
+        primary_metric, primary_value = _select_primary_metric(config, metrics)
+        secondary_names = list(config.get("metrics", {}).get("secondary", []))
+        secondary_metrics = {
+            name: float(metrics[name])
+            for name in secondary_names
+            if name in metrics and name != primary_metric
+        }
+        result = {
+            "experiment_name": config["experiment"]["name"],
+            "config_path": config["_config_path"],
+            "primary_metric_name": primary_metric,
+            "primary_metric_value": primary_value,
+            "secondary_metrics": secondary_metrics,
+            "all_metrics": metrics,
+            "root_cause": teacher_result["root_cause"],
+            "verdict": teacher_result["verdict"],
+            "artifacts": teacher_result["artifacts"],
+            "dataset_summary": teacher_result["dataset_summary"],
+            "summary_markdown": teacher_result["summary_markdown"],
+        }
+        _write_json(run_dir / "result.json", result)
+        _write_json(run_dir / "metrics.json", {"primary": primary_metric, "primary_value": primary_value, "metrics": metrics})
+        _write_json(run_dir / "artifacts.json", teacher_result["artifacts"])
+        _write_text(run_dir / "summary.md", teacher_result["summary_markdown"] + "\n")
+        _mirror_files(
+            run_dir,
+            mirrored_dir,
+            ["result.json", "metrics.json", "artifacts.json", "summary.md"],
+        )
+        return result
 
     if backend == "sklearn_cached_probe":
         from birdclef_runtime.cached_probe import run_cached_probe_experiment
@@ -176,6 +214,92 @@ def run_training(config: dict[str, Any], runtime_root: Path) -> dict[str, Any]:
             run_dir,
             mirrored_dir,
             ["result.json", "metrics.json", "artifacts.json", "summary.md", "oof_predictions.npz", "probe_bundle.pkl", "probe_metadata.json"],
+        )
+        return result
+
+    if backend == "tensorflow_sed_v5":
+        from birdclef_runtime.sed_v5 import run_sed_v5_training
+
+        sed_result = run_sed_v5_training(config, runtime_root, run_dir)
+        metrics = sed_result["metrics"]
+        primary_metric, primary_value = _select_primary_metric(config, metrics)
+        secondary_names = list(config.get("metrics", {}).get("secondary", []))
+        secondary_metrics = {
+            name: float(metrics[name])
+            for name in secondary_names
+            if name in metrics and name != primary_metric
+        }
+        result = {
+            "experiment_name": config["experiment"]["name"],
+            "config_path": config["_config_path"],
+            "primary_metric_name": primary_metric,
+            "primary_metric_value": primary_value,
+            "secondary_metrics": secondary_metrics,
+            "all_metrics": metrics,
+            "root_cause": sed_result["root_cause"],
+            "verdict": sed_result["verdict"],
+            "artifacts": sed_result["artifacts"],
+            "dataset_summary": sed_result["dataset_summary"],
+            "summary_markdown": sed_result["summary_markdown"],
+        }
+        _write_json(run_dir / "result.json", result)
+        _write_json(run_dir / "metrics.json", {"primary": primary_metric, "primary_value": primary_value, "metrics": metrics})
+        _write_json(run_dir / "artifacts.json", sed_result["artifacts"])
+        _write_text(run_dir / "summary.md", sed_result["summary_markdown"] + "\n")
+        _mirror_files(
+            run_dir,
+            mirrored_dir,
+            ["result.json", "metrics.json", "artifacts.json", "summary.md", "best_sed_v5.weights.h5", "history.json", "validation_predictions.json", "sed_v5_settings.json"],
+        )
+        return result
+
+    if backend == "tensorflow_sed_v5_infer":
+        from birdclef_runtime.sed_v5 import run_sed_soundscape_inference
+
+        inference_result = run_sed_soundscape_inference(config, runtime_root, run_dir / "inference")
+        metrics = {
+            "soundscapes_processed": float(inference_result["soundscapes"]),
+            "inference_rows": float(inference_result["rows"]),
+        }
+        primary_metric, primary_value = _select_primary_metric(config, metrics)
+        secondary_names = list(config.get("metrics", {}).get("secondary", []))
+        secondary_metrics = {
+            name: float(metrics[name])
+            for name in secondary_names
+            if name in metrics and name != primary_metric
+        }
+        summary_markdown = "\n".join(
+            [
+                "## SED v5-like Inference Summary",
+                f"- soundscapes_processed: {int(metrics['soundscapes_processed'])}",
+                f"- inference_rows: {int(metrics['inference_rows'])}",
+                f"- submission_csv: `{inference_result['submission_csv']}`",
+            ]
+        )
+        result = {
+            "experiment_name": config["experiment"]["name"],
+            "config_path": config["_config_path"],
+            "primary_metric_name": primary_metric,
+            "primary_metric_value": primary_value,
+            "secondary_metrics": secondary_metrics,
+            "all_metrics": metrics,
+            "root_cause": "Notebook-faithful SED inference path is runnable as an independent OS-managed experiment.",
+            "verdict": "inference-ready",
+            "artifacts": {"submission_csv": inference_result["submission_csv"]},
+            "dataset_summary": {
+                "soundscapes_processed": int(metrics["soundscapes_processed"]),
+                "inference_rows": int(metrics["inference_rows"]),
+            },
+            "summary_markdown": summary_markdown,
+        }
+        _write_json(run_dir / "result.json", result)
+        _write_json(run_dir / "metrics.json", {"primary": primary_metric, "primary_value": primary_value, "metrics": metrics})
+        _write_json(run_dir / "artifacts.json", result["artifacts"])
+        _write_text(run_dir / "summary.md", summary_markdown + "\n")
+        _mirror_files(
+            run_dir,
+            mirrored_dir,
+            ["result.json", "metrics.json", "artifacts.json", "summary.md", "inference/sed_soundscape_predictions.csv"],
         )
         return result
 

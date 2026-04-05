@@ -29,6 +29,7 @@ from kaggle_agent.decision.codegen import build_codegen
 from kaggle_agent.decision.critic import _apply_typing_contract, build_critic
 from kaggle_agent.decision.planner import _prune_branch_candidates, build_plan
 from kaggle_agent.knowledge import (
+    build_problem_frame,
     ensure_knowledge_layout,
     render_retrieved_knowledge,
     retrieve_knowledge_bundle,
@@ -54,6 +55,7 @@ from kaggle_agent.schema import (
 from kaggle_agent.service import (
     build_submission,
     doctor_checks,
+    enqueue_config,
     init_workspace,
     list_ready_work_items,
     load_config,
@@ -81,8 +83,8 @@ def _adapter_commands() -> dict[str, str]:
         "report_command": f"{wrapper} --provider claude",
         "research_command": f"{wrapper} --provider claude",
         "decision_command": f"{wrapper} --provider claude",
-        "planner_command": f"{wrapper} --provider codex",
-        "codegen_command": f"{wrapper} --provider codex",
+        "planner_command": f"{wrapper} --provider claude_code",
+        "codegen_command": f"{wrapper} --provider claude_code",
         "critic_command": f"{wrapper} --provider critic",
         "submission_command": "",
     }
@@ -183,6 +185,17 @@ dataset_sources = ["tester/birdclef2026-model"]
 def _touch(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("", encoding="utf-8")
+
+
+def _write_ogg(path: Path, *, seconds: float, sample_rate: int = 32000, frequency: float = 440.0) -> None:
+    import numpy as np
+    import soundfile as sf
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    samples = int(seconds * sample_rate)
+    timeline = np.linspace(0, seconds, samples, endpoint=False, dtype=np.float32)
+    waveform = (0.1 * np.sin(2.0 * np.pi * frequency * timeline)).astype(np.float32)
+    sf.write(str(path), waveform, sample_rate)
 
 
 def _write_csv(path: Path, rows: list[list[str]]) -> None:
@@ -493,7 +506,7 @@ if __name__ == "__main__":
 ''',
         encoding="utf-8",
     )
-print(json.dumps({"event": "thread.started", "thread_id": f"codex-{stage}-thread"}))
+print(json.dumps({"event": "thread.started", "thread_id": f"claude-code-{stage}-thread"}))
 print(json.dumps({"event": "turn.completed"}))
 """,
     )
@@ -821,6 +834,441 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(all(card.get("source_kind") == "imported" for card in imported_cards))
             self.assertTrue(all(card.get("source_label") == "legacy-repo" for card in imported_cards))
             self.assertTrue(all(card.get("comparison_path") == "03_next_experiment_priors.md" for card in imported_cards))
+
+    def test_compile_knowledge_index_from_root_skips_generated_research_run_notes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            knowledge_root = root / "knowledge"
+            (knowledge_root / "research").mkdir(parents=True, exist_ok=True)
+            (knowledge_root / "01_validated_findings.md").write_text(
+                "# Findings\n\n## Coverage first\n\nCoverage improvements are validated.\n",
+                encoding="utf-8",
+            )
+            (knowledge_root / "research" / "run-0010-noisy.md").write_text(
+                "# Research: run-0010\n\n## Key Metrics\n\nA table dump that should stay out of knowledge cards.\n",
+                encoding="utf-8",
+            )
+
+            bundle = retrieve_knowledge_bundle_from_root(
+                root,
+                {
+                    "run": {"run_id": "run-knowledge-index"},
+                    "experiment": {"family": "perch_cached_probe", "title": "Probe baseline"},
+                },
+                stage="research",
+            )
+
+            source_paths = {str(card.get("source_path", "")) for card in bundle["cards"]}
+            self.assertIn("01_validated_findings.md", source_paths)
+            self.assertNotIn("research/run-0010-noisy.md", source_paths)
+
+    def test_compile_knowledge_index_from_root_skips_imported_generated_research_run_notes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            legacy_root = Path(tmp) / "legacy_repo" / "knowledge"
+            (legacy_root / "research").mkdir(parents=True, exist_ok=True)
+            (legacy_root / "01_validated_findings.md").write_text(
+                "# Legacy Findings\n\n## Coverage first\n\nCoverage should be expanded before calibration.\n",
+                encoding="utf-8",
+            )
+            (legacy_root / "research" / "run-legacy.md").write_text(
+                "# Legacy Run\n\n## Key Metrics\n\nA noisy per-run research note that should not become a card.\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(root)
+            with patch.dict(os.environ, {"KAGGLE_AGENT_KNOWLEDGE_SEED_ROOTS": str(legacy_root)}, clear=False):
+                init_workspace(config, archive_legacy=False, force=True)
+                bundle = retrieve_knowledge_bundle_from_root(
+                    root,
+                    {
+                        "run": {"run_id": "run-imported-index"},
+                        "experiment": {"family": "perch_cached_probe", "title": "Probe baseline"},
+                    },
+                    stage="research",
+                )
+
+            source_paths = {str(card.get("source_path", "")) for card in bundle["cards"]}
+            self.assertIn("imports/legacy-repo/01_validated_findings.md", source_paths)
+            self.assertNotIn("imports/legacy-repo/research/run-legacy.md", source_paths)
+
+    def test_compile_knowledge_index_from_root_skips_run_titled_sections_inside_curated_files(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            knowledge_root = root / "knowledge"
+            knowledge_root.mkdir(parents=True, exist_ok=True)
+            (knowledge_root / "experiment_conclusions.md").write_text(
+                "# Experiment Conclusions\n\n"
+                "## run-0008-perch-probe-leader\n\n"
+                "A per-run ledger summary that should stay out of cards.\n\n"
+                "## Structural takeaway\n\n"
+                "Coverage expansion remains the strongest validated lever.\n",
+                encoding="utf-8",
+            )
+
+            bundle = retrieve_knowledge_bundle_from_root(
+                root,
+                {
+                    "run": {"run_id": "run-conclusions-index"},
+                    "experiment": {"family": "perch_cached_probe", "title": "Probe baseline"},
+                },
+                stage="research",
+            )
+
+            titles = {str(card.get("title", "")) for card in bundle["cards"]}
+            self.assertIn("Structural takeaway", titles)
+            self.assertNotIn("run-0008-perch-probe-leader", titles)
+
+    def test_init_workspace_prefers_structured_knowledge_seek_root_over_legacy_default(self) -> None:
+        with TemporaryDirectory() as tmp:
+            project_root = Path(tmp) / "project"
+            root = project_root / "worktrees" / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            structured_root = project_root / "knowledge_seek"
+            (structured_root / "00_command_center").mkdir(parents=True, exist_ok=True)
+            (structured_root / "02_canonical_knowledge").mkdir(parents=True, exist_ok=True)
+            (structured_root / "00_command_center" / "00_CURRENT.md").write_text(
+                "# Current\n\n## Frontier\n\nRebuild the v5-like SED chain.\n",
+                encoding="utf-8",
+            )
+            (structured_root / "02_canonical_knowledge" / "confirmed_findings.md").write_text(
+                "# Findings\n\n## Dual BCE\n\nClip-level plus frame-level BCE is the stable baseline.\n",
+                encoding="utf-8",
+            )
+
+            legacy_root = project_root / "kaggle_agent" / "knowledge"
+            legacy_root.mkdir(parents=True, exist_ok=True)
+            (legacy_root / "01_validated_findings.md").write_text(
+                "# Legacy Findings\n\n## Old note\n\nThis should not be auto-imported when structured knowledge exists.\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            manifest = json.loads((root / "knowledge" / "index" / "source_imports.json").read_text(encoding="utf-8"))
+
+            self.assertEqual(len(manifest), 1)
+            self.assertEqual(Path(manifest[0]["source_root"]).resolve(), structured_root.resolve())
+            imported_structured = root / "knowledge" / "imports" / "knowledge-seek"
+            self.assertTrue((imported_structured / "00_command_center" / "00_CURRENT.md").exists())
+            imported_legacy = root / "knowledge" / "imports" / "kaggle-agent"
+            self.assertFalse(imported_legacy.exists())
+
+    def test_run_training_supports_tensorflow_sed_v5_backend(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            data_root = root / "BirdCLEF-2026-Codebase" / "birdclef-2026"
+            for label, filename, frequency in [
+                ("sp1", "a.ogg", 440.0),
+                ("sp1", "b.ogg", 480.0),
+                ("sp1", "c.ogg", 520.0),
+                ("sp2", "d.ogg", 660.0),
+                ("sp2", "e.ogg", 700.0),
+                ("sp2", "f.ogg", 740.0),
+            ]:
+                _write_ogg(data_root / "train_audio" / label / filename, seconds=6.0, frequency=frequency)
+            _write_ogg(data_root / "train_soundscapes" / "sound1.ogg", seconds=10.0, frequency=440.0)
+            _write_ogg(data_root / "train_soundscapes" / "sound2.ogg", seconds=10.0, frequency=660.0)
+            _write_csv(
+                data_root / "train_soundscapes_labels.csv",
+                [
+                    ["filename", "start", "end", "primary_label"],
+                    ["sound1.ogg", "00:00:00", "00:00:05", "sp1"],
+                    ["sound1.ogg", "00:00:05", "00:00:10", "sp1"],
+                    ["sound2.ogg", "00:00:00", "00:00:05", "sp2"],
+                    ["sound2.ogg", "00:00:05", "00:00:10", "sp2"],
+                ],
+            )
+
+            config_path = root / "BirdCLEF-2026-Codebase" / "configs" / "sed_v5_like.yaml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "experiment:",
+                        "  name: sed_v5_test",
+                        "  seed: 7",
+                        "paths:",
+                        f"  data_root: {data_root}",
+                        "  output_root: ./outputs",
+                        "data:",
+                        "  train_csv: train.csv",
+                        "  taxonomy_csv: taxonomy.csv",
+                        "  sample_submission_csv: sample_submission.csv",
+                        "  train_audio_dir: train_audio",
+                        "  train_soundscapes_dir: train_soundscapes",
+                        "  train_soundscapes_labels_csv: train_soundscapes_labels.csv",
+                        "  test_soundscapes_dir: test_soundscapes",
+                        "  require_full_soundscapes: false",
+                        "  max_train_rows: 4",
+                        "  max_val_rows: 4",
+                        "model:",
+                        "  backbone_name: tiny_conv",
+                        "  image_size: 64",
+                        "  n_mels: 32",
+                        "  n_fft: 256",
+                        "  hop_length: 64",
+                        "  dropout: 0.1",
+                        "training:",
+                        "  backend: tensorflow_sed_v5",
+                        "  sample_rate: 32000",
+                        "  chunk_duration: 5.0",
+                        "  epochs: 1",
+                        "  steps_per_epoch: 1",
+                        "  batch_size: 2",
+                        "  eval_batch_size: 1",
+                        "  learning_rate: 0.001",
+                        "  mixup_alpha: 0.0",
+                        "  specaugment_num_masks: 0",
+                        "  gain_db_range: 0.0",
+                        "  gaussian_noise_std: 0.0",
+                        "metrics:",
+                        "  primary: val_soundscape_macro_roc_auc",
+                        "  secondary:",
+                        "    - soundscape_macro_roc_auc",
+                        "    - padded_cmap",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [sys.executable, str(root / "BirdCLEF-2026-Codebase" / "train.py"), "--config", str(config_path)],
+                cwd=root / "BirdCLEF-2026-Codebase",
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(completed.returncode, 0, msg=completed.stderr or completed.stdout)
+            run_dir = root / "BirdCLEF-2026-Codebase" / "outputs" / "sed_v5_test"
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            self.assertEqual(result["verdict"], "baseline-ready")
+            self.assertIn("val_soundscape_macro_roc_auc", result["all_metrics"])
+            self.assertTrue((run_dir / "best_sed_v5.weights.h5").exists())
+
+    def test_run_training_supports_tensorflow_sed_v5_asl_and_soft_pseudo(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            data_root = root / "BirdCLEF-2026-Codebase" / "birdclef-2026"
+            for label, filename, frequency in [
+                ("sp1", "a.ogg", 440.0),
+                ("sp1", "b.ogg", 480.0),
+                ("sp1", "c.ogg", 520.0),
+                ("sp2", "d.ogg", 700.0),
+            ]:
+                _write_ogg(data_root / "train_audio" / label / filename, seconds=6.0, frequency=frequency)
+            for filename, frequency in [
+                ("sound1.ogg", 440.0),
+                ("sound2.ogg", 460.0),
+                ("sound3.ogg", 660.0),
+                ("sound4.ogg", 700.0),
+            ]:
+                _write_ogg(data_root / "train_soundscapes" / filename, seconds=10.0, frequency=frequency)
+            _write_csv(
+                data_root / "train_soundscapes_labels.csv",
+                [
+                    ["filename", "start", "end", "primary_label"],
+                    ["sound1.ogg", "00:00:00", "00:00:05", "sp1"],
+                    ["sound1.ogg", "00:00:05", "00:00:10", "sp1"],
+                    ["sound2.ogg", "00:00:00", "00:00:05", "sp1"],
+                    ["sound2.ogg", "00:00:05", "00:00:10", "sp1"],
+                    ["sound3.ogg", "00:00:00", "00:00:05", "sp2"],
+                    ["sound3.ogg", "00:00:05", "00:00:10", "sp2"],
+                    ["sound4.ogg", "00:00:00", "00:00:05", "sp2"],
+                    ["sound4.ogg", "00:00:05", "00:00:10", "sp2"],
+                ],
+            )
+            pseudo_path = data_root / "soft_pseudo.csv"
+            _write_csv(
+                pseudo_path,
+                [
+                    ["row_id", "sp1", "sp2"],
+                    ["sound1_5", "0.90", "0.10"],
+                    ["sound1_10", "0.88", "0.12"],
+                    ["sound2_5", "0.85", "0.15"],
+                    ["sound2_10", "0.83", "0.17"],
+                ],
+            )
+
+            config_path = root / "BirdCLEF-2026-Codebase" / "configs" / "sed_v24_like_test.yaml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "experiment:",
+                        "  name: sed_v24_like_test",
+                        "  seed: 11",
+                        "paths:",
+                        f"  data_root: {data_root}",
+                        "  output_root: ./outputs",
+                        "data:",
+                        "  train_csv: train.csv",
+                        "  taxonomy_csv: taxonomy.csv",
+                        "  sample_submission_csv: sample_submission.csv",
+                        "  train_audio_dir: train_audio",
+                        "  train_soundscapes_dir: train_soundscapes",
+                        "  train_soundscapes_labels_csv: train_soundscapes_labels.csv",
+                        "  test_soundscapes_dir: test_soundscapes",
+                        "  require_full_soundscapes: false",
+                        "  max_train_rows: 4",
+                        "  max_val_rows: 4",
+                        "  max_val_files: 2",
+                        "  val_file_offset: 2",
+                        f"  pseudo_source_paths:\n    - {pseudo_path}",
+                        "  exclude_validation_soundscapes_from_pseudo: true",
+                        "  pseudo_sampling_weight: 2.0",
+                        "model:",
+                        "  backbone_name: tiny_conv",
+                        "  image_size: 64",
+                        "  n_mels: 32",
+                        "  n_fft: 256",
+                        "  hop_length: 64",
+                        "  dropout: 0.1",
+                        "training:",
+                        "  backend: tensorflow_sed_v5",
+                        "  sample_rate: 32000",
+                        "  chunk_duration: 5.0",
+                        "  epochs: 1",
+                        "  steps_per_epoch: 1",
+                        "  batch_size: 2",
+                        "  eval_batch_size: 1",
+                        "  learning_rate: 0.001",
+                        "  clip_loss_name: asl",
+                        "  frame_loss_name: asl",
+                        "  asl_gamma_neg: 4.0",
+                        "  asl_gamma_pos: 0.0",
+                        "  asl_clip: 0.05",
+                        "  pseudo_loss_weight: 0.75",
+                        "  mixup_alpha: 0.0",
+                        "  specaugment_num_masks: 0",
+                        "  gain_db_range: 0.0",
+                        "  gaussian_noise_std: 0.0",
+                        "metrics:",
+                        "  primary: val_soundscape_macro_roc_auc",
+                        "  secondary:",
+                        "    - soundscape_macro_roc_auc",
+                        "    - padded_cmap",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [sys.executable, str(root / "BirdCLEF-2026-Codebase" / "train.py"), "--config", str(config_path)],
+                cwd=root / "BirdCLEF-2026-Codebase",
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(completed.returncode, 0, msg=completed.stderr or completed.stdout)
+            run_dir = root / "BirdCLEF-2026-Codebase" / "outputs" / "sed_v24_like_test"
+            result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            self.assertEqual(result["verdict"], "baseline-ready")
+            self.assertEqual(result["dataset_summary"]["pseudo_example_count"], 4)
+            self.assertIn("soft_pseudo", result["dataset_summary"]["train_sources"])
+            self.assertIn("ASL", result["root_cause"])
+            self.assertIn("soft pseudo", result["root_cause"])
+            self.assertTrue((run_dir / "best_sed_v5.weights.h5").exists())
+
+    def test_run_training_supports_tensorflow_sed_v5_inference_backend(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "workspace"
+            root.mkdir(parents=True, exist_ok=True)
+            _copy_runtime(root)
+            runtime_root = root / "BirdCLEF-2026-Codebase"
+            src_root = runtime_root / "src"
+            sys.path.insert(0, str(src_root))
+            try:
+                from birdclef_runtime.training import run_training
+
+                def _fake_inference(config: dict[str, object], _runtime_root: Path, output_dir: Path) -> dict[str, object]:
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    submission_csv = output_dir / "sed_soundscape_predictions.csv"
+                    submission_csv.write_text("row_id,sp1,sp2\ntest1_5,0.1,0.9\n", encoding="utf-8")
+                    return {
+                        "rows": 1,
+                        "soundscapes": 1,
+                        "submission_csv": str(submission_csv),
+                    }
+
+                config = {
+                    "experiment": {"name": "sed_v5_infer_test"},
+                    "_config_path": str(runtime_root / "configs" / "sed_v5_like_infer.yaml"),
+                    "paths": {"data_root": str(runtime_root / "birdclef-2026"), "output_root": "./outputs"},
+                    "data": {
+                        "train_csv": "train.csv",
+                        "taxonomy_csv": "taxonomy.csv",
+                        "sample_submission_csv": "sample_submission.csv",
+                        "train_audio_dir": "train_audio",
+                        "train_soundscapes_dir": "train_soundscapes",
+                        "train_soundscapes_labels_csv": "train_soundscapes_labels.csv",
+                        "test_soundscapes_dir": "test_soundscapes",
+                        "max_infer_files": 1,
+                    },
+                    "model": {
+                        "backbone_name": "tiny_conv",
+                        "image_size": 64,
+                        "n_mels": 32,
+                        "n_fft": 256,
+                        "hop_length": 64,
+                        "dropout": 0.1,
+                        "checkpoint_path": "./outputs/sed_v5_like_baseline/best_sed_v5.weights.h5",
+                    },
+                    "training": {
+                        "backend": "tensorflow_sed_v5_infer",
+                        "sample_rate": 32000,
+                        "chunk_duration": 5.0,
+                    },
+                    "metrics": {
+                        "primary": "soundscapes_processed",
+                        "secondary": ["inference_rows"],
+                    },
+                }
+
+                with patch("birdclef_runtime.sed_v5.run_sed_soundscape_inference", side_effect=_fake_inference):
+                    result = run_training(config, runtime_root)
+            finally:
+                if str(src_root) in sys.path:
+                    sys.path.remove(str(src_root))
+
+            run_dir = runtime_root / "outputs" / "sed_v5_infer_test"
+            persisted = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+            self.assertEqual(result["verdict"], "inference-ready")
+            self.assertEqual(result["primary_metric_name"], "soundscapes_processed")
+            self.assertEqual(persisted["verdict"], "inference-ready")
+            self.assertEqual(persisted["primary_metric_name"], "soundscapes_processed")
+            self.assertTrue((run_dir / "inference" / "sed_soundscape_predictions.csv").exists())
 
     def test_ensure_knowledge_layout_removes_stale_imported_seed_files_when_source_changes(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -2190,6 +2638,38 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(slots["remaining_daily_slots"], 5)
             self.assertEqual(len(slots["ready_candidates"]), 1)
 
+    def test_enqueue_config_allows_terminal_milestone_lifecycle_and_notes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _copy_runtime(root)
+            _write_workspace(root)
+            _build_debug_dataset(root)
+
+            config = load_config(root)
+            init_workspace(config, archive_legacy=False, force=True)
+            state = enqueue_config(
+                config,
+                "BirdCLEF-2026-Codebase/configs/debug.yaml",
+                title="Milestone v5 seed",
+                family="sed_v5_like",
+                priority=7,
+                work_type="ablation_terminal",
+                notes=[
+                    "Target the v5-like SED baseline directly.",
+                    "Do not expand into unrelated Perch full-scale planning.",
+                ],
+            )
+
+            work_item = next(item for item in state.work_items if item.title == "Milestone v5 seed")
+            self.assertEqual(work_item.work_type, "ablation_terminal")
+            self.assertEqual(work_item.lifecycle_template, "terminal_experiment")
+            self.assertEqual(work_item.pipeline, ["execute", "evidence", "report", "validate"])
+            self.assertIn("Target the v5-like SED baseline directly.", work_item.notes)
+
+            frame = build_problem_frame({"work_item": work_item.to_dict(), "experiment": {"family": work_item.family}}, stage="plan")
+            self.assertEqual(frame["lifecycle_template"], "terminal_experiment")
+            self.assertIn("v5-like", " ".join(frame["notes"]))
+
     def test_adapter_wrappers_soft_skip_when_binaries_or_keys_are_missing(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -2250,8 +2730,8 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(agent_by_role["report"].provider, "claude")
             self.assertEqual(agent_by_role["report"].model, "claude-fake")
             self.assertTrue(agent_by_role["report"].raw_stdout_path)
-            self.assertEqual(agent_by_role["plan"].provider, "codex")
-            self.assertTrue(agent_by_role["plan"].thread_id.startswith("codex-plan"))
+            self.assertEqual(agent_by_role["plan"].provider, "claude_code")
+            self.assertTrue(agent_by_role["plan"].thread_id)
             self.assertTrue(agent_by_role["critic"].provider_meta_path)
 
             plan_stage = next(item for item in state.stage_runs if item.run_id == run_id and item.stage_name == "plan")
@@ -2276,7 +2756,7 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(codegen_payload["smoke_summary"], codegen_payload["verify_summary"])
             self.assertIn("train_sed.py", codegen_payload["allowed_edit_roots"])
             self.assertIn("BirdCLEF-2026-Codebase/configs", codegen_payload["allowed_edit_roots"])
-            self.assertEqual(codegen_payload["provider_runtime"], "codex mode:agentic env:inherit")
+            self.assertTrue(codegen_payload["provider_runtime"].startswith("claude_code mode:agentic"))
             self.assertIn("train_sed.py", codegen_payload["changed_files"])
             patch_text = Path(codegen_payload["patch_path"]).read_text(encoding="utf-8")
             self.assertNotIn("GIT binary patch", patch_text)

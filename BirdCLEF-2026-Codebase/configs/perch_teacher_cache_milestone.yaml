@@ -1,0 +1,31 @@
+experiment:
+  name: perch_teacher_cache_milestone
+  seed: 42
+
+paths:
+  data_root: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/dataset
+  output_root: ./outputs
+
+data:
+  taxonomy_csv: taxonomy.csv
+  sample_submission_csv: sample_submission.csv
+  train_soundscapes_dir: train_soundscapes
+  train_soundscapes_labels_csv: train_soundscapes_labels.csv
+  test_soundscapes_dir: test_soundscapes
+  max_soundscape_files: 512
+
+model:
+  perch_model_dir: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/models/google/bird-vocalization-classifier/tensorflow2/perch_v2_cpu/1
+
+training:
+  backend: perch_teacher_cache
+  cache_split: train_soundscapes
+  sample_rate: 32000
+  window_seconds: 5
+  file_seconds: 60
+  batch_files: 4
+
+metrics:
+  primary: soundscape_macro_roc_auc
+  secondary:
+    - padded_cmap

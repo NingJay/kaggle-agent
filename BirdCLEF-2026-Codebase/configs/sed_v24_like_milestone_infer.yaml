@@ -1,0 +1,45 @@
+experiment:
+  name: sed_v24_like_milestone_infer
+  seed: 42
+
+paths:
+  data_root: /home/staff/jiayining/kaggle/kaggle_comp_seed/BirdCLEF-2026/dataset
+  output_root: ./outputs
+
+data:
+  train_csv: train.csv
+  taxonomy_csv: taxonomy.csv
+  sample_submission_csv: sample_submission.csv
+  train_audio_dir: train_audio
+  train_soundscapes_dir: train_soundscapes
+  train_soundscapes_labels_csv: train_soundscapes_labels.csv
+  test_soundscapes_dir: test_soundscapes
+  require_full_soundscapes: true
+  max_train_rows: 0
+  max_val_rows: 0
+  max_val_files: 0
+  max_infer_files: 43
+
+model:
+  backbone_name: tf_efficientnet_b0.ns_jft_in1k
+  backbone_trainable: true
+  n_mels: 256
+  n_fft: 2048
+  hop_length: 512
+  fmin: 0
+  fmax: 16000
+  image_size: 256
+  dropout: 0.1
+  gem_p_init: 3.0
+  checkpoint_path: ./outputs/sed_v24_like_milestone/best_sed_v5.weights.h5
+
+training:
+  backend: tensorflow_sed_v5_infer
+  sample_rate: 32000
+  chunk_duration: 5.0
+  eval_batch_size: 4
+
+metrics:
+  primary: soundscapes_processed
+  secondary:
+    - inference_rows
